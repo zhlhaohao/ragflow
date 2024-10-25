@@ -20,7 +20,7 @@ Cargo.lock
 *.trie
 
 .idea/
-.vscode/
+# .vscode/
 
 # Exclude Mac generated files
 .DS_Store
@@ -36,3 +36,6 @@ sdk/python/ragflow.egg-info/
 sdk/python/build/
 sdk/python/dist/
 sdk/python/ragflow_sdk.egg-info/
+
+huggingface.co/
+.venv/

@@ -1,0 +1,4 @@
+# source .venv/bin/activate
+export PYTHONPATH=$(pwd)
+export HF_ENDPOINT=https://hf-mirror.com
+bash docker/launch_backend_service.sh

@@ -1,0 +1,3 @@
+export PYTHONPATH=$(pwd)
+python api/ragflow_server.py
+
