@@ -345,7 +345,12 @@ def rm():
 @login_required
 @validate_request("doc_ids", "run")
 def run():
+    """
+    开始解析文档
+    """    
     req = request.json
+
+    # 判断文件是否有权访问    
     for doc_id in req["doc_ids"]:
         if not DocumentService.accessible(doc_id, current_user.id):
             return get_json_result(
@@ -356,12 +361,16 @@ def run():
     try:
         for id in req["doc_ids"]:
             info = {"run": str(req["run"]), "progress": 0}
+            # 如果正在运行
             if str(req["run"]) == TaskStatus.RUNNING.value:
                 info["progress_msg"] = ""
                 info["chunk_num"] = 0
                 info["token_num"] = 0
+
+            # 初始化文档的解析状态                
             DocumentService.update_by_id(id, info)
             # if str(req["run"]) == TaskStatus.CANCEL.value:
+            # 根据文档id获取租户id            
             tenant_id = DocumentService.get_tenant_id(id)
             if not tenant_id:
                 return get_data_error_result(retmsg="Tenant not found!")
@@ -370,10 +379,13 @@ def run():
 
             if str(req["run"]) == TaskStatus.RUNNING.value:
                 TaskService.filter_delete([Task.doc_id == id])
+                # 读取文件信息                
                 e, doc = DocumentService.get_by_id(id)
                 doc = doc.to_dict()
                 doc["tenant_id"] = tenant_id
+                # 获取文件存储地址
                 bucket, name = File2DocumentService.get_storage_address(doc_id=doc["id"])
+                # 任务排队
                 queue_tasks(doc, bucket, name)
 
         return get_json_result(data=True)

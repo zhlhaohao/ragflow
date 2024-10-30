@@ -16,6 +16,10 @@ es_logger.info("Elasticsearch version: "+str(elasticsearch.__version__))
 
 @singleton
 class ESConnection:
+    """
+    elastic search的接口
+    ES存放嵌入向量
+    """    
     def __init__(self):
         self.info = {}
         self.conn()

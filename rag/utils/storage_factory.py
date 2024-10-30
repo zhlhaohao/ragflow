@@ -13,7 +13,7 @@ class Storage(Enum):
     AZURE_SAS = 3
     AWS_S3 = 4
 
-
+# 文件存储模块，根据环境变量选择不同的存储实现
 class StorageFactory:
     storage_mapping = {
         Storage.MINIO: RAGFlowMinio,

@@ -134,6 +134,12 @@ class TaskService(CommonService):
 
 
 def queue_tasks(doc: dict, bucket: str, name: str):
+    """
+    对文档解析任务进行排队
+    doc: 待解析的文件信息
+    bucket: 待解析文件所在的bucket
+    name: 待解析文件的名称
+    """    
     def new_task():
         return {
             "id": get_uuid(),

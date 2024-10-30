@@ -27,6 +27,16 @@ from rag.utils import num_tokens_from_string, truncate
 
 class RecursiveAbstractiveProcessing4TreeOrganizedRetrieval:
     def __init__(self, max_cluster, llm_model, embd_model, prompt, max_token=256, threshold=0.1):
+        """
+        初始化类实例。
+
+        :param max_cluster: 最大聚类数量。
+        :param llm_model: 语言模型，用于生成摘要。
+        :param embd_model: 嵌入模型，用于获取文本嵌入。
+        :param prompt: 用于生成摘要的提示模板。
+        :param max_token: 最大摘要长度，默认为256。
+        :param threshold: 聚类阈值，默认为0.1。
+        """
         self._max_cluster = max_cluster
         self._llm_model = llm_model
         self._embd_model = embd_model
@@ -35,6 +45,13 @@ class RecursiveAbstractiveProcessing4TreeOrganizedRetrieval:
         self._max_token = max_token
 
     def _get_optimal_clusters(self, embeddings: np.ndarray, random_state:int):
+        """
+        通过BIC（Bayesian Information Criterion）选择最优的聚类数量。
+
+        :param embeddings: 文本的嵌入向量数组。
+        :param random_state: 随机状态种子，用于确保结果的可复现性。
+        :return: 选择的最优聚类数量。
+        """
         max_clusters = min(self._max_cluster, len(embeddings))
         n_clusters = np.arange(1, max_clusters)
         bics = []
@@ -46,36 +63,69 @@ class RecursiveAbstractiveProcessing4TreeOrganizedRetrieval:
         return optimal_clusters
 
     def __call__(self, chunks: Tuple[str, np.ndarray], random_state, callback=None):
+        """
+        对文档切片进行层次化的聚类和摘要生成。
+
+        :param chunks: 包含文档片段及其嵌入的元组列表。
+        :param random_state: 随机状态种子，用于确保结果的可复现性。
+        :param callback: 回调函数，用于报告进度。
+        """
+        # 初始化层次结构
         layers = [(0, len(chunks))]
+        # 初始化开始和结束索引
         start, end = 0, len(chunks)
-        if len(chunks) <= 1: return
+        # 如果只有一个或没有文档切片，直接返回
+        if len(chunks) <= 1:
+            return  
+
+        # 过滤掉嵌入为空的文档切片
         chunks = [(s, a) for s, a in chunks if len(a) > 0]
 
         def summarize(ck_idx, lock):
+            """
+            对指定索引的文档切片生成摘要,对摘要进行嵌入，然后将(摘要,嵌入)附加到chunks数组。
+
+            :param ck_idx: 文档切片的索引列表。
+            :param lock: 线程锁，用于同步访问chunks列表。
+            """
             nonlocal chunks
             try:
                 texts = [chunks[i][0] for i in ck_idx]
                 len_per_chunk = int((self._llm_model.max_length - self._max_token)/len(texts))
+                # 截断文本以适应最大长度限制
                 cluster_content = "\n".join([truncate(t, max(1, len_per_chunk)) for t in texts])
+
+                # 使用语言模型生成摘要
                 cnt = self._llm_model.chat("You're a helpful assistant.",
                                              [{"role": "user", "content": self._prompt.format(cluster_content=cluster_content)}],
                                              {"temperature": 0.3, "max_tokens": self._max_token}
                                              )
                 cnt = re.sub("(······\n由于长度的原因，回答被截断了，要继续吗？|For the content length reason, it stopped, continue?)", "", cnt)
                 print("SUM:", cnt)
+
+                # 获取摘要的嵌入
                 embds, _ = self._embd_model.encode([cnt])
                 with lock:
-                    if not len(embds[0]): return
+                     # 如果嵌入为空，则返回
+                    if not len(embds[0]): 
+                        return
+                    # 将摘要及其嵌入追加到chunks列表中
                     chunks.append((cnt, embds[0]))
             except Exception as e:
                 print(e, flush=True)
                 traceback.print_stack(e)
                 return e
 
-        labels = []
+        # ---- end of summarize
+
+        # 计算有多少个簇（聚类）
+        # 初始化标签列表
+        labels = []  
         while end - start > 1:
-            embeddings = [embd for _, embd in chunks[start: end]]
+            # 获取当前层的嵌入
+            embeddings = [embd for _, embd in chunks[start:end]]  
             if len(embeddings) == 2:
+                # 如果当前层只有两个嵌入，则直接生成摘要
                 summarize([start, start+1], Lock())
                 if callback:
                     callback(msg="Cluster one layer: {} -> {}".format(end-start, len(chunks)-end))
@@ -85,25 +135,36 @@ class RecursiveAbstractiveProcessing4TreeOrganizedRetrieval:
                 end = len(chunks)
                 continue
 
+            # 计算邻居数量    
             n_neighbors = int((len(embeddings) - 1) ** 0.8)
+            # 对嵌入进行降维
             reduced_embeddings = umap.UMAP(
                 n_neighbors=max(2, n_neighbors), n_components=min(12, len(embeddings)-2), metric="cosine"
             ).fit_transform(embeddings)
+            # 选择最优的聚类数量  
             n_clusters = self._get_optimal_clusters(reduced_embeddings, random_state)
             if n_clusters == 1:
+                # 如果只有一个聚类，则所有嵌入属于同一个簇
                 lbls = [0 for _ in range(len(reduced_embeddings))]
             else:
                 gm = GaussianMixture(n_components=n_clusters, random_state=random_state)
                 gm.fit(reduced_embeddings)
                 probs = gm.predict_proba(reduced_embeddings)
+                # 根据概率分配标签
                 lbls = [np.where(prob > self._threshold)[0] for prob in probs]
                 lbls = [lbl[0] if isinstance(lbl, np.ndarray) else lbl for lbl in lbls]
+            # 创建线程锁
             lock = Lock()
+
+            # 对每个簇生成摘要
             with ThreadPoolExecutor(max_workers=12) as executor:
                 threads = []
                 for c in range(n_clusters):
+                    # 获取当前簇的索引列表
                     ck_idx = [i+start for i in range(len(lbls)) if lbls[i] == c]
+                    # 多线程提交任务
                     threads.append(executor.submit(summarize, ck_idx, lock))
+                # 等待所有任务完成    
                 wait(threads, return_when=ALL_COMPLETED)
                 print([t.result() for t in threads])
 

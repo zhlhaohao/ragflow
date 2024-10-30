@@ -24,6 +24,10 @@ from api.utils import current_timestamp, datetime_format, get_uuid
 
 
 class File2DocumentService(CommonService):
+    """
+    minio文件存储服务的接口
+    """
+
     model = File2Document
 
     @classmethod

@@ -5,7 +5,7 @@ import logging
 from rag import settings
 from rag.utils import singleton
 
-
+# redis的任务队列消息体
 class Payload:
     def __init__(self, consumer, queue_name, group_name, msg_id, message):
         self.__consumer = consumer

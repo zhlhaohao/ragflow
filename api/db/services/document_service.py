@@ -47,6 +47,10 @@ from rag.utils.redis_conn import REDIS_CONN
 
 
 class DocumentService(CommonService):
+    """
+    文档数据库服务
+    """
+
     model = Document
 
     @classmethod
