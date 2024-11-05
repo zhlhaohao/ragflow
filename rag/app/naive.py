@@ -28,6 +28,9 @@ from docx.image.exceptions import UnrecognizedImageError, UnexpectedEndOfFileErr
 
 
 class Docx(DocxParser):
+    """
+    解析docx,包装了DocxParser
+    """
     def __init__(self):
         pass
 
@@ -199,31 +202,43 @@ def chunk(filename, binary=None, from_page=0, to_page=100000,
     doc["title_sm_tks"] = rag_tokenizer.fine_grained_tokenize(doc["title_tks"])
     res = []
     pdf_parser = None
+
+    # 如果文件类型是docx
     if re.search(r"\.docx$", filename, re.IGNORECASE):
         callback(0.1, "Start to parse.")
+
+        # 解析docx，返回解析后的段落和表格     
         sections, tbls = Docx()(filename, binary)
+        # 使用 tokenize_table 方法处理表格。
         res = tokenize_table(tbls, doc, eng)  # just for table
 
         callback(0.8, "Finish parsing.")
         st = timer()
 
+        # 将段落合并为chunks
         chunks, images = naive_merge_docx(
             sections, int(parser_config.get(
                 "chunk_token_num", 128)), parser_config.get(
                 "delimiter", "\n!?。；！？"))
 
+        # section_only=False 直接返回段落
         if kwargs.get("section_only", False):
             return chunks
 
+        # 将chunks tokenize后，附加到res并返回
         res.extend(tokenize_chunks_docx(chunks, doc, eng, images))
         cron_logger.info("naive_merge({}): {}".format(filename, timer() - st))
         return res
 
+    # 如果是pdf文件
     elif re.search(r"\.pdf$", filename, re.IGNORECASE):
+
+        # 如果 layout_recognize=True，那么调用OCR，否则直接从pdf提取文本(PlainParser)
         pdf_parser = Pdf(
         ) if parser_config.get("layout_recognize", True) else PlainParser()
         sections, tbls = pdf_parser(filename if not binary else binary,
                                     from_page=from_page, to_page=to_page, callback=callback)
+        # 使用 tokenize_table 方法处理表格。
         res = tokenize_table(tbls, doc, eng)
 
     elif re.search(r"\.xlsx?$", filename, re.IGNORECASE):

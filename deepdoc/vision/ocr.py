@@ -59,6 +59,9 @@ def create_operators(op_param_list, global_config=None):
 
 
 def load_model(model_dir, nm):
+    """
+    加载OCR模型(.onnx)
+    """
     model_file_path = os.path.join(model_dir, nm + ".onnx")
     if not os.path.exists(model_file_path):
         raise ValueError("not find model file path {}".format(
@@ -69,12 +72,14 @@ def load_model(model_dir, nm):
     options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
     options.intra_op_num_threads = 2
     options.inter_op_num_threads = 2
+    # 在这里关闭了GPU
     if False and ort.get_device() == "GPU":
         sess = ort.InferenceSession(
             model_file_path,
             options=options,
             providers=['CUDAExecutionProvider'])
     else:
+        # 用CPU进行模型推理
         sess = ort.InferenceSession(
             model_file_path,
             options=options,
@@ -83,6 +88,9 @@ def load_model(model_dir, nm):
 
 
 class TextRecognizer(object):
+    """
+    加载rec.onnx模型文件，识别出文本框内的文字    
+    """
     def __init__(self, model_dir):
         self.rec_image_shape = [int(v) for v in "3, 48, 320".split(",")]
         self.rec_batch_num = 16
@@ -353,6 +361,9 @@ class TextRecognizer(object):
 
 
 class TextDetector(object):
+    """
+    加载det.onnx模型文件，提取出pdf图片中的文本框(包含文本的图片)
+    """
     def __init__(self, model_dir):
         pre_process_list = [{
             'DetResizeForTest': {
@@ -377,6 +388,8 @@ class TextDetector(object):
                               "unclip_ratio": 1.5, "use_dilation": False, "score_mode": "fast", "box_type": "quad"}
 
         self.postprocess_op = build_post_process(postprocess_params)
+
+        # 预加载OCR的onnx模型，返回predictor推理器以及input_tensor输入张量
         self.predictor, self.input_tensor = load_model(model_dir, 'det')
 
         img_h, img_w = self.input_tensor.shape[2:]
@@ -391,6 +404,15 @@ class TextDetector(object):
         self.preprocess_op = create_operators(pre_process_list)
 
     def order_points_clockwise(self, pts):
+        """
+        将点按照顺时针顺序排列。
+
+        :param pts: 一个包含四个点的数组或列表
+        :return: 顺时针排列的点
+        计算每个点的 x 和 y 坐标的和，找到最小和最大的点。
+        计算每个点的 x 和 y 坐标的差，找到最小和最大的点。  
+        返回顺时针排列的点。
+        """
         rect = np.zeros((4, 2), dtype="float32")
         s = pts.sum(axis=1)
         rect[0] = pts[np.argmin(s)]
@@ -402,54 +424,104 @@ class TextDetector(object):
         return rect
 
     def clip_det_res(self, points, img_height, img_width):
+        """
+        将检测结果裁剪到图像边界内。
+
+        :param points: 检测到的文本框的四个点
+        :param img_height: 图像的高度
+        :param img_width: 图像的宽度
+        :return: 裁剪后的点
+        """
         for pno in range(points.shape[0]):
             points[pno, 0] = int(min(max(points[pno, 0], 0), img_width - 1))
             points[pno, 1] = int(min(max(points[pno, 1], 0), img_height - 1))
         return points
 
     def filter_tag_det_res(self, dt_boxes, image_shape):
+        """
+        过滤检测结果，去除不符合条件的文本框。
+
+        :param dt_boxes: 检测到的文本框
+        :param image_shape: 原始图像的形状
+        :return: 过滤后的文本框
+        """
         img_height, img_width = image_shape[0:2]
         dt_boxes_new = []
         for box in dt_boxes:
             if isinstance(box, list):
                 box = np.array(box)
+            # 将点按照顺时针顺序排列
             box = self.order_points_clockwise(box)
+            # 将检测结果裁剪到图像边界内
             box = self.clip_det_res(box, img_height, img_width)
+            # 计算矩形的宽度和高度
             rect_width = int(np.linalg.norm(box[0] - box[1]))
             rect_height = int(np.linalg.norm(box[0] - box[3]))
+            # 过滤掉宽度或高度小于等于 3 的文本框
             if rect_width <= 3 or rect_height <= 3:
                 continue
             dt_boxes_new.append(box)
+        # 将过滤后的文本框转换为 NumPy 数组
         dt_boxes = np.array(dt_boxes_new)
         return dt_boxes
 
     def filter_tag_det_res_only_clip(self, dt_boxes, image_shape):
+        """
+        过滤检测结果，仅进行裁剪处理。
+
+        :param dt_boxes: 检测到的文本框
+        :param image_shape: 原始图像的形状
+        :return: 裁剪后的文本框
+        """
         img_height, img_width = image_shape[0:2]
         dt_boxes_new = []
         for box in dt_boxes:
             if isinstance(box, list):
                 box = np.array(box)
+            # 将检测结果裁剪到图像边界内
             box = self.clip_det_res(box, img_height, img_width)
             dt_boxes_new.append(box)
+        # 将裁剪后的文本框转换为 NumPy 数组
         dt_boxes = np.array(dt_boxes_new)
         return dt_boxes
 
     def __call__(self, img):
+        """
+        处理输入图像并返回检测到的文本框及其处理时间。
+
+        :param img: 输入图像
+        :return: 检测到的文本框及其处理时间
+        """
+        # 保存原始图像的副本
         ori_im = img.copy()
+        # 构建输入数据字典
         data = {'image': img}
 
+        # 记录开始时间
         st = time.time()
+
+        # 对输入图像进行预处理
         data = transform(data, self.preprocess_op)
         img, shape_list = data
         if img is None:
             return None, 0
+
+        # 扩展图像和形状列表的维度
         img = np.expand_dims(img, axis=0)
         shape_list = np.expand_dims(shape_list, axis=0)
+
+        # 深拷贝图像
         img = img.copy()
+
+        # 构建输入字典
         input_dict = {}
+        # 指定图片内容
         input_dict[self.input_tensor.name] = img
+
+        # 尝试进行模型推理
         for i in range(100000):
             try:
+                # 利用模型进行推理，解析出文本
                 outputs = self.predictor.run(None, input_dict)
                 break
             except Exception as e:
@@ -457,14 +529,20 @@ class TextDetector(object):
                     raise e
                 time.sleep(5)
 
+        # 对推理结果进行后处理
         post_result = self.postprocess_op({"maps": outputs[0]}, shape_list)
         dt_boxes = post_result[0]['points']
+
+        # 过滤检测结果
         dt_boxes = self.filter_tag_det_res(dt_boxes, ori_im.shape)
 
+        # 记录处理时间
         return dt_boxes, time.time() - st
 
-
 class OCR(object):
+    """
+    OCR识别pdf
+    """
     def __init__(self, model_dir=None):
         """
         If you have trouble downloading HuggingFace models, -_^ this might help!!
@@ -479,10 +557,15 @@ class OCR(object):
         """
         if not model_dir:
             try:
+                # 模型文件路径
                 model_dir = os.path.join(
                         get_project_base_directory(),
                         "rag/res/deepdoc")
+                
+                # 加载文本框识别模型
                 self.text_detector = TextDetector(model_dir)
+
+                # 加载文本识别模型
                 self.text_recognizer = TextRecognizer(model_dir)
             except Exception as e:
                 model_dir = snapshot_download(repo_id="InfiniFlow/deepdoc",
@@ -552,6 +635,9 @@ class OCR(object):
         return _boxes
 
     def detect(self, img):
+        """
+        识别文本框(包含文本的图片框)
+        """
         time_dict = {'det': 0, 'rec': 0, 'cls': 0, 'all': 0}
 
         if img is None:
@@ -570,6 +656,9 @@ class OCR(object):
                    ("", 0) for _ in range(len(dt_boxes))])
 
     def recognize(self, ori_im, box):
+        """
+        从文本框识别文本
+        """
         img_crop = self.get_rotate_crop_image(ori_im, box)
 
         rec_res, elapse = self.text_recognizer([img_crop])
@@ -586,6 +675,7 @@ class OCR(object):
 
         start = time.time()
         ori_im = img.copy()
+        # 识别文本框
         dt_boxes, elapse = self.text_detector(img)
         time_dict['det'] = elapse
 
@@ -603,6 +693,7 @@ class OCR(object):
             img_crop = self.get_rotate_crop_image(ori_im, tmp_box)
             img_crop_list.append(img_crop)
 
+        # 识别文本
         rec_res, elapse = self.text_recognizer(img_crop_list)
 
         time_dict['rec'] = elapse

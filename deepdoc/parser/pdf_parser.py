@@ -35,6 +35,9 @@ logging.getLogger("pdfminer").setLevel(logging.WARNING)
 
 
 class RAGFlowPdfParser:
+    """
+    解析pdf文件
+    """
     def __init__(self):
         self.ocr = OCR()
         if hasattr(self, "model_speciess"):
@@ -1142,6 +1145,9 @@ class RAGFlowPdfParser:
 
 
 class PlainParser(object):
+    """
+    不用OCR，而是直接从pdf中提取文本，适合于那些不是扫描的pdf文件
+    """
     def __call__(self, filename, from_page=0, to_page=100000, **kwargs):
         self.outlines = []
         lines = []

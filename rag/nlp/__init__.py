@@ -540,6 +540,9 @@ def concat_img(img1, img2):
 
 
 def naive_merge_docx(sections, chunk_token_num=128, delimiter="\n。；！？"):
+    """
+    用于将 .docx 解析出来的段落列表[(段落,图像),(段落,图像),(段落,图像)]，将多个短段落(sections)合并成块（chunks），每个块的长度不超过指定的最大令牌数（128）。
+    """
     if not sections:
         return [], []
 

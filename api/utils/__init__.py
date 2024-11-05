@@ -41,6 +41,31 @@ def conf_realpath(conf_name):
 
 
 def get_base_config(key, default=None, conf_name=SERVICE_CONF) -> dict:
+    """
+    用于从配置文件中读取特定键值。首先尝试从本地配置文件(local.service_conf.yaml)中读取指定的键值，如果该键不存在于本地配置文件中，则会从默认的配置文件(service_conf.yaml)中读取。如果指定的键在两个文件中都不存在，那么它将返回一个默认值：
+
+    1. **定义默认值**：如果 `default` 参数没有被提供（即为 `None`），则尝试从环境变量中获取与 `key` 对应的大写形式的值作为默认值。
+
+    2. **检查本地配置文件**：
+    - 构建本地配置文件的路径，使用 `conf_realpath` 函数，并添加 `local.` 前缀到配置文件名之前(local.service_conf.yaml)。
+    - 如果本地配置文件存在，则加载该文件的内容。
+    - 检查加载的配置是否为字典类型，如果不是则抛出 `ValueError` 异常。
+    - 如果指定了 `key` 并且该键存在于本地配置中，则直接返回对应的值。
+
+    3. **处理默认配置文件**：
+    - 构建默认配置文件的路径。(service_conf.yaml)
+    - 加载默认配置文件的内容，同样需要确保其为字典类型。
+    - 将本地配置中的内容合并到默认配置中（如果有）。这里使用了 `update` 方法，这意味着如果有相同的键存在于两者之中，本地配置中的值将会覆盖默认配置中的值。
+
+    4. **返回结果**：
+    - 如果提供了 `key`，则从合并后的配置中获取该键的值并返回；如果未找到该键，则返回 `default`。
+    - 如果 `key` 为 `None`，则返回整个配置字典。
+
+    ### 注意事项
+    - `conf_realpath` 应当返回给定配置文件名的实际路径，而 `file_utils.load_yaml_conf` 则负责从给定的路径加载 YAML 文件的内容。
+    - `os.environ.get` 用于从环境变量中获取值，这是一个非常有用的功能，特别是在部署应用时，可以通过环境变量来动态地改变配置。
+    - 在实际使用中，确保所有涉及到的文件路径和文件名都是正确的，以避免因文件不存在或格式错误而导致的问题。
+    """    
     local_config = {}
     local_path = conf_realpath(f'local.{conf_name}')
     if default is None:
@@ -283,6 +308,28 @@ def decrypt_database_password(password):
 
 def decrypt_database_config(
         database=None, passwd_key="password", name="database"):
+    """
+    用于解密数据库配置中的密码字段。该函数接受三个参数：`database`、`passwd_key` 和 `name`。以下是该函数的详细解释和工作流程：
+
+    ### 函数参数
+    - **database**: 数据库配置字典。如果未提供，则从配置文件中读取默认的数据库配置。
+    - **passwd_key**: 密码字段的键，默认值为 `"password"`。
+    - **name**: 配置文件中数据库配置部分的名称，默认值为 `"database"`。
+
+    ### 工作流程
+    1. **获取数据库配置**：
+    - 如果 `database` 参数为空（即 `None`），则调用 `get_base_config` 函数从配置文件中读取数据库配置。`get_base_config` 函数的默认值为 `{}`，这意味着即使配置文件中没有找到相应的配置，也会返回一个空字典，避免引发异常。
+
+    2. **解密密码**：
+    - 使用 `decrypt_database_password` 函数解密数据库配置中的密码字段。假设 `decrypt_database_password` 是一个已经定义好的函数，它接受一个加密的密码字符串并返回解密后的密码。
+
+    3. **更新数据库配置**：
+    - 将解密后的密码更新到 `database` 字典中，使用 `passwd_key` 作为键。
+
+    4. **返回解密后的数据库配置**：
+    - 返回包含解密后密码的数据库配置字典。
+
+    """    
     if not database:
         database = get_base_config(name, {})
 

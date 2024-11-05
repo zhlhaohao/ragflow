@@ -54,6 +54,7 @@ from rag.utils.storage_factory import STORAGE_IMPL
 
 BATCH_SIZE = 64
 
+# 预先导入了各种类型的文件解析/切块器(chunker)
 FACTORY = {
     "general": naive,
     ParserType.NAIVE.value: naive,
