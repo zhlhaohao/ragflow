@@ -476,23 +476,31 @@ def hierarchical_merge(bull, sections, depth):
 def naive_merge(sections, chunk_token_num=128, delimiter="\n。；！？"):
     if not sections:
         return []
+
+    # 如果 sections 中的元素是字符串，将其转换为元组形式 (text, "")
     if isinstance(sections[0], type("")):
         sections = [(s, "") for s in sections]
+
     cks = [""]
     tk_nums = [0]
 
     def add_chunk(t, pos):
         nonlocal cks, tk_nums, delimiter
+        # 计算段落 t 的 token 数量
         tnum = num_tokens_from_string(t)
+        # 如果没有位置信息，设置为空字符串
         if not pos: pos = ""
+        # 如果段落的 token 数量小于 8，不使用位置信息
         if tnum < 8:
             pos = ""
-        # Ensure that the length of the merged chunk does not exceed chunk_token_num  
-        if tk_nums[-1] > chunk_token_num:
 
+        # 确保合并后的块的长度不超过 chunk_token_num
+        if tk_nums[-1] > chunk_token_num:
             if t.find(pos) < 0:
                 t += pos
+            # 新建一个块    
             cks.append(t)
+            # 更新新块的 token 数量
             tk_nums.append(tnum)
         else:
             if cks[-1].find(pos) < 0:
@@ -501,10 +509,11 @@ def naive_merge(sections, chunk_token_num=128, delimiter="\n。；！？"):
             tk_nums[-1] += tnum
 
     for sec, pos in sections:
+        # 遍历每个段落及其位置信息，并调用 add_chunk 进行处理
         add_chunk(sec, pos)
 
+    # 返回合并后的块列表
     return cks
-
 
 def docx_question_level(p, bull = -1):
     txt = re.sub(r"\u3000", " ", p.text).strip()
@@ -542,6 +551,7 @@ def concat_img(img1, img2):
 def naive_merge_docx(sections, chunk_token_num=128, delimiter="\n。；！？"):
     """
     用于将 .docx 解析出来的段落列表[(段落,图像),(段落,图像),(段落,图像)]，将多个短段落(sections)合并成块（chunks），每个块的长度不超过指定的最大令牌数（128）。
+    返回 chunks->[str] 以及 images
     """
     if not sections:
         return [], []

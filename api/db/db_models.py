@@ -34,6 +34,9 @@ from api.settings import DATABASE, stat_logger, SECRET_KEY, DATABASE_TYPE
 from api.utils.log_utils import getLogger
 from api import utils
 
+"""Mysql数据库ORM
+"""
+
 LOGGER = getLogger()
 
 

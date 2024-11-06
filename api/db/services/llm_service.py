@@ -27,18 +27,31 @@ class LLMFactoriesService(CommonService):
 
 
 class LLMService(CommonService):
+    """
+    封装了对LLM表的操作
+    """
     model = LLM
 
 
 class TenantLLMService(CommonService):
     """
-    LLM实例管理
+    封装了对TenantLLM表的操作
+    提供类方法,创建LLM实例
     """
     model = TenantLLM
 
     @classmethod
     @DB.connection_context()
     def get_api_key(cls, tenant_id, model_name):
+        """根据租户 ID 和模型名称从TenantLLM table 查询模型的配置(不仅仅是api_key)。
+        如果模型名称包含 '@' 符号，则将名称分割成两部分，分别对应模型名和工厂名。
+        Args:
+            tenant_id (_type_): _description_
+            model_name (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
         arr = model_name.split("@")
         if len(arr) < 2:
             objs = cls.query(tenant_id=tenant_id, llm_name=model_name)
@@ -51,6 +64,14 @@ class TenantLLMService(CommonService):
     @classmethod
     @DB.connection_context()
     def get_my_llms(cls, tenant_id):
+        """查询并返回指定租户所有已配置的 LLM 实例信息，包括模型工厂、标志、标签、模型类型、模型名称和已使用的 token 数量等。
+
+        Args:
+            tenant_id (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
         fields = [
             cls.model.llm_factory,
             LLMFactories.logo,
@@ -68,10 +89,30 @@ class TenantLLMService(CommonService):
     @DB.connection_context()
     def model_instance(cls, tenant_id, llm_type,
                        llm_name=None, lang="Chinese"):
+        """
+        根据租户 ID、模型类型（如嵌入、语音转文本等）、可选的模型名称和语言创建相应的 LLM 实例。
+        这个方法会先尝试从数据库中获取模型配置，如果找不到，则会尝试使用默认值或抛出错误。
+
+        Args:
+            tenant_id (int): 租户 ID
+            llm_type (str): LLM 类型，例如 EMBEDDING, SPEECH2TEXT 等
+            llm_name (str, optional): 模型名称，默认为 None
+            lang (str, optional): 语言，默认为 "Chinese"
+
+        Raises:
+            LookupError: 租户未找到
+            LookupError: 模型类型未设置
+            LookupError: 模型未授权
+
+        Returns:
+            object: 创建的 LLM 实例
+        """
+        # 获取租户信息
         e, tenant = TenantService.get_by_id(tenant_id)
         if not e:
             raise LookupError("Tenant not found")
 
+        # 根据 LLM 类型确定模型名称
         if llm_type == LLMType.EMBEDDING.value:
             mdlnm = tenant.embd_id if not llm_name else llm_name
         elif llm_type == LLMType.SPEECH2TEXT.value:
@@ -87,11 +128,14 @@ class TenantLLMService(CommonService):
         else:
             assert False, "LLM type error"
 
+        # 从数据库获取模型配置
         model_config = cls.get_api_key(tenant_id, mdlnm)
         tmp = mdlnm.split("@")
         fid = None if len(tmp) < 2 else tmp[1]
         mdlnm = tmp[0]
         if model_config: model_config = model_config.to_dict()
+        
+        # 如果没有找到模型配置，尝试使用默认值
         if not model_config:
             if llm_type in [LLMType.EMBEDDING, LLMType.RERANK]:
                 llm = LLMService.query(llm_name=mdlnm) if not fid else LLMService.query(llm_name=mdlnm, fid=fid)
@@ -106,21 +150,26 @@ class TenantLLMService(CommonService):
                         raise LookupError(f"Type of {llm_type} model is not set.")
                     raise LookupError("Model({}) not authorized".format(mdlnm))
 
+
+        # 根据 LLM 类型创建相应的实例
         if llm_type == LLMType.EMBEDDING.value:
             if model_config["llm_factory"] not in EmbeddingModel:
                 return
+            # 创建嵌入模型实例
             return EmbeddingModel[model_config["llm_factory"]](
                 model_config["api_key"], model_config["llm_name"], base_url=model_config["api_base"])
 
         if llm_type == LLMType.RERANK:
             if model_config["llm_factory"] not in RerankModel:
                 return
+            # 创建 rerank 模型实例
             return RerankModel[model_config["llm_factory"]](
                 model_config["api_key"], model_config["llm_name"], base_url=model_config["api_base"])
 
         if llm_type == LLMType.IMAGE2TEXT.value:
             if model_config["llm_factory"] not in CvModel:
                 return
+            # 创建图像转文本模型实例
             return CvModel[model_config["llm_factory"]](
                 model_config["api_key"], model_config["llm_name"], lang,
                 base_url=model_config["api_base"]
@@ -129,12 +178,14 @@ class TenantLLMService(CommonService):
         if llm_type == LLMType.CHAT.value:
             if model_config["llm_factory"] not in ChatModel:
                 return
+            # 创建对话 LLM 模型实例
             return ChatModel[model_config["llm_factory"]](
                 model_config["api_key"], model_config["llm_name"], base_url=model_config["api_base"])
 
         if llm_type == LLMType.SPEECH2TEXT:
             if model_config["llm_factory"] not in Seq2txtModel:
                 return
+            # 创建语音转文本模型实例
             return Seq2txtModel[model_config["llm_factory"]](
                 key=model_config["api_key"], model_name=model_config["llm_name"],
                 lang=lang,
@@ -143,15 +194,31 @@ class TenantLLMService(CommonService):
         if llm_type == LLMType.TTS:
             if model_config["llm_factory"] not in TTSModel:
                 return
+            # 创建文本转语音模型实例
             return TTSModel[model_config["llm_factory"]](
                 model_config["api_key"],
                 model_config["llm_name"],
                 base_url=model_config["api_base"],
             )
-
+        
     @classmethod
     @DB.connection_context()
     def increase_usage(cls, tenant_id, llm_type, used_tokens, llm_name=None):
+        """更新指定租户和模型的已使用 token 数量。
+首先确定要更新的模型名称，然后执行数据库更新操作。
+
+        Args:
+            tenant_id (_type_): _description_
+            llm_type (_type_): _description_
+            used_tokens (_type_): _description_
+            llm_name (_type_, optional): _description_. Defaults to None.
+
+        Raises:
+            LookupError: _description_
+
+        Returns:
+            _type_: _description_
+        """
         e, tenant = TenantService.get_by_id(tenant_id)
         if not e:
             raise LookupError("Tenant not found")
@@ -186,6 +253,11 @@ class TenantLLMService(CommonService):
     @classmethod
     @DB.connection_context()
     def get_openai_models(cls):
+        """从数据库中查询所有属于 OpenAI 工厂且不是特定嵌入模型的 LLM 实例，并以字典形式返回结果列表。
+
+        Returns:
+            _type_: _description_
+        """
         objs = cls.model.select().where(
             (cls.model.llm_factory == "OpenAI"),
             ~(cls.model.llm_name == "text-embedding-3-small"),
@@ -199,6 +271,15 @@ class LLMBundle(object):
     对各种LLM模型进行了统一封装
     """    
     def __init__(self, tenant_id, llm_type, llm_name=None, lang="Chinese"):
+        """初始化
+
+        Args:
+            tenant_id (_type_): _description_
+            llm_type (_type_): chat/embedding
+            llm_name (_type_, optional): 模型的名称. Defaults to None.
+            lang (str, optional): 中文还是英文. Defaults to "Chinese".
+        """
+
         self.tenant_id = tenant_id
         self.llm_type = llm_type
         self.llm_name = llm_name

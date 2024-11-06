@@ -29,12 +29,15 @@ from docx.image.exceptions import UnrecognizedImageError, UnexpectedEndOfFileErr
 
 class Docx(DocxParser):
     """
-    解析docx,包装了DocxParser
+    解析docx,使用docx库
     """
     def __init__(self):
         pass
 
     def get_picture(self, document, paragraph):
+        """
+        从段落中提取图片。它首先检查段落中是否有图片，如果有，则尝试通过图片的嵌入ID获取图片的数据流。如果成功，它会将图片数据转换成 PIL.Image 对象并返回。如果遇到错误（如图片格式不被识别、读取过程中遇到意外结束等），则会打印一条消息并返回 None。
+        """
         img = paragraph._element.xpath('.//pic:pic')
         if not img:
             return None
@@ -59,53 +62,92 @@ class Docx(DocxParser):
             return None
 
     def __clean(self, line):
+        """
+        清理段落中的文本。它将全角空格 \u3000 替换为普通的空格，并去除字符串两端的空白字符
+        """
         line = re.sub(r"\u3000", " ", line).strip()
         return line
 
     def __call__(self, filename, binary=None, from_page=0, to_page=100000):
+        """
+        实现了主要的解析逻辑。它接受文件名或二进制数据作为输入，解析文档的内容，并返回两个列表：
+        1. 一个是包含每个段落的文本和段落内部的所有图片拼接在一起的大图片的元组的列表，
+        2. 一个是包含表格HTML表示的元组的列表。
+
+        文档中的每个段落都会被处理，如果段落中有文本，则会被清理并存储在 lines 列表中，同时也会尝试从段落中提取图片。
+        如果段落样式为 Caption，则会特殊处理，尝试将最近的图片与之关联。
+        当遇到页面断点时（由段落中的运行元素中的 lastRenderedPageBreak 或 w:br 标签指示），页码计数器 pn 会增加。
+        最后，所有图片列表被合并成单个图片对象（如果有的话），并且所有的表格被转换成HTML格式。
+        """
+
+
+        # 根据是否提供二进制数据来加载文档
         self.doc = Document(
             filename) if not binary else Document(BytesIO(binary))
+        
+        # 初始化页码计数器和结果列表
         pn = 0
         lines = []
         last_image = None
+        
+        # 遍历文档中的每个段落
         for p in self.doc.paragraphs:
             if pn > to_page:
+                # 如果当前页码超过指定的结束页码，停止处理
                 break
+            
             if from_page <= pn < to_page:
+                # 段落中有文本内容
                 if p.text.strip():
                     if p.style and p.style.name == 'Caption':
+                        # 特殊处理 Caption 样式的段落
                         former_image = None
                         if lines and lines[-1][1] and lines[-1][2] != 'Caption':
+                            # 获取前一个段落的最后一个图片
                             former_image = lines[-1][1].pop()
                         elif last_image:
+                            # 使用上一个未处理的图片
                             former_image = last_image
                             last_image = None
+                        # 添加 Caption 段落    
                         lines.append((self.__clean(p.text), [former_image], p.style.name))
                     else:
+                        # 处理普通段落
+                        # 尝试从段落中提取图片
                         current_image = self.get_picture(self.doc, p)
                         image_list = [current_image]
                         if last_image:
+                            # 如果有未处理的图片，添加到当前图片列表前面
                             image_list.insert(0, last_image)
                             last_image = None
+                        # 添加普通段落
                         lines.append((self.__clean(p.text), image_list, p.style.name if p.style else ""))
                 else:
+                    # 段落中无文本，但可能有图片
                     if current_image := self.get_picture(self.doc, p):
                         if lines:
+                            # 将图片添加到前一个段落的图片列表中
                             lines[-1][1].append(current_image)
                         else:
+                            # 如果没有前一个段落，保存图片以备后续处理
                             last_image = current_image
+            # 处理段落中的页面断点
             for run in p.runs:
                 if 'lastRenderedPageBreak' in run._element.xml:
                     pn += 1
                     continue
                 if 'w:br' in run._element.xml and 'type="page"' in run._element.xml:
                     pn += 1
+
+        # 合并每个段落的图片列表,也就是将该段落的多张图片合并为一张大图片，如果没有图片，则为None
         new_line = [(line[0], reduce(concat_img, line[1]) if line[1] else None) for line in lines]
 
+        # 处理文档中的表格
         tbls = []
         for tb in self.doc.tables:
             html = "<table>"
             for r in tb.rows:
+                # 开始新行
                 html += "<tr>"
                 i = 0
                 while i < len(r.cells):
@@ -113,15 +155,21 @@ class Docx(DocxParser):
                     c = r.cells[i]
                     for j in range(i + 1, len(r.cells)):
                         if c.text == r.cells[j].text:
+                            # 计算单元格合并的列数
                             span += 1
                             i = j
                     i += 1
+                    # 添加单元格
                     html += f"<td>{c.text}</td>" if span == 1 else f"<td colspan='{span}'>{c.text}</td>"
+                # 结束行    
                 html += "</tr>"
+            # 结束表格    
             html += "</table>"
+            # 将表格的 HTML 表示添加到结果列表中
             tbls.append(((None, html), ""))
-        return new_line, tbls
 
+        # 返回处理后的文本和图片列表，以及表格列表
+        return new_line, tbls
 
 class Pdf(PdfParser):
     def __call__(self, filename, binary=None, from_page=0,
@@ -207,7 +255,7 @@ def chunk(filename, binary=None, from_page=0, to_page=100000,
     if re.search(r"\.docx$", filename, re.IGNORECASE):
         callback(0.1, "Start to parse.")
 
-        # 解析docx，返回解析后的段落和表格     
+        # 解析docx，返回解析后的段落（段落文本+段落内图片）列表和表格列表     
         sections, tbls = Docx()(filename, binary)
         # 使用 tokenize_table 方法处理表格。
         res = tokenize_table(tbls, doc, eng)  # just for table
@@ -221,7 +269,7 @@ def chunk(filename, binary=None, from_page=0, to_page=100000,
                 "chunk_token_num", 128)), parser_config.get(
                 "delimiter", "\n!?。；！？"))
 
-        # section_only=False 直接返回段落
+        # section_only=True 直接返回段落,但是不会发生
         if kwargs.get("section_only", False):
             return chunks
 

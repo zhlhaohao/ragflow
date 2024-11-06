@@ -210,10 +210,15 @@ def build(row):
         return
     
     try:
-        # 使用切块器对文件进行切块
+        # 使用切块器对文件进行解析、切块、合并较小的块、tokenize
+        # naive.chunk(row["name"], binary=binary, from_page=row["from_page"],
+        #                     to_page=row["to_page"], lang=row["language"], callback=callback,
+        #                     kb_id=row["kb_id"], parser_config=row["parser_config"], tenant_id=row["tenant_id"])
+        
         cks = chunker.chunk(row["name"], binary=binary, from_page=row["from_page"],
                             to_page=row["to_page"], lang=row["language"], callback=callback,
                             kb_id=row["kb_id"], parser_config=row["parser_config"], tenant_id=row["tenant_id"])
+        
         cron_logger.info(
             "Chunking({}) {}/{}".format(timer() - st, row["location"], row["name"]))
     except Exception as e:

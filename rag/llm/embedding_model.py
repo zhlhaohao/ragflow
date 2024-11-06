@@ -153,46 +153,98 @@ class BaiChuanEmbed(OpenAIEmbed):
 
 
 class QWenEmbed(Base):
+    """通义千问嵌入模型
+
+    Args:
+        Base (_type_): 继承自 Base 类
+    """
     def __init__(self, key, model_name="text_embedding_v2", **kwargs):
+        """
+        初始化通义千问嵌入模型
+
+        Args:
+            key (str): API 密钥
+            model_name (str, optional): 模型名称，默认为 "text_embedding_v2"
+            **kwargs: 其他关键字参数
+        """
         dashscope.api_key = key
         self.model_name = model_name
 
     def encode(self, texts: list, batch_size=10):
+        """
+        对文本进行嵌入编码
+
+        Args:
+            texts (list): 文本列表
+            batch_size (int, optional): 批处理大小，默认为 10
+
+        Raises:
+            Exception: 如果 API 调用失败，抛出异常
+
+        Returns:
+            tuple: 包含嵌入向量的 NumPy 数组和总 token 数
+        """
         import dashscope
+        # 确保批处理大小不超过 4
         batch_size = min(batch_size, 4)
         try:
+            # 存储嵌入结果
             res = []
+            # 记录总 token 数
             token_count = 0
+            # 截断文本长度为 2048
             texts = [truncate(t, 2048) for t in texts]
             for i in range(0, len(texts), batch_size):
+                # 调用 DashScope 的 TextEmbedding 服务
                 resp = dashscope.TextEmbedding.call(
                     model=self.model_name,
                     input=texts[i:i + batch_size],
                     text_type="document"
                 )
+                # 解析响应中的嵌入向量
                 embds = [[] for _ in range(len(resp["output"]["embeddings"]))]
                 for e in resp["output"]["embeddings"]:
                     embds[e["text_index"]] = e["embedding"]
+                # 将嵌入向量添加到结果列表中
                 res.extend(embds)
+                # 累加 token 数
                 token_count += resp["usage"]["total_tokens"]
+            # 返回嵌入向量数组和总 token 数    
             return np.array(res), token_count
         except Exception as e:
+            # 如果 API 调用失败，抛出异常
             raise Exception("Account abnormal. Please ensure it's on good standing to use QWen's "+self.model_name)
+        # 如果发生异常，返回空数组和 0    
         return np.array([]), 0
 
     def encode_queries(self, text):
+        """
+        对查询文本进行嵌入编码
+
+        Args:
+            text (str): 查询文本
+
+        Raises:
+            Exception: 如果 API 调用失败，抛出异常
+
+        Returns:
+            tuple: 包含嵌入向量的 NumPy 数组和总 token 数
+        """
         try:
+            # 调用 DashScope 的 TextEmbedding 服务, 截断文本长度为 2048
             resp = dashscope.TextEmbedding.call(
                 model=self.model_name,
                 input=text[:2048],
                 text_type="query"
             )
+            # 解析响应中的嵌入向量
             return np.array(resp["output"]["embeddings"][0]
                             ["embedding"]), resp["usage"]["total_tokens"]
         except Exception as e:
+            # 如果 API 调用失败，抛出异常
             raise Exception("Account abnormal. Please ensure it's on good standing to use QWen's "+self.model_name)
+        # 如果发生异常，返回空数组和 0    
         return np.array([]), 0
-
 
 class ZhipuEmbed(Base):
     def __init__(self, key, model_name="embedding-2", **kwargs):

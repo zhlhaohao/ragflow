@@ -22,6 +22,9 @@ from api.utils import datetime_format, current_timestamp, get_uuid
 
 
 class CommonService:
+    """封装了Mysql的操作
+    """
+    # 表名
     model = None
 
     @classmethod
