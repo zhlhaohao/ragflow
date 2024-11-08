@@ -223,9 +223,18 @@ def is_english(texts):
 
 
 def tokenize(d, t, eng):
+    """分词处理
+
+    Args:
+        d (_type_): doc
+        t (_type_): 文本内容
+        eng (_type_): english/chinese
+    """
     d["content_with_weight"] = t
     t = re.sub(r"</?(table|td|caption|tr|th)( [^<>]{0,12})?>", " ", t)
+    # 对文本进行分词,词和词之间用空格分开
     d["content_ltks"] = rag_tokenizer.tokenize(t)
+    # 细粒度分词
     d["content_sm_ltks"] = rag_tokenizer.fine_grained_tokenize(d["content_ltks"])
 
 
@@ -243,12 +252,40 @@ def tokenize_chunks(chunks, doc, eng, pdf_parser=None):
                 ck = pdf_parser.remove_tag(ck)
             except NotImplementedError as e:
                 pass
+        # 分词处理    
         tokenize(d, ck, eng)
         res.append(d)
     return res
 
 
 def tokenize_chunks_docx(chunks, doc, eng, images):
+    """用于处理从 DOCX 文件中提取的文本块（chunks），并将每个文本块及其对应的图像信息封装成一个文档对象，最后返回一个包含这些文档对象的列表。以下是该函数的详细解析：
+
+### 函数参数
+
+- **chunks**: 一个包含多个文本块的列表，每个文本块是从 DOCX 文件中提取的一段文本。
+- **doc**: 一个基础文档模板，用于创建新的文档对象。这个模板通常包含一些元数据信息，如文档 ID、来源等。
+- **eng**: 一个布尔值，表示是否启用英文分词处理。如果为 `True`，则对文本块进行英文分词；如果为 `False`，则仅进行简单的分词处理。
+- **images**: 一个包含多个图像路径或图像对象的列表，每个图像与相应的文本块对应。
+
+### 函数逻辑
+
+1. **初始化结果列表**：
+   - 创建一个空列表 `res`，用于存储处理后的文档对象。
+
+2. **遍历文本块和图像**：
+   - 使用 `zip(chunks, images)` 将文本块和图像配对，逐个处理。
+   - 对于每个文本块 `ck` 和对应的图像 `image`：
+     - 检查文本块是否为空，如果为空则跳过当前循环。
+     - 打印当前处理的文本块（用于调试）。
+     - 深拷贝基础文档模板 `doc`，以避免修改原始模板。
+     - 将当前图像路径或图像对象添加到文档对象中。
+     - 调用 `tokenize` 函数对文本块进行分词处理，并将分词结果添加到文档对象中。
+     - 将处理后的文档对象添加到结果列表 `res` 中。
+
+3. **返回结果列表**：
+   - 返回包含所有处理后的文档对象的列表 `res`。
+    """
     res = []
     # wrap up as es documents
     for ck, image in zip(chunks, images):
@@ -256,6 +293,7 @@ def tokenize_chunks_docx(chunks, doc, eng, images):
         print("--", ck)
         d = copy.deepcopy(doc)
         d["image"] = image
+        # 分词处理
         tokenize(d, ck, eng)
         res.append(d)
     return res
@@ -269,6 +307,7 @@ def tokenize_table(tbls, doc, eng, batch_size=10):
             continue
         if isinstance(rows, str):
             d = copy.deepcopy(doc)
+            # 分词处理
             tokenize(d, rows, eng)
             d["content_with_weight"] = rows
             if img: d["image"] = img

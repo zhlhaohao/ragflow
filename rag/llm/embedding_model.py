@@ -33,6 +33,9 @@ from rag.utils import num_tokens_from_string, truncate
 import google.generativeai as genai 
 import json
 
+"""
+统一封装了各类嵌入模型的调用接口
+"""
 class Base(ABC):
     def __init__(self, key, model_name):
         pass
@@ -45,8 +48,14 @@ class Base(ABC):
 
 
 class DefaultEmbedding(Base):
+    """默认的嵌入模型：BAAI/bge-large-zh-v1.5，BAAI模型是由北京智源人工智能研究院（Beijing Academy of Artificial Intelligence, BAAI）开发的一系列人工智能模型
+    """
+    # _model 是在类定义的顶部定义的，因此它是一个类变量。实例变量（即在方法内部使用 self 定义的变量）则是每个实例独有的
     _model = None
+
+    # _model_lock 是一个线程锁，确保在某个线程正在初始化 _model 时，其他线程必须等待，直到初始化完成
     _model_lock = threading.Lock()
+
     def __init__(self, key, model_name, **kwargs):
         """
         If you have trouble downloading HuggingFace models, -_^ this might help!!
@@ -60,11 +69,13 @@ class DefaultEmbedding(Base):
 
         """
         if not LIGHTEN and not DefaultEmbedding._model:
+            # 一旦 _model 被成功初始化，后续的线程可以直接使用已经加载好的模型，而不需要再次进行初始化操作。
             with DefaultEmbedding._model_lock:
                 from FlagEmbedding import FlagModel
                 import torch
                 if not DefaultEmbedding._model:
                     try:
+                        # 采用FlagModel作为嵌入模型
                         DefaultEmbedding._model = FlagModel(os.path.join(get_home_cache_dir(), re.sub(r"^[a-zA-Z]+/", "", model_name)),
                                                             query_instruction_for_retrieval="为这个句子生成表示以用于检索相关文章：",
                                                             use_fp16=torch.cuda.is_available())
@@ -77,13 +88,16 @@ class DefaultEmbedding(Base):
                                                             use_fp16=torch.cuda.is_available())
         self._model = DefaultEmbedding._model
 
+    # 嵌入编码
     def encode(self, texts: list, batch_size=32):
+        # 截断文本长度为2048个字符
         texts = [truncate(t, 2048) for t in texts]
         token_count = 0
         for t in texts:
             token_count += num_tokens_from_string(t)
         res = []
         for i in range(0, len(texts), batch_size):
+            # 开始进行推理
             res.extend(self._model.encode(texts[i:i + batch_size]).tolist())
         return np.array(res), token_count
 

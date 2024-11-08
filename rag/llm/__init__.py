@@ -20,6 +20,7 @@ from .rerank_model import *
 from .sequence2txt_model import *
 from .tts_model import *
 
+# 定义了各类嵌入模型、LLM对话模型的实现模块
 EmbeddingModel = {
     "Ollama": OllamaEmbed,
     "LocalAI": LocalAIEmbed,

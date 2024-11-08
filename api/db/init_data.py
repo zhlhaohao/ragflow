@@ -96,6 +96,9 @@ def init_superuser():
 
 
 def init_llm_factory():
+    """
+    初始化 llm_factories、llm、tenant_llm 表
+    """
     try:
         LLMService.filter_delete([(LLM.fid == "MiniMax" or LLM.fid == "Minimax")])
     except Exception as e:

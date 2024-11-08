@@ -4,9 +4,249 @@
 			"path": "api/apps/document_app.py",
 			"bookmarks": [
 				{
+					"line": 343,
+					"column": 12,
+					"label": ""
+				},
+				{
 					"line": 381,
 					"column": 10,
 					"label": ""
+				}
+			]
+		},
+		{
+			"path": "rag/svr/task_executor.py",
+			"bookmarks": [
+				{
+					"line": 168,
+					"column": 7,
+					"label": ""
+				},
+				{
+					"line": 335,
+					"column": 7,
+					"label": ""
+				}
+			]
+		},
+		{
+			"path": "rag/nlp/rag_tokenizer.py",
+			"bookmarks": [
+				{
+					"line": 260,
+					"column": 12,
+					"label": ""
+				}
+			]
+		},
+		{
+			"path": "api/db/services/llm_service.py",
+			"bookmarks": [
+				{
+					"line": 89,
+					"column": 14,
+					"label": ""
+				},
+				{
+					"line": 271,
+					"column": 10,
+					"label": ""
+				}
+			]
+		},
+		{
+			"path": "rag/app/naive.py",
+			"bookmarks": [
+				{
+					"line": 70,
+					"column": 14,
+					"label": ""
+				}
+			]
+		},
+		{
+			"path": "rag/nlp/__init__.py",
+			"bookmarks": [
+				{
+					"line": 260,
+					"column": 8,
+					"label": "DOCX 文件中提取的文本块（chunks），并将每个文本块及其对应的图像信息封装成一个文档对象，最后返回一个包含这些文档对象的列表"
+				}
+			]
+		},
+		{
+			"path": "api/db/db_models.py",
+			"bookmarks": [
+				{
+					"line": 37,
+					"column": 3,
+					"label": "Mysql数据库ORM"
+				}
+			]
+		},
+		{
+			"path": "api/db/services/common_service.py",
+			"bookmarks": [
+				{
+					"line": 23,
+					"column": 10,
+					"label": ""
+				}
+			]
+		},
+		{
+			"path": "rag/llm/__init__.py",
+			"bookmarks": [
+				{
+					"line": 22,
+					"column": 16,
+					"label": ""
+				}
+			]
+		},
+		{
+			"path": "rag/llm/embedding_model.py",
+			"bookmarks": [
+				{
+					"line": 49,
+					"column": 4,
+					"label": "默认的嵌入模型：BAAI/bge-large-zh-v1.5"
+				},
+				{
+					"line": 71,
+					"column": 18,
+					"label": "线程锁保证模型只初始化一次，只有一个实例"
+				},
+				{
+					"line": 168,
+					"column": 8,
+					"label": "QWenEmbed(Base):   通义千问嵌入模型"
+				}
+			]
+		},
+		{
+			"path": "api/utils/__init__.py",
+			"bookmarks": [
+				{
+					"line": 42,
+					"column": 9,
+					"label": "get_base_config-读取配置文件"
+				}
+			]
+		},
+		{
+			"path": "deepdoc/parser/docx_parser.py",
+			"bookmarks": [
+				{
+					"line": 21,
+					"column": 12,
+					"label": ""
+				}
+			]
+		},
+		{
+			"path": "deepdoc/parser/pdf_parser.py",
+			"bookmarks": [
+				{
+					"line": 36,
+					"column": 9,
+					"label": "RAGFlowPdfParser:  解析pdf文件"
+				}
+			]
+		},
+		{
+			"path": "deepdoc/vision/ocr.py",
+			"bookmarks": [
+				{
+					"line": 541,
+					"column": 8,
+					"label": "OCR(object):  OCR识别pdf"
+				},
+				{
+					"line": 636,
+					"column": 13,
+					"label": "detect(self, img):  识别文本框(包含文本的图片框)"
+				},
+				{
+					"line": 657,
+					"column": 14,
+					"label": "recognize(self, ori_im, box):   从文本框识别文本"
+				}
+			]
+		},
+		{
+			"path": "rag/utils/redis_conn.py",
+			"bookmarks": [
+				{
+					"line": 153,
+					"column": 15,
+					"label": ""
+				},
+				{
+					"line": 200,
+					"column": 14,
+					"label": ""
+				}
+			]
+		},
+		{
+			"path": "api/db/services/task_service.py",
+			"bookmarks": [
+				{
+					"line": 33,
+					"column": 11,
+					"label": ""
+				}
+			]
+		},
+		{
+			"path": "rag/utils/es_conn.py",
+			"bookmarks": [
+				{
+					"line": 109,
+					"column": 7,
+					"label": "bulk 批量更新或插入Elasticsearch索引中的文档。"
+				}
+			]
+		},
+		{
+			"path": "rag/utils/storage_factory.py",
+			"bookmarks": [
+				{
+					"line": 16,
+					"column": 10,
+					"label": "文件存储模块，根据环境变量选择不同的存储实现"
+				}
+			]
+		},
+		{
+			"path": "rag/llm/chat_model.py",
+			"bookmarks": [
+				{
+					"line": 30,
+					"column": 4,
+					"label": "统一封装了各类对话模型的调用接口"
+				}
+			]
+		},
+		{
+			"path": "conf/llm_factories.json",
+			"bookmarks": [
+				{
+					"line": 1,
+					"column": 10,
+					"label": "所有模型的基础信息"
+				}
+			]
+		},
+		{
+			"path": "api/db/init_data.py",
+			"bookmarks": [
+				{
+					"line": 97,
+					"column": 8,
+					"label": "初始化llm表"
 				}
 			]
 		}

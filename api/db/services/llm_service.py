@@ -137,10 +137,13 @@ class TenantLLMService(CommonService):
         
         # 如果没有找到模型配置，尝试使用默认值
         if not model_config:
+            # 如果是emdedding或者rerank模型
             if llm_type in [LLMType.EMBEDDING, LLMType.RERANK]:
+                # 在llm表中查找模型（刚才在tenant_llm表没找到该模型）,fid是first id，也就是模型名称@后面的字串
                 llm = LLMService.query(llm_name=mdlnm) if not fid else LLMService.query(llm_name=mdlnm, fid=fid)
                 if llm and llm[0].fid in ["Youdao", "FastEmbed", "BAAI"]:
                     model_config = {"llm_factory": llm[0].fid, "api_key":"", "llm_name": mdlnm, "api_base": ""}
+                    
             if not model_config:
                 if mdlnm == "flag-embedding":
                     model_config = {"llm_factory": "Tongyi-Qianwen", "api_key": "",

@@ -42,7 +42,8 @@ from api.db.services.file2document_service import File2DocumentService
 from api.settings import retrievaler
 from api.utils.file_utils import get_project_base_directory
 from api.db.db_models import close_connection
-from rag.app import laws, paper, presentation, manual, qa, table, book, resume, picture, naive, one, audio, knowledge_graph, email
+from rag.app import laws, paper, presentation, manual, qa, table, book, resume, picture, naive, one, audio, email
+# from rag.app import knowledge_graph
 from rag.nlp import search, rag_tokenizer
 from rag.raptor import RecursiveAbstractiveProcessing4TreeOrganizedRetrieval as Raptor
 from rag.settings import database_logger, SVR_QUEUE_NAME
@@ -70,7 +71,7 @@ FACTORY = {
     ParserType.ONE.value: one,
     ParserType.AUDIO.value: audio,
     ParserType.EMAIL.value: email,
-    ParserType.KG.value: knowledge_graph
+    # ParserType.KG.value: knowledge_graph
 }
 
 
@@ -464,12 +465,13 @@ def run_raptor(row, chat_mdl, embd_mdl, callback=None):
 
 
 def main():
-    # 从Redis收集一个文档的任务列表
+    # 从Redis收集最新的任务列表
     rows = collect()
     # 如果没有任务，则直接返回
     if len(rows) == 0:
         return
 
+    # 循环取出一个任务
     for _, r in rows.iterrows():
         # 创建一个回调函数，用于更新任务进度
         callback = partial(set_progress, r["id"], r["from_page"], r["to_page"])
@@ -518,7 +520,7 @@ def main():
             # 开始计时
             st = timer()
             try:
-                # 进行文件嵌入,返回后cks增加了新的键值对（例如q_768_vec），包含了文档嵌入向量
+                # 进行文本嵌入,返回后cks增加了新的键值对（例如q_768_vec），包含了文档嵌入向量
                 tk_count = embedding(cks, embd_mdl, r["parser_config"], callback)
             except Exception as e:
                 # 如果嵌入过程出错，则记录错误并继续下一个任务
@@ -540,7 +542,7 @@ def main():
         st = timer()
         es_r = ""
         es_bulk_size = 4
-        # 分批插入 Elasticsearch
+        # cks分批插入 Elasticsearch,每次插入4条记录
         for b in range(0, len(cks), es_bulk_size):
             es_r = ELASTICSEARCH.bulk(cks[b:b + es_bulk_size], search.index_name(r["tenant_id"]))
             if b % 128 == 0:
@@ -593,10 +595,12 @@ if __name__ == "__main__":
     peewee_logger.propagate = False
     peewee_logger.addHandler(database_logger.handlers[0])
     peewee_logger.setLevel(database_logger.level)
+    print("开始执行任务")
 
     exe = ThreadPoolExecutor(max_workers=1)
     exe.submit(report_status)
 
+    # 无限循环执行main--不停地取出任务
     while True:
         main()
         if PAYLOAD:

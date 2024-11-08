@@ -21,7 +21,7 @@ from io import BytesIO
 
 class RAGFlowDocxParser:
     """
-    解析docx
+    调用docx库解析docx
     """
 
     def __extract_table_content(self, tb):

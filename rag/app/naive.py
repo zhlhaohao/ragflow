@@ -273,7 +273,7 @@ def chunk(filename, binary=None, from_page=0, to_page=100000,
         if kwargs.get("section_only", False):
             return chunks
 
-        # 将chunks tokenize后，附加到res并返回
+        # 分词处理，然后将分词后的文档块与图像拼接在一起，更新到res
         res.extend(tokenize_chunks_docx(chunks, doc, eng, images))
         cron_logger.info("naive_merge({}): {}".format(filename, timer() - st))
         return res

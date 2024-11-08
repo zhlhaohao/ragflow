@@ -32,6 +32,14 @@ from rag.utils.redis_conn import REDIS_CONN
 
 
 class TaskService(CommonService):
+    """task表操作，任务表
+
+    Args:
+        CommonService (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """
     model = Task
 
     @classmethod

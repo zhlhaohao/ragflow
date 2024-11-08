@@ -28,6 +28,8 @@ import json
 import requests
 import asyncio
 
+"""统一封装了各类对话模型的调用接口
+"""
 
 class Base(ABC):
     def __init__(self, key, model_name, base_url):

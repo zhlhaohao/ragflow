@@ -108,23 +108,47 @@ class ESConnection:
         return False
 
     def bulk(self, df, idx_nm=None):
+        """
+        批量更新或插入Elasticsearch索引中的文档。
+        文档类似于mongodb的json，相当于mysql的一条记录
+
+        :param df: 包含要处理的文档的列表或DataFrame
+        :param idx_nm: 可选参数，指定要操作的索引名称。如果未提供，则使用类实例中默认的索引名称
+        :return: 包含所有失败操作的ID和错误信息的列表
+        """
+        # 初始化存储ID和操作动作的字典和列表
         ids, acts = {}, []
+
+        # 准备批量操作
         for d in df:
+            # 获取文档的ID，优先使用 "id" 字段，如果没有则使用 "_id" 字段(实际上没有id字段，只有_id字段)
             id = d["id"] if "id" in d else d["_id"]
+            # 深拷贝文档数据到 ids 字典中
             ids[id] = copy.deepcopy(d)
+            # 设置es索引名称
             ids[id]["_index"] = self.idxnm if not idx_nm else idx_nm
             if "id" in d:
+                # 删除文档中的 "id" 字段
                 del d["id"]
             if "_id" in d:
+                # 删除文档中的 "_id" 字段
                 del d["_id"]
+            
+            # 设置操作类型为更新或添加,文档的_id字段=id
             acts.append(
                 {"update": {"_id": id, "_index": ids[id]["_index"]}, "retry_on_conflict": 100})
+
+            # 添加文档（类似于mongodb的json，文档相当于mysql的一条记录）数据，设置 upsert 为 True，表示如果指定的文档不存在，则会创建一个新的文档；如果文档已经存在，则会更新现有文档
             acts.append({"doc": d, "doc_as_upsert": "true"})
 
+        # 初始化结果列表
         res = []
+
+        # 尝试最多100次执行批量操作
         for _ in range(100):
             try:
                 if elasticsearch.__version__[0] < 8:
+                    # 对于 Elasticsearch 版本 < 8
                     r = self.es.bulk(
                         index=(
                             self.idxnm if not idx_nm else idx_nm),
@@ -132,25 +156,37 @@ class ESConnection:
                         refresh=False,
                         timeout="600s")
                 else:
+                    # 对于 Elasticsearch 版本 >= 8
                     r = self.es.bulk(index=(self.idxnm if not idx_nm else
                                             idx_nm), operations=acts,
                                      refresh=False, timeout="600s")
+
+                # 检查返回结果中的错误信息
                 if re.search(r"False", str(r["errors"]), re.IGNORECASE):
+                    # 如果没有错误，直接返回空结果
                     return res
 
+                # 遍历返回结果中的每个项目
                 for it in r["items"]:
                     if "error" in it["update"]:
+                        # 如果存在错误信息，记录到结果列表中
                         res.append(str(it["update"]["_id"]) +
                                    ":" + str(it["update"]["error"]))
 
+                # 返回结果列表
                 return res
+
             except Exception as e:
+                # 记录失败信息
                 es_logger.warn("Fail to bulk: " + str(e))
                 if re.search(r"(Timeout|time out)", str(e), re.IGNORECASE):
+                    # 如果是超时错误，等待3秒后重试
                     time.sleep(3)
                     continue
+                # 其他错误，尝试重新连接 Elasticsearch
                 self.conn()
 
+        # 如果所有重试都失败，返回结果列表
         return res
 
     def bulk4script(self, df):
