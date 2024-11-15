@@ -71,30 +71,58 @@ def search_pages_path(pages_dir):
 
 
 def register_page(page_path):
+    """
+    动态注册一个 Blueprint 到 Flask 应用中。
+
+    :param page_path: 模块文件的路径
+    :return: 注册的 URL 前缀
+    """
+    # 将路径转换为字符串形式
     path = f'{page_path}'
 
+    # 提取模块文件名（去掉 _app 后缀）,也就是说，dialog_app.py这个模块，page_name就是dialog
     page_name = page_path.stem.rstrip('_app')
+    
+    # 构建模块名称(对于api/apps/conversation_app.py, module_name = api.apps.conversation)
     module_name = '.'.join(page_path.parts[page_path.parts.index('api'):-1] + (page_name,))
 
+    # 动态加载模块
     spec = spec_from_file_location(module_name, page_path)
     page = module_from_spec(spec)
+
+    # 将 Flask 应用实例和 Blueprint 实例绑定到模块
     page.app = app
     page.manager = Blueprint(page_name, module_name)
+
+    # 将模块注册到系统模块列表中
     sys.modules[module_name] = page
+
+    # 执行模块中的代码
     spec.loader.exec_module(page)
+
+    # 获取模块中定义的 page_name，如果没有定义则使用默认的 page_name
     page_name = getattr(page, 'page_name', page_name)
+
+    # 根据路径决定 URL 前缀, 例如 /v1/conversation
     url_prefix = f'/api/{API_VERSION}' if "/sdk/" in path else f'/{API_VERSION}/{page_name}'
 
+    # 注册 Blueprint 到 Flask 应用中
     app.register_blueprint(page.manager, url_prefix=url_prefix)
+    # 返回注册的 URL 前缀
     return url_prefix
 
 
+# 定义需要搜索的目录路径
 pages_dir = [
+    # 当前文件所在目录
     Path(__file__).parent,
+    # api/apps 目录
     Path(__file__).parent.parent / 'api' / 'apps',
+    # api/apps/sdk 目录
     Path(__file__).parent.parent / 'api' / 'apps' / 'sdk',
 ]
 
+# 动态注册所有找到的模块文件，并收集返回的 URL 前缀
 client_urls_prefix = [
     register_page(path)
     for dir in pages_dir
@@ -104,10 +132,22 @@ client_urls_prefix = [
 
 @login_manager.request_loader
 def load_user(web_request):
+    """jwt令牌解码为用户access_token
+    """
     jwt = Serializer(secret_key=SECRET_KEY)
     authorization = web_request.headers.get("Authorization")
     if authorization:
         try:
+            """
+            # 如果绑定了过期时间,就要这样写
+            payload = jwt.loads(authorization)
+            if 'access_token' in payload and 'exp' in payload and payload['exp'] > int(time.time()):
+                user = UserService.query(access_token=access_token, status=StatusEnum.VALID.value)
+                if user:
+                    return user[0]    
+                else:
+                    return None                            
+            """
             access_token = str(jwt.loads(authorization))
             user = UserService.query(access_token=access_token, status=StatusEnum.VALID.value)
             if user:

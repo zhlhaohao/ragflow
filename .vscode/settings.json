@@ -11,6 +11,9 @@
 	"workbench.colorTheme": "Default Dark Modern",
   "workbench.colorCustomizations": {
     "tab.activeBackground": "#133c9a",
+    "tab.inactiveForeground": "#aaaaaa",
+    "tab.activeForeground": "#ffffff",
+    "tab.inactiveBackground": "#17222a",
     "activityBar.activeBackground": "#9ea1e3",
     "activityBar.background": "#9ea1e3",
     "activityBar.foreground": "#15202b",

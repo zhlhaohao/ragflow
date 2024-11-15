@@ -82,6 +82,11 @@
 					"line": 37,
 					"column": 3,
 					"label": "Mysql数据库ORM"
+				},
+				{
+					"line": 483,
+					"column": 9,
+					"label": "生成jwt令牌access_token->Authorization"
 				}
 			]
 		},
@@ -247,6 +252,26 @@
 					"line": 97,
 					"column": 8,
 					"label": "初始化llm表"
+				}
+			]
+		},
+		{
+			"path": "api/apps/__init__.py",
+			"bookmarks": [
+				{
+					"line": 72,
+					"column": 8,
+					"label": "为每个api文件，动态注册一个 Blueprint，设置 url prefix"
+				},
+				{
+					"line": 143,
+					"column": 6,
+					"label": "用户验证，加载用户"
+				},
+				{
+					"line": 160,
+					"column": 22,
+					"label": "解码jwt令牌Authorization->access_token"
 				}
 			]
 		}

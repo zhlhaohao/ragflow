@@ -482,7 +482,23 @@ class User(DataBaseModel, UserMixin):
         return self.email
 
     def get_id(self):
+        """access_token -> Authorization
+        生成jwt签名令牌，在这里没有把过期时间加进去
+
+        Returns:
+            _type_: _description_
+        """
         jwt = Serializer(secret_key=SECRET_KEY)
+
+        # access_token是uuid，每次用户退出后重新登录的时候，就会生成新的一个access_token并更新到user表中，这样确保Authorization每次登录都不一致
+        """
+            # 绑定过期时间到AccessToken中
+            payload = {
+                'access_token': str(self.access_token),
+                'exp': int(time.time()) + 3600  # 设置 JWT 过期时间为 1 小时
+            }
+            return jwt.dumps(payload)
+        """
         return jwt.dumps(str(self.access_token))
 
     class Meta:

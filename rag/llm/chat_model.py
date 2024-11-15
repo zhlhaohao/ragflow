@@ -32,6 +32,11 @@ import asyncio
 """
 
 class Base(ABC):
+    """所有模型对话接口的基类
+
+    Args:
+        ABC (_type_): _description_
+    """
     def __init__(self, key, model_name, base_url):
         timeout = int(os.environ.get('LM_TIMEOUT_SECONDS', 600))
         self.client = OpenAI(api_key=key, base_url=base_url, timeout=timeout)
