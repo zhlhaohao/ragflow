@@ -34,6 +34,7 @@ from api.db.services.file_service import FileService
 from api.settings import stat_logger
 from api.utils.api_utils import get_json_result, construct_response
 
+from icecream import ic 
 
 @manager.route('/login', methods=['POST', 'GET'])
 def login():
@@ -57,15 +58,24 @@ def login():
                                retcode=RetCode.SERVER_ERROR,
                                retmsg='Fail to crypt password')
 
+    # 根据用户名、密码去数据库搜索
     user = UserService.query_user(email, password)
     if user:
         response_data = user.to_json()
-        user.access_token = get_uuid()
-        login_user(user)
-        user.update_time = current_timestamp(),
-        user.update_date = datetime_format(datetime.now()),
-        user.save()
+        # ic(response_data)
+
+        # 如果是内部用户,access_token不需要重新生成
+        if response_data['email'] in ['bob@ragflow.com'] and response_data["access_token"] is not None and len(response_data["access_token"])>0:
+            login_user(user)
+        else:
+            user.access_token = get_uuid()
+            login_user(user)
+            user.update_time = current_timestamp(),
+            user.update_date = datetime_format(datetime.now()),
+            user.save()
+
         msg = "Welcome back!"
+        # auth=user.get_id() --- 生成 authorization
         return construct_response(data=response_data, auth=user.get_id(), retmsg=msg)
     else:
         return get_json_result(data=False,

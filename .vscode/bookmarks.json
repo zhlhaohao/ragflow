@@ -274,6 +274,21 @@
 					"label": "解码jwt令牌Authorization->access_token"
 				}
 			]
+		},
+		{
+			"path": "api/apps/user_app.py",
+			"bookmarks": [
+				{
+					"line": 38,
+					"column": 5,
+					"label": ""
+				},
+				{
+					"line": 66,
+					"column": 25,
+					"label": ""
+				}
+			]
 		}
 	]
 }
