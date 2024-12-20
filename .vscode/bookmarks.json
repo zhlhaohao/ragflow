@@ -16,21 +16,6 @@
 			]
 		},
 		{
-			"path": "rag/svr/task_executor.py",
-			"bookmarks": [
-				{
-					"line": 178,
-					"column": 7,
-					"label": ""
-				},
-				{
-					"line": 357,
-					"column": 7,
-					"label": ""
-				}
-			]
-		},
-		{
 			"path": "rag/nlp/rag_tokenizer.py",
 			"bookmarks": [
 				{
