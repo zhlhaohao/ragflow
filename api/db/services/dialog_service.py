@@ -31,7 +31,7 @@ from rag.app.resume import forbidden_select_fields4resume
 from rag.nlp.search import index_name
 from rag.utils import rmSpace, num_tokens_from_string, encoder
 from api.utils.file_utils import get_project_base_directory
-
+from icecream import ic
 
 class DialogService(CommonService):
     model = Dialog
@@ -230,7 +230,7 @@ def chat(dialog, messages, stream=True, **kwargs):
     assert len(msg) >= 2, f"message_fit_in has bug: {msg}"
     prompt = msg[0]["content"]
     prompt += "\n\n### Query:\n%s" % " ".join(questions)
-
+    ic(prompt)
     if "max_tokens" in gen_conf:
         gen_conf["max_tokens"] = min(
             gen_conf["max_tokens"],

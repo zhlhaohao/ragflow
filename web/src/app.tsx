@@ -1,6 +1,5 @@
 import i18n from '@/locales/config';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { App, ConfigProvider, ConfigProviderProps } from 'antd';
 import enUS from 'antd/locale/en_US';
 import zhCN from 'antd/locale/zh_CN';
@@ -63,7 +62,8 @@ const RootProvider = ({ children }: React.PropsWithChildren) => {
       >
         <App> {children}</App>
       </ConfigProvider>
-      <ReactQueryDevtools buttonPosition={'top-left'} />
+      {/* 关闭 tanstack调试图标 */}
+      {/* <ReactQueryDevtools buttonPosition={'top-left'} /> */}
     </QueryClientProvider>
   );
 };

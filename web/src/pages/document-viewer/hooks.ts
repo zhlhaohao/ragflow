@@ -21,8 +21,11 @@ export const useCatchError = (api: string) => {
   return { fetchDocument, error };
 };
 
+// 根据doc_id读文件内容
 export const useFetchDocument = () => {
   const fetchDocument = useCallback(async (api: string) => {
+    // api = /v1/document/get/a6fa3a5ab85c11ef8d3700155d749c8b
+    console.log('[ api ]-26', api);
     const ret = await axios.get(api, { responseType: 'arraybuffer' });
     return ret;
   }, []);
@@ -30,6 +33,7 @@ export const useFetchDocument = () => {
   return { fetchDocument };
 };
 
+// 读取excel并渲染
 export const useFetchExcel = (filePath: string) => {
   const [status, setStatus] = useState(true);
   const { fetchDocument } = useFetchDocument();
@@ -41,7 +45,10 @@ export const useFetchExcel = (filePath: string) => {
     if (containerRef.current) {
       myExcelPreviewer = jsPreviewExcel.init(containerRef.current);
     }
+    // 读取文件内容
     const jsonFile = await fetchDocument(filePath);
+
+    // myExcelPreviewer.preview来渲染excel
     myExcelPreviewer
       ?.preview(jsonFile.data)
       .then(() => {
@@ -55,6 +62,7 @@ export const useFetchExcel = (filePath: string) => {
       });
   }, [filePath, fetchDocument]);
 
+  // 在组件mount后，自动执行fetchDocumentAsync
   useEffect(() => {
     fetchDocumentAsync();
   }, [fetchDocumentAsync]);

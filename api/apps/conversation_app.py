@@ -29,7 +29,7 @@ from api.settings import RetCode, retrievaler
 from api.utils.api_utils import get_json_result
 from api.utils.api_utils import server_error_response, get_data_error_result, validate_request
 from graphrag.mind_map_extractor import MindMapExtractor
-
+from icecream import ic 
 
 @manager.route('/set', methods=['POST'])
 @login_required
@@ -180,6 +180,9 @@ def completion():
 
         def stream():
             nonlocal dia, msg, req, conv
+
+            # ic(msg)
+
             try:
                 for ans in chat(dia, msg, True, **req):
                     fillin_conv(ans)

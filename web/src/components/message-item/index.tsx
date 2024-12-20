@@ -35,6 +35,7 @@ interface IProps extends Partial<IRemoveMessageById>, IRegenerateMessage {
   showLikeButton?: boolean;
 }
 
+// 自定义react组件，渲染聊天消息
 const MessageItem = ({
   item,
   reference,
@@ -149,6 +150,8 @@ const MessageItem = ({
                 clickDocumentButton={clickDocumentButton}
               ></MarkdownContent>
             </div>
+
+            {/* 显示参考文档的链接 */}
             {isAssistant && referenceDocumentList.length > 0 && (
               <List
                 bordered

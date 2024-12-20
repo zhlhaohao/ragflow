@@ -289,6 +289,76 @@
 					"label": ""
 				}
 			]
+		},
+		{
+			"path": "api/apps/conversation_app.py",
+			"bookmarks": [
+				{
+					"line": 138,
+					"column": 6,
+					"label": "completion聊天api"
+				}
+			]
+		},
+		{
+			"path": "api/db/services/dialog_service.py",
+			"bookmarks": [
+				{
+					"line": 129,
+					"column": 17,
+					"label": "与llm进行对话"
+				}
+			]
+		},
+		{
+			"path": "web/src/pages/chat/hooks.ts",
+			"bookmarks": [
+				{
+					"line": 457,
+					"column": 12,
+					"label": "前端：处理按下enter"
+				}
+			]
+		},
+		{
+			"path": "web/src/pages/chat/markdown-content/index.tsx",
+			"bookmarks": [
+				{
+					"line": 32,
+					"column": 8,
+					"label": "Markdown内容组件"
+				}
+			]
+		},
+		{
+			"path": "web/src/components/message-item/index.tsx",
+			"bookmarks": [
+				{
+					"line": 38,
+					"column": 3,
+					"label": "前端聊天消息组件"
+				}
+			]
+		},
+		{
+			"path": "web/src/routes.ts",
+			"bookmarks": [
+				{
+					"line": 0,
+					"column": 8,
+					"label": "前端路由表"
+				}
+			]
+		},
+		{
+			"path": "web/src/pages/document-viewer/hooks.ts",
+			"bookmarks": [
+				{
+					"line": 24,
+					"column": 1,
+					"label": "前端读office文件并渲染"
+				}
+			]
 		}
 	]
 }

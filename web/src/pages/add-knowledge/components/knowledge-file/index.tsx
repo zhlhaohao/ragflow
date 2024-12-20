@@ -119,6 +119,7 @@ const KnowledgeFile = () => {
       },
     },
     {
+      // 解析方法
       title: t('chunkMethod'),
       dataIndex: 'parser_id',
       key: 'parser_id',
@@ -127,6 +128,7 @@ const KnowledgeFile = () => {
       },
     },
     {
+      // 是否启用
       title: t('enabled'),
       key: 'status',
       dataIndex: 'status',
@@ -142,6 +144,7 @@ const KnowledgeFile = () => {
       ),
     },
     {
+      // 解析状态  0：未启动  1：解析中  3：成功
       title: t('parsingStatus'),
       dataIndex: 'run',
       key: 'run',
