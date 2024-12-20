@@ -1,14 +1,10 @@
 import { ReactComponent as MoreModelIcon } from '@/assets/svg/more-model.svg';
-import SvgIcon from '@/components/svg-icon';
+import { LlmIcon } from '@/components/svg-icon';
+import { useTheme } from '@/components/theme-provider';
 import { useSetModalState, useTranslate } from '@/hooks/common-hooks';
 import { LlmItem, useSelectLlmList } from '@/hooks/llm-hooks';
+import { CloseCircleOutlined, SettingOutlined } from '@ant-design/icons';
 import {
-  CloseCircleOutlined,
-  SettingOutlined,
-  UserOutlined,
-} from '@ant-design/icons';
-import {
-  Avatar,
   Button,
   Card,
   Col,
@@ -31,7 +27,6 @@ import TencentCloudModal from './Tencent-modal';
 import ApiKeyModal from './api-key-modal';
 import AzureOpenAIModal from './azure-openai-modal';
 import BedrockModal from './bedrock-modal';
-import { IconMap } from './constant';
 import FishAudioModal from './fish-audio-modal';
 import GoogleModal from './google-modal';
 import {
@@ -58,16 +53,6 @@ import SystemModelSettingModal from './system-model-setting-modal';
 import VolcEngineModal from './volcengine-modal';
 import YiyanModal from './yiyan-modal';
 
-const LlmIcon = ({ name }: { name: string }) => {
-  const icon = IconMap[name as keyof typeof IconMap];
-
-  return icon ? (
-    <SvgIcon name={`llm/${icon}`} width={48} height={48}></SvgIcon>
-  ) : (
-    <Avatar shape="square" size="large" icon={<UserOutlined />} />
-  );
-};
-
 const { Text } = Typography;
 interface IModelCardProps {
   item: LlmItem;
@@ -77,6 +62,7 @@ interface IModelCardProps {
 const ModelCard = ({ item, clickApiKey }: IModelCardProps) => {
   const { visible, switchVisible } = useSetModalState();
   const { t } = useTranslate('setting');
+  const { theme } = useTheme();
   const { handleDeleteLlm } = useHandleDeleteLlm(item.name);
   const { handleDeleteFactory } = useHandleDeleteFactory(item.name);
 
@@ -90,7 +76,9 @@ const ModelCard = ({ item, clickApiKey }: IModelCardProps) => {
 
   return (
     <List.Item>
-      <Card className={styles.addedCard}>
+      <Card
+        className={theme === 'dark' ? styles.addedCardDark : styles.addedCard}
+      >
         <Row align={'middle'}>
           <Col span={12}>
             <Flex gap={'middle'} align="center">
@@ -155,6 +143,7 @@ const ModelCard = ({ item, clickApiKey }: IModelCardProps) => {
 
 const UserSettingModel = () => {
   const { factoryList, myLlmList: llmList, loading } = useSelectLlmList();
+  const { theme } = useTheme();
   const {
     saveApiKeyLoading,
     initialApiKey,
@@ -329,7 +318,13 @@ const UserSettingModel = () => {
           dataSource={factoryList}
           renderItem={(item) => (
             <List.Item>
-              <Card className={styles.toBeAddedCard}>
+              <Card
+                className={
+                  theme === 'dark'
+                    ? styles.toBeAddedCardDark
+                    : styles.toBeAddedCard
+                }
+              >
                 <Flex vertical gap={'middle'}>
                   <LlmIcon name={item.name} />
                   <Flex vertical gap={'middle'}>
@@ -418,7 +413,7 @@ const UserSettingModel = () => {
         hideModal={hideTencentCloudAddingModal}
         onOk={onTencentCloudAddingOk}
         loading={TencentCloudAddingLoading}
-        llmFactory={'Tencent TencentCloud'}
+        llmFactory={'Tencent Cloud'}
       ></TencentCloudModal>
       <SparkModal
         visible={SparkAddingVisible}

@@ -29,9 +29,83 @@ from .jin10 import Jin10, Jin10Param
 from .tushare import TuShare, TuShareParam
 from .akshare import AkShare, AkShareParam
 from .crawler import Crawler, CrawlerParam
+from .invoke import Invoke, InvokeParam
+from .template import Template, TemplateParam
+from .email import Email, EmailParam
+
 
 
 def component_class(class_name):
     m = importlib.import_module("agent.component")
     c = getattr(m, class_name)
     return c
+
+__all__ = [
+    "Begin",
+    "BeginParam",
+    "Generate",
+    "GenerateParam",
+    "Retrieval",
+    "RetrievalParam",
+    "Answer",
+    "AnswerParam",
+    "Categorize",
+    "CategorizeParam",
+    "Switch",
+    "SwitchParam",
+    "Relevant",
+    "RelevantParam",
+    "Message",
+    "MessageParam",
+    "RewriteQuestion",
+    "RewriteQuestionParam",
+    "KeywordExtract",
+    "KeywordExtractParam",
+    "Concentrator",
+    "ConcentratorParam",
+    "Baidu",
+    "BaiduParam",
+    "DuckDuckGo",
+    "DuckDuckGoParam",
+    "Wikipedia",
+    "WikipediaParam",
+    "PubMed",
+    "PubMedParam",
+    "ArXiv",
+    "ArXivParam",
+    "Google",
+    "GoogleParam",
+    "Bing",
+    "BingParam",
+    "GoogleScholar",
+    "GoogleScholarParam",
+    "DeepL",
+    "DeepLParam",
+    "GitHub",
+    "GitHubParam",
+    "BaiduFanyi",
+    "BaiduFanyiParam",
+    "QWeather",
+    "QWeatherParam",
+    "ExeSQL",
+    "ExeSQLParam",
+    "YahooFinance",
+    "YahooFinanceParam",
+    "WenCai",
+    "WenCaiParam",
+    "Jin10",
+    "Jin10Param",
+    "TuShare",
+    "TuShareParam",
+    "AkShare",
+    "AkShareParam",
+    "Crawler",
+    "CrawlerParam",
+    "Invoke",
+    "InvokeParam",
+    "Template",
+    "TemplateParam",
+    "Email",
+    "EmailParam",
+    "component_class"
+]

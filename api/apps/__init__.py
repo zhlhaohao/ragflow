@@ -13,14 +13,16 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-import logging
 import os
 import sys
+import logging
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 from flask import Blueprint, Flask
 from werkzeug.wrappers.request import Request
 from flask_cors import CORS
+from flasgger import Swagger
+from itsdangerous.url_safe import URLSafeTimedSerializer as Serializer
 
 from api.db import StatusEnum
 from api.db.db_models import close_connection
@@ -29,32 +31,60 @@ from api.utils import CustomJSONEncoder, commands
 
 from flask_session import Session
 from flask_login import LoginManager
-from api.settings import SECRET_KEY, stat_logger
-from api.settings import API_VERSION, access_logger
+from api import settings
 from api.utils.api_utils import server_error_response
-from itsdangerous.url_safe import URLSafeTimedSerializer as Serializer
+from api.constants import API_VERSION
 
-__all__ = ['app']
-
-
-logger = logging.getLogger('flask.app')
-for h in access_logger.handlers:
-    logger.addHandler(h)
+__all__ = ["app"]
 
 Request.json = property(lambda self: self.get_json(force=True, silent=True))
 
 app = Flask(__name__)
-CORS(app, supports_credentials=True,max_age=2592000)
+
+# Add this at the beginning of your file to configure Swagger UI
+swagger_config = {
+    "headers": [],
+    "specs": [
+        {
+            "endpoint": "apispec",
+            "route": "/apispec.json",
+            "rule_filter": lambda rule: True,  # Include all endpoints
+            "model_filter": lambda tag: True,  # Include all models
+        }
+    ],
+    "static_url_path": "/flasgger_static",
+    "swagger_ui": True,
+    "specs_route": "/apidocs/",
+}
+
+swagger = Swagger(
+    app,
+    config=swagger_config,
+    template={
+        "swagger": "2.0",
+        "info": {
+            "title": "RAGFlow API",
+            "description": "",
+            "version": "1.0.0",
+        },
+        "securityDefinitions": {
+            "ApiKeyAuth": {"type": "apiKey", "name": "Authorization", "in": "header"}
+        },
+    },
+)
+
+CORS(app, supports_credentials=True, max_age=2592000)
 app.url_map.strict_slashes = False
 app.json_encoder = CustomJSONEncoder
 app.errorhandler(Exception)(server_error_response)
 
-
 ## convince for dev and debug
-#app.config["LOGIN_DISABLED"] = True
+# app.config["LOGIN_DISABLED"] = True
 app.config["SESSION_PERMANENT"] = False
 app.config["SESSION_TYPE"] = "filesystem"
-app.config['MAX_CONTENT_LENGTH'] = int(os.environ.get("MAX_CONTENT_LENGTH", 128 * 1024 * 1024))
+app.config["MAX_CONTENT_LENGTH"] = int(
+    os.environ.get("MAX_CONTENT_LENGTH", 128 * 1024 * 1024)
+)
 
 Session(app)
 login_manager = LoginManager()
@@ -64,26 +94,20 @@ commands.register_commands(app)
 
 
 def search_pages_path(pages_dir):
-    app_path_list = [path for path in pages_dir.glob('*_app.py') if not path.name.startswith('.')]
-    api_path_list = [path for path in pages_dir.glob('*sdk/*.py') if not path.name.startswith('.')]
+    app_path_list = [
+        path for path in pages_dir.glob("*_app.py") if not path.name.startswith(".")
+    ]
+    api_path_list = [
+        path for path in pages_dir.glob("*sdk/*.py") if not path.name.startswith(".")
+    ]
     app_path_list.extend(api_path_list)
     return app_path_list
 
 
 def register_page(page_path):
-    """
-    动态注册一个 Blueprint 到 Flask 应用中。
-
-    :param page_path: 模块文件的路径
-    :return: 注册的 URL 前缀
-    """
-    # 将路径转换为字符串形式
     path = f'{page_path}'
 
-    # 提取模块文件名（去掉 _app 后缀）,也就是说，dialog_app.py这个模块，page_name就是dialog
     page_name = page_path.stem.rstrip('_app')
-    
-    # 构建模块名称(对于api/apps/conversation_app.py, module_name = api.apps.conversation)
     module_name = '.'.join(page_path.parts[page_path.parts.index('api'):-1] + (page_name,))
 
     # 动态加载模块
@@ -99,11 +123,7 @@ def register_page(page_path):
 
     # 执行模块中的代码
     spec.loader.exec_module(page)
-
-    # 获取模块中定义的 page_name，如果没有定义则使用默认的 page_name
     page_name = getattr(page, 'page_name', page_name)
-
-    # 根据路径决定 URL 前缀, 例如 /v1/conversation
     url_prefix = f'/api/{API_VERSION}' if "/sdk/" in path else f'/{API_VERSION}/{page_name}'
 
     # 注册 Blueprint 到 Flask 应用中
@@ -116,17 +136,13 @@ def register_page(page_path):
 pages_dir = [
     # 当前文件所在目录
     Path(__file__).parent,
-    # api/apps 目录
     Path(__file__).parent.parent / 'api' / 'apps',
-    # api/apps/sdk 目录
     Path(__file__).parent.parent / 'api' / 'apps' / 'sdk',
 ]
 
 # 动态注册所有找到的模块文件，并收集返回的 URL 前缀
 client_urls_prefix = [
-    register_page(path)
-    for dir in pages_dir
-    for path in search_pages_path(dir)
+    register_page(path) for dir in pages_dir for path in search_pages_path(dir)
 ]
 
 
@@ -149,13 +165,15 @@ def load_user(web_request):
                     return None                            
             """
             access_token = str(jwt.loads(authorization))
-            user = UserService.query(access_token=access_token, status=StatusEnum.VALID.value)
+            user = UserService.query(
+                access_token=access_token, status=StatusEnum.VALID.value
+            )
             if user:
                 return user[0]
             else:
                 return None
-        except Exception as e:
-            stat_logger.exception(e)
+        except Exception:
+            logging.exception("load_user got exception")
             return None
     else:
         return None

@@ -13,20 +13,20 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
+import logging
 import re
-import traceback
 from concurrent.futures import ThreadPoolExecutor, ALL_COMPLETED, wait
 from threading import Lock
-from typing import Tuple
 import umap
 import numpy as np
 from sklearn.mixture import GaussianMixture
 
-from rag.utils import num_tokens_from_string, truncate
+from graphrag.utils import get_llm_cache, get_embed_cache, set_embed_cache, set_llm_cache
+from rag.utils import truncate
 
 
 class RecursiveAbstractiveProcessing4TreeOrganizedRetrieval:
-    def __init__(self, max_cluster, llm_model, embd_model, prompt, max_token=256, threshold=0.1):
+    def __init__(self, max_cluster, llm_model, embd_model, prompt, max_token=512, threshold=0.1):
         """
         初始化类实例。
 
@@ -44,14 +44,28 @@ class RecursiveAbstractiveProcessing4TreeOrganizedRetrieval:
         self._prompt = prompt
         self._max_token = max_token
 
-    def _get_optimal_clusters(self, embeddings: np.ndarray, random_state:int):
-        """
-        通过BIC（Bayesian Information Criterion）选择最优的聚类数量。
+    def _chat(self, system, history, gen_conf):
+        response = get_llm_cache(self._llm_model.llm_name, system, history, gen_conf)
+        if response:
+            return response
+        response = self._llm_model.chat(system, history, gen_conf)
+        if response.find("**ERROR**") >= 0:
+            raise Exception(response)
+        set_llm_cache(self._llm_model.llm_name, system, response, history, gen_conf)
+        return response
 
-        :param embeddings: 文本的嵌入向量数组。
-        :param random_state: 随机状态种子，用于确保结果的可复现性。
-        :return: 选择的最优聚类数量。
-        """
+    def _embedding_encode(self, txt):
+        response = get_embed_cache(self._embd_model.llm_name, txt)
+        if response:
+            return response
+        embds, _ = self._embd_model.encode([txt])
+        if len(embds) < 1 or len(embds[0]) < 1:
+            raise Exception("Embedding error: ")
+        embds = embds[0]
+        set_embed_cache(self._embd_model.llm_name, txt, embds)
+        return embds
+
+    def _get_optimal_clusters(self, embeddings: np.ndarray, random_state: int):
         max_clusters = min(self._max_cluster, len(embeddings))
         n_clusters = np.arange(1, max_clusters)
         bics = []
@@ -62,7 +76,7 @@ class RecursiveAbstractiveProcessing4TreeOrganizedRetrieval:
         optimal_clusters = n_clusters[np.argmin(bics)]
         return optimal_clusters
 
-    def __call__(self, chunks: Tuple[str, np.ndarray], random_state, callback=None):
+    def __call__(self, chunks, random_state, callback=None):
         """
         对文档切片进行层次化的聚类和摘要生成。
 
@@ -70,7 +84,6 @@ class RecursiveAbstractiveProcessing4TreeOrganizedRetrieval:
         :param random_state: 随机状态种子，用于确保结果的可复现性。
         :param callback: 回调函数，用于报告进度。
         """
-        # 初始化层次结构
         layers = [(0, len(chunks))]
         # 初始化开始和结束索引
         start, end = 0, len(chunks)
@@ -94,26 +107,21 @@ class RecursiveAbstractiveProcessing4TreeOrganizedRetrieval:
                 len_per_chunk = int((self._llm_model.max_length - self._max_token)/len(texts))
                 # 截断文本以适应最大长度限制
                 cluster_content = "\n".join([truncate(t, max(1, len_per_chunk)) for t in texts])
-
                 # 使用语言模型生成摘要
-                cnt = self._llm_model.chat("You're a helpful assistant.",
-                                             [{"role": "user", "content": self._prompt.format(cluster_content=cluster_content)}],
-                                             {"temperature": 0.3, "max_tokens": self._max_token}
-                                             )
-                cnt = re.sub("(······\n由于长度的原因，回答被截断了，要继续吗？|For the content length reason, it stopped, continue?)", "", cnt)
-                print("SUM:", cnt)
-
-                # 获取摘要的嵌入
+                cnt = self._chat("You're a helpful assistant.",
+                                           [{"role": "user",
+                                             "content": self._prompt.format(cluster_content=cluster_content)}],
+                                           {"temperature": 0.3, "max_tokens": self._max_token}
+                                           )
+                cnt = re.sub("(······\n由于长度的原因，回答被截断了，要继续吗？|For the content length reason, it stopped, continue?)", "",
+                             cnt)
+                logging.debug(f"SUM: {cnt}")
                 embds, _ = self._embd_model.encode([cnt])
                 with lock:
-                     # 如果嵌入为空，则返回
-                    if not len(embds[0]): 
-                        return
                     # 将摘要及其嵌入追加到chunks列表中
-                    chunks.append((cnt, embds[0]))
+                    chunks.append((cnt, self._embedding_encode(cnt)))
             except Exception as e:
-                print(e, flush=True)
-                traceback.print_stack(e)
+                logging.exception("summarize got exception")
                 return e
 
         # ---- end of summarize
@@ -126,10 +134,10 @@ class RecursiveAbstractiveProcessing4TreeOrganizedRetrieval:
             embeddings = [embd for _, embd in chunks[start:end]]  
             if len(embeddings) == 2:
                 # 如果当前层只有两个嵌入，则直接生成摘要
-                summarize([start, start+1], Lock())
+                summarize([start, start + 1], Lock())
                 if callback:
-                    callback(msg="Cluster one layer: {} -> {}".format(end-start, len(chunks)-end))
-                labels.extend([0,0])
+                    callback(msg="Cluster one layer: {} -> {}".format(end - start, len(chunks) - end))
+                labels.extend([0, 0])
                 layers.append((end, len(chunks)))
                 start = end
                 end = len(chunks)
@@ -139,7 +147,7 @@ class RecursiveAbstractiveProcessing4TreeOrganizedRetrieval:
             n_neighbors = int((len(embeddings) - 1) ** 0.8)
             # 对嵌入进行降维
             reduced_embeddings = umap.UMAP(
-                n_neighbors=max(2, n_neighbors), n_components=min(12, len(embeddings)-2), metric="cosine"
+                n_neighbors=max(2, n_neighbors), n_components=min(12, len(embeddings) - 2), metric="cosine"
             ).fit_transform(embeddings)
             # 选择最优的聚类数量  
             n_clusters = self._get_optimal_clusters(reduced_embeddings, random_state)
@@ -160,19 +168,19 @@ class RecursiveAbstractiveProcessing4TreeOrganizedRetrieval:
             with ThreadPoolExecutor(max_workers=12) as executor:
                 threads = []
                 for c in range(n_clusters):
-                    # 获取当前簇的索引列表
-                    ck_idx = [i+start for i in range(len(lbls)) if lbls[i] == c]
-                    # 多线程提交任务
+                    ck_idx = [i + start for i in range(len(lbls)) if lbls[i] == c]
                     threads.append(executor.submit(summarize, ck_idx, lock))
                 # 等待所有任务完成    
                 wait(threads, return_when=ALL_COMPLETED)
-                print([t.result() for t in threads])
+                logging.debug(str([t.result() for t in threads]))
 
             assert len(chunks) - end == n_clusters, "{} vs. {}".format(len(chunks) - end, n_clusters)
             labels.extend(lbls)
             layers.append((end, len(chunks)))
             if callback:
-                callback(msg="Cluster one layer: {} -> {}".format(end-start, len(chunks)-end))
+                callback(msg="Cluster one layer: {} -> {}".format(end - start, len(chunks) - end))
             start = end
             end = len(chunks)
+
+        return chunks
 

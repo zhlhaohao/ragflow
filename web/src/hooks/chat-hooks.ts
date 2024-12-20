@@ -11,6 +11,7 @@ import {
 } from '@/interfaces/request/chat';
 import i18n from '@/locales/config';
 import { IClientConversation } from '@/pages/chat/interface';
+import { useGetSharedChatSearchParams } from '@/pages/chat/shared-hooks';
 import chatService from '@/services/chat-service';
 import {
   buildMessageListWithUuid,
@@ -27,6 +28,7 @@ import { history, useSearchParams } from 'umi';
 //#region logic
 
 export const useClickDialogCard = () => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_, setSearchParams] = useSearchParams();
 
   const newQueryParameters: URLSearchParams = useMemo(() => {
@@ -99,7 +101,7 @@ export const useFetchNextDialogList = () => {
       console.log('🚀 ~ queryFn: ~ params:', params);
       const { data } = await chatService.listDialog();
 
-      if (data.retcode === 0) {
+      if (data.code === 0) {
         const list: IDialog[] = data.data;
         if (list.length > 0) {
           if (list.every((x) => x.id !== dialogId)) {
@@ -128,7 +130,7 @@ export const useSetNextDialog = () => {
     mutationKey: ['setDialog'],
     mutationFn: async (params: IDialog) => {
       const { data } = await chatService.setDialog(params);
-      if (data.retcode === 0) {
+      if (data.code === 0) {
         queryClient.invalidateQueries({
           exact: false,
           queryKey: ['fetchDialogList'],
@@ -141,7 +143,7 @@ export const useSetNextDialog = () => {
           i18n.t(`message.${params.dialog_id ? 'modified' : 'created'}`),
         );
       }
-      return data?.retcode;
+      return data?.code;
     },
   });
 
@@ -200,12 +202,12 @@ export const useRemoveNextDialog = () => {
     mutationKey: ['removeDialog'],
     mutationFn: async (dialogIds: string[]) => {
       const { data } = await chatService.removeDialog({ dialogIds });
-      if (data.retcode === 0) {
+      if (data.code === 0) {
         queryClient.invalidateQueries({ queryKey: ['fetchDialogList'] });
 
         message.success(i18n.t('message.deleted'));
       }
-      return data.retcode;
+      return data.code;
     },
   });
 
@@ -231,7 +233,7 @@ export const useFetchNextConversationList = () => {
     enabled: !!dialogId,
     queryFn: async () => {
       const { data } = await chatService.listConversation({ dialogId });
-      if (data.retcode === 0 && data.data.length > 0) {
+      if (data.code === 0 && data.data.length > 0) {
         handleClickConversation(data.data[0].id, '');
       }
       return data?.data;
@@ -243,6 +245,7 @@ export const useFetchNextConversationList = () => {
 
 export const useFetchNextConversation = () => {
   const { isNew, conversationId } = useGetChatSearchParams();
+  const { sharedId } = useGetSharedChatSearchParams();
   const {
     data,
     isFetching: loading,
@@ -254,13 +257,45 @@ export const useFetchNextConversation = () => {
     gcTime: 0,
     refetchOnWindowFocus: false,
     queryFn: async () => {
-      if (isNew !== 'true' && isConversationIdExist(conversationId)) {
-        const { data } = await chatService.getConversation({ conversationId });
+      if (
+        isNew !== 'true' &&
+        isConversationIdExist(sharedId || conversationId)
+      ) {
+        const { data } = await chatService.getConversation({
+          conversationId: conversationId || sharedId,
+        });
 
         const conversation = data?.data ?? {};
 
         const messageList = buildMessageListWithUuid(conversation?.message);
 
+        return { ...conversation, message: messageList };
+      }
+      return { message: [] };
+    },
+  });
+
+  return { data, loading, refetch };
+};
+
+export const useFetchNextConversationSSE = () => {
+  const { isNew } = useGetChatSearchParams();
+  const { sharedId } = useGetSharedChatSearchParams();
+  const {
+    data,
+    isFetching: loading,
+    refetch,
+  } = useQuery<IClientConversation>({
+    queryKey: ['fetchConversationSSE', sharedId],
+    initialData: {} as IClientConversation,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    queryFn: async () => {
+      if (isNew !== 'true' && isConversationIdExist(sharedId || '')) {
+        if (!sharedId) return {};
+        const { data } = await chatService.getConversationSSE({}, sharedId);
+        const conversation = data?.data ?? {};
+        const messageList = buildMessageListWithUuid(conversation?.message);
         return { ...conversation, message: messageList };
       }
       return { message: [] };
@@ -303,7 +338,7 @@ export const useUpdateNextConversation = () => {
           ? params.conversation_id
           : getConversationId(),
       });
-      if (data.retcode === 0) {
+      if (data.code === 0) {
         queryClient.invalidateQueries({ queryKey: ['fetchConversationList'] });
       }
       return data;
@@ -328,10 +363,10 @@ export const useRemoveNextConversation = () => {
         conversationIds,
         dialogId,
       });
-      if (data.retcode === 0) {
+      if (data.code === 0) {
         queryClient.invalidateQueries({ queryKey: ['fetchConversationList'] });
       }
-      return data.retcode;
+      return data.code;
     },
   });
 
@@ -353,11 +388,11 @@ export const useDeleteMessage = () => {
         conversationId,
       });
 
-      if (data.retcode === 0) {
+      if (data.code === 0) {
         message.success(i18n.t(`message.deleted`));
       }
 
-      return data.retcode;
+      return data.code;
     },
   });
 
@@ -378,10 +413,10 @@ export const useFeedback = () => {
         ...params,
         conversationId,
       });
-      if (data.retcode === 0) {
+      if (data.code === 0) {
         message.success(i18n.t(`message.operated`));
       }
-      return data.retcode;
+      return data.code;
     },
   });
 
@@ -402,7 +437,7 @@ export const useCreateNextToken = () => {
     mutationKey: ['createToken'],
     mutationFn: async (params: Record<string, any>) => {
       const { data } = await chatService.createToken(params);
-      if (data.retcode === 0) {
+      if (data.code === 0) {
         queryClient.invalidateQueries({ queryKey: ['fetchTokenList'] });
       }
       return data?.data ?? [];
@@ -445,7 +480,7 @@ export const useRemoveNextToken = () => {
       tokens: string[];
     }) => {
       const { data } = await chatService.removeToken(params);
-      if (data.retcode === 0) {
+      if (data.code === 0) {
         queryClient.invalidateQueries({ queryKey: ['fetchTokenList'] });
       }
       return data?.data ?? [];
@@ -504,11 +539,17 @@ export const useCreateNextSharedConversation = () => {
   return { data, loading, createSharedConversation: mutateAsync };
 };
 
-export const useFetchNextSharedConversation = (conversationId: string) => {
+// deprecated
+export const useFetchNextSharedConversation = (
+  conversationId?: string | null,
+) => {
   const { data, isPending: loading } = useQuery({
     queryKey: ['fetchSharedConversation'],
     enabled: !!conversationId,
     queryFn: async () => {
+      if (!conversationId) {
+        return {};
+      }
       const { data } = await chatService.getExternalConversation(
         null,
         conversationId,
@@ -541,7 +582,7 @@ export const useFetchMindMap = () => {
       try {
         const ret = await chatService.getMindMap(params);
         return ret?.data?.data ?? {};
-      } catch (error) {
+      } catch (error: any) {
         if (has(error, 'message')) {
           message.error(error.message);
         }

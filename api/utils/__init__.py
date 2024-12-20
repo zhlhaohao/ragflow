@@ -23,16 +23,16 @@ import socket
 import time
 import uuid
 import requests
+import logging
+import copy
 from enum import Enum, IntEnum
 import importlib
 from Cryptodome.PublicKey import RSA
 from Cryptodome.Cipher import PKCS1_v1_5 as Cipher_pkcs1_v1_5
-
 from filelock import FileLock
+from api.constants import SERVICE_CONF
 
 from . import file_utils
-
-SERVICE_CONF = "service_conf.yaml"
 
 
 def conf_realpath(conf_name):
@@ -40,7 +40,7 @@ def conf_realpath(conf_name):
     return os.path.join(file_utils.get_project_base_directory(), conf_path)
 
 
-def get_base_config(key, default=None, conf_name=SERVICE_CONF) -> dict:
+def read_config(conf_name=SERVICE_CONF):
     """
     用于从配置文件中读取特定键值。首先尝试从本地配置文件(local.service_conf.yaml)中读取指定的键值，如果该键不存在于本地配置文件中，则会从默认的配置文件(service_conf.yaml)中读取。如果指定的键在两个文件中都不存在，那么它将返回一个默认值：
 
@@ -65,37 +65,50 @@ def get_base_config(key, default=None, conf_name=SERVICE_CONF) -> dict:
     - `conf_realpath` 应当返回给定配置文件名的实际路径，而 `file_utils.load_yaml_conf` 则负责从给定的路径加载 YAML 文件的内容。
     - `os.environ.get` 用于从环境变量中获取值，这是一个非常有用的功能，特别是在部署应用时，可以通过环境变量来动态地改变配置。
     - 在实际使用中，确保所有涉及到的文件路径和文件名都是正确的，以避免因文件不存在或格式错误而导致的问题。
-    """    
+    """        
     local_config = {}
     local_path = conf_realpath(f'local.{conf_name}')
-    if default is None:
-        default = os.environ.get(key.upper())
 
+    # load local config file
     if os.path.exists(local_path):
         local_config = file_utils.load_yaml_conf(local_path)
         if not isinstance(local_config, dict):
             raise ValueError(f'Invalid config file: "{local_path}".')
 
-        if key is not None and key in local_config:
-            return local_config[key]
+    global_config_path = conf_realpath(conf_name)
+    global_config = file_utils.load_yaml_conf(global_config_path)
 
-    config_path = conf_realpath(conf_name)
-    config = file_utils.load_yaml_conf(config_path)
+    if not isinstance(global_config, dict):
+        raise ValueError(f'Invalid config file: "{global_config_path}".')
 
-    if not isinstance(config, dict):
-        raise ValueError(f'Invalid config file: "{config_path}".')
+    global_config.update(local_config)
+    return global_config
 
-    config.update(local_config)
-    return config.get(key, default) if key is not None else config
+
+CONFIGS = read_config()
+
+
+def show_configs():
+    msg = f"Current configs, from {conf_realpath(SERVICE_CONF)}:"
+    for k, v in CONFIGS.items():
+        if isinstance(v, dict):
+            if "password" in v:
+                v = copy.deepcopy(v)
+                v["password"] = "*" * 8
+        msg += f"\n\t{k}: {v}"
+    logging.info(msg)
+
+
+def get_base_config(key, default=None):
+    if key is None:
+        return None
+    if default is None:
+        default = os.environ.get(key.upper())
+    return CONFIGS.get(key, default)
 
 
 use_deserialize_safe_module = get_base_config(
     'use_deserialize_safe_module', False)
-
-
-class CoordinationCommunicationProtocol(object):
-    HTTP = "http"
-    GRPC = "grpc"
 
 
 class BaseType:
@@ -123,6 +136,7 @@ class BaseType:
                 data = obj
             return {"type": obj.__class__.__name__,
                     "data": data, "module": module}
+
         return _dict(self)
 
 
@@ -270,7 +284,7 @@ def get_lan_ip():
             try:
                 ip = get_interface_ip(ifname)
                 break
-            except IOError as e:
+            except IOError:
                 pass
     return ip or ''
 
@@ -389,8 +403,8 @@ def download_img(url):
         return ""
     response = requests.get(url)
     return "data:" + \
-           response.headers.get('Content-Type', 'image/jpg') + ";" + \
-           "base64," + base64.b64encode(response.content).decode("utf-8")
+        response.headers.get('Content-Type', 'image/jpg') + ";" + \
+        "base64," + base64.b64encode(response.content).decode("utf-8")
 
 
 def delta_seconds(date_string: str):

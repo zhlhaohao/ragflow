@@ -27,6 +27,7 @@ import {
 } from 'antd';
 import classNames from 'classnames';
 import get from 'lodash/get';
+import { Paperclip } from 'lucide-react';
 import {
   ChangeEventHandler,
   memo,
@@ -36,7 +37,6 @@ import {
   useState,
 } from 'react';
 import FileIcon from '../file-icon';
-import SvgIcon from '../svg-icon';
 import styles from './index.less';
 
 type FileType = Parameters<GetProp<UploadProps, 'beforeUpload'>>[0];
@@ -53,8 +53,8 @@ const getFileIds = (fileList: UploadFile[]) => {
 };
 
 const isUploadSuccess = (file: UploadFile) => {
-  const retcode = get(file, 'response.retcode');
-  return typeof retcode === 'number' && retcode === 0;
+  const code = get(file, 'response.code');
+  return typeof code === 'number' && code === 0;
 };
 
 interface IProps {
@@ -98,7 +98,6 @@ const MessageInput = ({
   const { data: documentInfos, setDocumentIds } = useFetchDocumentInfosByIds();
   const { uploadAndParseDocument } = useUploadAndParseDocument(uploadMethod);
   const conversationIdRef = useRef(conversationId);
-
   const [fileList, setFileList] = useState<UploadFile[]>([]);
 
   const handlePreview = async (file: UploadFile) => {
@@ -116,7 +115,7 @@ const MessageInput = ({
       const creatingRet = await createConversationBeforeUploadDocument(
         file.name,
       );
-      if (creatingRet?.retcode === 0) {
+      if (creatingRet?.code === 0) {
         nextConversationId = creatingRet.data.id;
       }
     }
@@ -140,7 +139,7 @@ const MessageInput = ({
         originFileObj: file as any,
         response: ret,
         percent: 100,
-        status: ret?.retcode === 0 ? 'done' : 'error',
+        status: ret?.code === 0 ? 'done' : 'error',
       });
       return nextList;
     });
@@ -225,14 +224,7 @@ const MessageInput = ({
                 <Button
                   type={'text'}
                   disabled={disabled}
-                  icon={
-                    <SvgIcon
-                      name="paper-clip"
-                      width={18}
-                      height={22}
-                      disabled={disabled}
-                    ></SvgIcon>
-                  }
+                  icon={<Paperclip></Paperclip>}
                 ></Button>
               </Upload>
             )}

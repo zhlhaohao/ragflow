@@ -12,44 +12,52 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-#
-import datetime
-import json
+
+# from beartype import BeartypeConf
+# from beartype.claw import beartype_all  # <-- you didn't sign up for this
+# beartype_all(conf=BeartypeConf(violation_type=UserWarning))    # <-- emit warnings from all code
+
+import sys
+from api.utils.log_utils import initRootLogger
+from graphrag.utils import get_llm_cache, set_llm_cache
+
+CONSUMER_NO = "0" if len(sys.argv) < 2 else sys.argv[1]
+CONSUMER_NAME = "task_executor_" + CONSUMER_NO
+initRootLogger(CONSUMER_NAME)
+
 import logging
 import os
-import hashlib
+from datetime import datetime
+import json
+import xxhash
 import copy
 import re
-import sys
 import time
-import traceback
-from concurrent.futures import ThreadPoolExecutor
+import threading
 from functools import partial
 from io import BytesIO
 from multiprocessing.context import TimeoutError
 from timeit import default_timer as timer
+import tracemalloc
 
 import numpy as np
-import pandas as pd
-from elasticsearch_dsl import Q
+from peewee import DoesNotExist
 
-from api.db import LLMType, ParserType
+from api.db import LLMType, ParserType, TaskStatus
 from api.db.services.dialog_service import keyword_extraction, question_proposal
 from api.db.services.document_service import DocumentService
 from api.db.services.llm_service import LLMBundle
 from api.db.services.task_service import TaskService
 from api.db.services.file2document_service import File2DocumentService
-from api.settings import retrievaler
-from api.utils.file_utils import get_project_base_directory
+from api import settings
+from api.versions import get_ragflow_version
 from api.db.db_models import close_connection
 from rag.app import laws, paper, presentation, manual, qa, table, book, resume, picture, naive, one, audio, email
 # from rag.app import knowledge_graph
 from rag.nlp import search, rag_tokenizer
 from rag.raptor import RecursiveAbstractiveProcessing4TreeOrganizedRetrieval as Raptor
-from rag.settings import database_logger, SVR_QUEUE_NAME
-from rag.settings import cron_logger, DOC_MAXIMUM_SIZE
-from rag.utils import rmSpace, num_tokens_from_string
-from rag.utils.es_conn import ELASTICSEARCH
+from rag.settings import DOC_MAXIMUM_SIZE, SVR_QUEUE_NAME, print_rag_settings
+from rag.utils import num_tokens_from_string
 from rag.utils.redis_conn import REDIS_CONN, Payload
 from rag.utils.storage_factory import STORAGE_IMPL
 
@@ -73,18 +81,35 @@ FACTORY = {
     ParserType.EMAIL.value: email,
     # ParserType.KG.value: knowledge_graph
 }
-
-
 # redis消费者名称，用于区分不同的消费者,在这里用进程编号(参数1)作为消费者名称
-CONSUMER_NAME = "task_consumer_" + ("0" if len(sys.argv) < 2 else sys.argv[1])
+CONSUMER_NAME = "task_consumer_" + CONSUMER_NO
 PAYLOAD: Payload | None = None
+BOOT_AT = datetime.now().isoformat()
+PENDING_TASKS = 0
+LAG_TASKS = 0
 
+mt_lock = threading.Lock()
+DONE_TASKS = 0
+FAILED_TASKS = 0
+CURRENT_TASK = None
+
+class TaskCanceledException(Exception):
+    def __init__(self, msg):
+        self.msg = msg
 
 def set_progress(task_id, from_page=0, to_page=-1, prog=None, msg="Processing..."):
     global PAYLOAD
     if prog is not None and prog < 0:
         msg = "[ERROR]" + msg
-    cancel = TaskService.do_cancel(task_id)
+    try:
+        cancel = TaskService.do_cancel(task_id)
+    except DoesNotExist:
+        logging.warning(f"set_progress task {task_id} is unknown")
+        if PAYLOAD:
+            PAYLOAD.ack()
+            PAYLOAD = None
+        return
+
     if cancel:
         msg += " [Canceled]"
         prog = -1
@@ -95,23 +120,26 @@ def set_progress(task_id, from_page=0, to_page=-1, prog=None, msg="Processing...
     d = {"progress_msg": msg}
     if prog is not None:
         d["progress"] = prog
+
+    logging.info(f"set_progress({task_id}), progress: {prog}, progress_msg: {msg}")
     try:
         TaskService.update_progress(task_id, d)
-    except Exception as e:
-        cron_logger.error("set_progress:({}), {}".format(task_id, str(e)))
-
-    close_connection()
-    if cancel:
+    except DoesNotExist:
+        logging.warning(f"set_progress task {task_id} is unknown")
         if PAYLOAD:
             PAYLOAD.ack()
             PAYLOAD = None
-        os._exit(0)
+        return
+
+    close_connection()
+    if cancel and PAYLOAD:
+        PAYLOAD.ack()
+        PAYLOAD = None
+        raise TaskCanceledException(msg)
 
 
 def collect():
-    # 声明全局变量，以便可以在函数内部修改它们
-    global CONSUMER_NAME, PAYLOAD
-
+    global CONSUMER_NAME, PAYLOAD, DONE_TASKS, FAILED_TASKS
     try:
         # 尝试从Redis队列中获取未确认的消息（就是尚未完成的任务）,在消息队列系统中，消息通常经过以下几个阶段：发布\获取\处理\确认\重试
         PAYLOAD = REDIS_CONN.get_unacked_for(CONSUMER_NAME, SVR_QUEUE_NAME, "rag_flow_svr_task_broker")
@@ -123,43 +151,40 @@ def collect():
         # 如果还是没有消息，则等待一秒后返回空DataFrame
         if not PAYLOAD:
             time.sleep(1)
-            return pd.DataFrame()
-
-    except Exception as e:
-        # 记录获取队列事件时发生的异常,返回空的DataFrame
-        cron_logger.error("Get task event from queue exception:" + str(e))
-        return pd.DataFrame()
+            return None
+    except Exception:
+        logging.exception("Get task event from queue exception")
+        return None
 
     # 提取消息内容
     msg = PAYLOAD.get_message()
 
     # 如果消息为空，则返回空DataFrame
     if not msg:
-        return pd.DataFrame()
+        return None
 
-    # 检查任务是否已被取消,返回空的DataFrame
-    if TaskService.do_cancel(msg["id"]):
-        # 记录任务已取消的日志
-        cron_logger.info("Task {} has been canceled.".format(msg["id"]))
-        return pd.DataFrame()
+    task = None
+    canceled = False
+    try:
+        # 获取与消息ID相关联的任务列表，任务列表的任务包括：文档切割、文档嵌入等
+        task = TaskService.get_task(msg["id"])
+        if task:
+            _, doc = DocumentService.get_by_id(task["doc_id"])
+            canceled = doc.run == TaskStatus.CANCEL.value or doc.progress < 0
+    except DoesNotExist:
+        pass
+    except Exception:
+        logging.exception("collect get_task exception")
+    if not task or canceled:
+        state = "is unknown" if not task else "has been cancelled"
+        with mt_lock:
+            DONE_TASKS += 1
+        logging.info(f"collect task {msg['id']} {state}")
+        return None
 
-    # 获取与消息ID相关联的任务列表，任务列表的任务包括：文档切割、文档嵌入等
-    tasks = TaskService.get_tasks(msg["id"])
-
-    # 如果任务列表为空，则记录警告日志并返回空列表
-    if not tasks:
-        cron_logger.warn("{} empty task!".format(msg["id"]))
-        return []
-
-    # 将任务列表转换为pandas DataFrame
-    tasks = pd.DataFrame(tasks)
-
-    # 如果消息类型为 "raptor"，则添加一个新的列 "task_type" 并设置其值为 "raptor"
     if msg.get("type", "") == "raptor":
-        tasks["task_type"] = "raptor"
-
-    # 返回包含任务数据的DataFrame
-    return tasks
+        task["task_type"] = "raptor"
+    return task
 
 
 def get_storage_binary(bucket, name):
@@ -171,57 +196,39 @@ def build(row):
     对文件切块，自动生成关键词，自动生成QA，然后把这些信息放到到docs，并返回
     row: 任务配置- doc_id \ location\ name \ size \ parser_id切块器id \ parser_config
     返回 docs: doc_id \ kb_id \
-    """
-
-    # 检查文件大小是否超过限制
+    """ 
+    # 检查文件大小是否超过限制       
     if row["size"] > DOC_MAXIMUM_SIZE:
         set_progress(row["id"], prog=-1, msg="File size exceeds( <= %dMb )" %
                                              (int(DOC_MAXIMUM_SIZE / 1024 / 1024)))
         return []
 
-    # 创建一个回调函数，用于更新任务进度
-    callback = partial(
-        set_progress,
-        row["id"],
-        row["from_page"],
-        row["to_page"])
-
-    # 获取对应的切块器
-    chunker = FACTORY[row["parser_id"].lower()]
-
+    chunker = FACTORY[task["parser_id"].lower()]
     try:
         # 获取文件的存储地址
         st = timer()
-        bucket, name = File2DocumentService.get_storage_address(doc_id=row["doc_id"])
-        # 从minio存储中获取文件二进制内容
+        bucket, name = File2DocumentService.get_storage_address(doc_id=task["doc_id"])
         binary = get_storage_binary(bucket, name)
-        cron_logger.info(
-            "From minio({}) {}/{}".format(timer() - st, row["location"], row["name"]))
+        logging.info("From minio({}) {}/{}".format(timer() - st, task["location"], task["name"]))
     except TimeoutError:
-        callback(-1, "Internal server error: Fetch file from minio timeout. Could you try it again.")
-        cron_logger.error(
-            "Minio {}/{}: Fetch file from minio timeout.".format(row["location"], row["name"]))
-        return
+        progress_callback(-1, "Internal server error: Fetch file from minio timeout. Could you try it again.")
+        logging.exception("Minio {}/{} got timeout: Fetch file from minio timeout.".format(task["location"], task["name"]))
+        raise
     except Exception as e:
         if re.search("(No such file|not found)", str(e)):
-            callback(-1, "Can not find file <%s> from minio. Could you try it again?" % row["name"])
+            progress_callback(-1, "Can not find file <%s> from minio. Could you try it again?" % task["name"])
         else:
-            callback(-1, "Get file from minio: %s" % str(e).replace("'", ""))
-        traceback.print_exc()
-        return
-    
+            progress_callback(-1, "Get file from minio: %s" % str(e).replace("'", ""))
+        logging.exception("Chunking {}/{} got exception".format(task["location"], task["name"]))
+        raise
+
     try:
-        # 使用切块器对文件进行解析、切块、合并较小的块、tokenize
-        # naive.chunk(row["name"], binary=binary, from_page=row["from_page"],
-        #                     to_page=row["to_page"], lang=row["language"], callback=callback,
-        #                     kb_id=row["kb_id"], parser_config=row["parser_config"], tenant_id=row["tenant_id"])
-        
-        cks = chunker.chunk(row["name"], binary=binary, from_page=row["from_page"],
-                            to_page=row["to_page"], lang=row["language"], callback=callback,
-                            kb_id=row["kb_id"], parser_config=row["parser_config"], tenant_id=row["tenant_id"])
-        
-        cron_logger.info(
-            "Chunking({}) {}/{}".format(timer() - st, row["location"], row["name"]))
+        cks = chunker.chunk(task["name"], binary=binary, from_page=task["from_page"],
+                            to_page=task["to_page"], lang=task["language"], callback=progress_callback,
+                            kb_id=task["kb_id"], parser_config=task["parser_config"], tenant_id=task["tenant_id"])
+        logging.info("Chunking({}) {}/{} done".format(timer() - st, task["location"], task["name"]))
+    except TaskCanceledException:
+        raise
     except Exception as e:
         callback(-1, "Internal server error while chunking: %s" %
                      str(e).replace("'", ""))
@@ -230,15 +237,13 @@ def build(row):
         traceback.print_exc()
         return
 
-
-    # 初始化文档列表(在这里文件的一个切块被视为一个doc)
     docs = []
     doc = {
-        "doc_id": row["doc_id"],
-        "kb_id": [str(row["kb_id"])]
+        "doc_id": task["doc_id"],
+        "kb_id": str(task["kb_id"])
     }
-
-    # 计时变量
+    if task["pagerank"]:
+        doc["pagerank_fea"] = int(task["pagerank"])
     el = 0
 
     # 遍历切块结果
@@ -248,19 +253,12 @@ def build(row):
 
         # 字典 ck 中的所有键值对合并到字典 d 中。如果 ck 中的键已经在 d 中存在，那么 d 中对应的键的值将被 ck 中的值覆盖。
         d.update(ck)
-
-        # 为切块信息生成唯一标识符
-        md5 = hashlib.md5()
-        md5.update((ck["content_with_weight"] +
-                    str(d["doc_id"])).encode("utf-8"))
-        d["_id"] = md5.hexdigest()
-
-        # 为切块信息生成时间信息
-        d["create_time"] = str(datetime.datetime.now()).replace("T", " ")[:19]
-        d["create_timestamp_flt"] = datetime.datetime.now().timestamp()
-
-        # 如果切块没有图像数据,则跳过下面的处理
+        d["id"] = xxhash.xxh64((ck["content_with_weight"] + str(d["doc_id"])).encode("utf-8")).hexdigest()
+        d["create_time"] = str(datetime.now()).replace("T", " ")[:19]
+        d["create_timestamp_flt"] = datetime.now().timestamp()
         if not d.get("image"):
+            _ = d.pop("image", None)
+            d["img_id"] = ""
             docs.append(d)
             continue
 
@@ -278,37 +276,39 @@ def build(row):
                 d["image"].save(output_buffer, format='JPEG')
 
             st = timer()
-
-            # 从 output_buffer 中获取图像数据的字节串表示。
-            # 调用 STORAGE_IMPL.put 方法，将图像数据存储到指定的存储实现中（在这里是MinIO）。
-            # row["kb_id"] 是知识库的 ID。
-            # d["_id"] 是文档切块的唯一标识符。
-            # output_buffer.getvalue() 是图像数据的字节串表示。
-            STORAGE_IMPL.put(row["kb_id"], d["_id"], output_buffer.getvalue())
+            STORAGE_IMPL.put(task["kb_id"], d["id"], output_buffer.getvalue())
             el += timer() - st
-        except Exception as e:
-            cron_logger.error(str(e))
-            traceback.print_exc()
+        except Exception:
+            logging.exception("Saving image of chunk {}/{}/{} got exception".format(task["location"], task["name"], d["_id"]))
+            raise
 
-        d["img_id"] = "{}-{}".format(row["kb_id"], d["_id"])
+        d["img_id"] = "{}-{}".format(task["kb_id"], d["id"])
         del d["image"]
         docs.append(d)
-    cron_logger.info("MINIO PUT({}):{}".format(row["name"], el))
+    logging.info("MINIO PUT({}):{}".format(task["name"], el))
 
-    # 如果配置中有自动关键词生成，则生成关键词
-    if row["parser_config"].get("auto_keywords", 0):
-        callback(msg="Start to generate keywords for every chunk ...")
-        chat_mdl = LLMBundle(row["tenant_id"], LLMType.CHAT, llm_name=row["llm_id"], lang=row["language"])
+    if task["parser_config"].get("auto_keywords", 0):
+        st = timer()
+        progress_callback(msg="Start to generate keywords for every chunk ...")
+        chat_mdl = LLMBundle(task["tenant_id"], LLMType.CHAT, llm_name=task["llm_id"], lang=task["language"])
         for d in docs:
-            d["important_kwd"] = keyword_extraction(chat_mdl, d["content_with_weight"],
-                                                    row["parser_config"]["auto_keywords"]).split(",")
+            cached = get_llm_cache(chat_mdl.llm_name, d["content_with_weight"], "keywords",
+                                   {"topn": task["parser_config"]["auto_keywords"]})
+            if not cached:
+                cached = keyword_extraction(chat_mdl, d["content_with_weight"],
+                                            task["parser_config"]["auto_keywords"])
+                if cached:
+                    set_llm_cache(chat_mdl.llm_name, d["content_with_weight"], cached, "keywords",
+                                  {"topn": task["parser_config"]["auto_keywords"]})
+
+            d["important_kwd"] = cached.split(",")
             d["important_tks"] = rag_tokenizer.tokenize(" ".join(d["important_kwd"]))
+        progress_callback(msg="Keywords generation completed in {:.2f}s".format(timer() - st))
 
-
-    # 如果配置中有自动问题生成，则生成问题
-    if row["parser_config"].get("auto_questions", 0):
-        callback(msg="Start to generate questions for every chunk ...")
-        chat_mdl = LLMBundle(row["tenant_id"], LLMType.CHAT, llm_name=row["llm_id"], lang=row["language"])
+    if task["parser_config"].get("auto_questions", 0):
+        st = timer()
+        progress_callback(msg="Start to generate questions for every chunk ...")
+        chat_mdl = LLMBundle(task["tenant_id"], LLMType.CHAT, llm_name=task["llm_id"], lang=task["language"])
         for d in docs:
             qst = question_proposal(chat_mdl, d["content_with_weight"], row["parser_config"]["auto_questions"])
             d["content_with_weight"] = f"Question: \n{qst}\n\nAnswer:\n" + d["content_with_weight"]
@@ -318,19 +318,12 @@ def build(row):
             if "content_sm_ltks" in d:
                 d["content_sm_ltks"] += " " + rag_tokenizer.fine_grained_tokenize(qst)
 
-    # 返回最终处理后的文档列表
     return docs
 
 
-def init_kb(row):
-    """
-    Elasticsearch 中为特定租户初始化一个知识库索引，如果索引已经存在则不做任何操作，否则创建索引并应用指定的映射配置。这
-    """
+def init_kb(row, vector_size: int):
     idxnm = search.index_name(row["tenant_id"])
-    if ELASTICSEARCH.indexExist(idxnm):
-        return
-    return ELASTICSEARCH.createIdx(idxnm, json.load(
-        open(os.path.join(get_project_base_directory(), "conf", "mapping.json"), "r")))
+    return settings.docStoreConn.createIdx(idxnm, row.get("kb_id",""), vector_size)
 
 
 def embedding(docs, mdl, parser_config=None, callback=None):
@@ -344,25 +337,16 @@ def embedding(docs, mdl, parser_config=None, callback=None):
 
     if parser_config is None:
         parser_config = {}
+    batch_size = 16
+    tts, cnts = [], []
+    for d in docs:
+        tts.append(d.get("docnm_kwd", "Title"))
+        c = "\n".join(d.get("question_kwd", []))
+        if not c:
+            c = d["content_with_weight"]
+        c = re.sub(r"</?(table|td|caption|tr|th)( [^<>]{0,12})?>", " ", c)
+        cnts.append(c)
 
-    batch_size = 32
-
-    # 准备标题和内容，tts是标题 cnts是内容
-    # tts：这是一个列表推导式，遍历 docs 列表中的每一个文档 d。
-    # 使用 d.get("title_tks") 检查文档是否有标题词元。
-    # 如果文档有标题词元，则调用 rmSpace 函数来移除词元中的空白字符。
-    # 将处理后的标题词元加入到 tts 列表中。
-
-    # cnts：这也是一个列表推导式，同样遍历 docs 列表中的每一个文档 d。
-    # 使用正则表达式 re.sub 来替换文档中的 HTML 表格标签。
-    # 正则表达式 r"</?(table|td|caption|tr|th)( [^<>]{0,12})?>" 匹配所有的表格相关标签，包括 <table>, <td>, <caption>, <tr>, <th> 及其关闭标签，并且允许标签内有最多 12 个非尖括号字符的属性。
-    # 替换匹配到的标签为单个空格 " "。
-    # 将清理后的文档内容文本加入到 cnts 列表中    
-    tts, cnts = [rmSpace(d["title_tks"]) for d in docs if d.get("title_tks")], [
-        re.sub(r"</?(table|td|caption|tr|th)( [^<>]{0,12})?>", " ", d["content_with_weight"]) for d in docs]
-
-
-    # 处理标题嵌入
     tk_count = 0
     # 初始化一个空的 NumPy 数组 tts_，用于存放处理后的标题嵌入向量。
     if len(tts) == len(cnts):
@@ -405,25 +389,23 @@ def embedding(docs, mdl, parser_config=None, callback=None):
 
     # 检查向量数量是否与文档数量一致
     assert len(vects) == len(docs)
-
-    # 将文档嵌入向量存储到文档docs中
+    vector_size = 0
     for i, d in enumerate(docs):
         # 从嵌入向量数组 vects 中获取第 i 个文档的嵌入向量。使用 .tolist() 方法将 NumPy 数组转换为 Python 列表。
         v = vects[i].tolist()
-        # 键名格式为 "q_<嵌入向量长度>_vec"，例如，如果嵌入向量的长度为 768，则键名为 "q_768_vec"。
+        vector_size = len(v)
         d["q_%d_vec" % len(v)] = v
-
-    return tk_count
+    return tk_count, vector_size
 
 
 # 对文档进行聚类,对每个类生成摘要，对摘要进行嵌入，将摘要内容和嵌入向量添加到chunks中
 def run_raptor(row, chat_mdl, embd_mdl, callback=None):
     vts, _ = embd_mdl.encode(["ok"])
-    vctr_nm = "q_%d_vec" % len(vts[0])
+    vector_size = len(vts[0])
+    vctr_nm = "q_%d_vec" % vector_size
     chunks = []
-
-    # 从es中获取文档的内容和嵌入向量，并将它们添加到 chunks 列表中。
-    for d in retrievaler.chunk_list(row["doc_id"], row["tenant_id"], fields=["content_with_weight", vctr_nm]):
+    for d in settings.retrievaler.chunk_list(row["doc_id"], row["tenant_id"], [str(row["kb_id"])],
+                                             fields=["content_with_weight", vctr_nm]):
         chunks.append((d["content_with_weight"], np.array(d[vctr_nm])))
 
     # 它使用高斯混合模型 (Gaussian Mixture Model, GMM) 对文档嵌入进行聚类(簇)，并对每个簇生成摘要。
@@ -436,173 +418,256 @@ def run_raptor(row, chat_mdl, embd_mdl, callback=None):
         row["parser_config"]["raptor"]["threshold"]
     )
     original_length = len(chunks)
-    # 进行聚类、摘要生成和摘要嵌入生成，并附加到chunks中
-    raptor(chunks, row["parser_config"]["raptor"]["random_seed"], callback)
-
-    # 深拷贝chunks,然后更新chunks项目中的关键字段，结果存放到res
+    chunks = raptor(chunks, row["parser_config"]["raptor"]["random_seed"], callback)
     doc = {
         "doc_id": row["doc_id"],
         "kb_id": [str(row["kb_id"])],
         "docnm_kwd": row["name"],
         "title_tks": rag_tokenizer.tokenize(row["name"])
     }
+    if row["pagerank"]:
+        doc["pagerank_fea"] = int(row["pagerank"])
     res = []
     tk_count = 0
     for content, vctr in chunks[original_length:]:
         d = copy.deepcopy(doc)
-        md5 = hashlib.md5()
-        md5.update((content + str(d["doc_id"])).encode("utf-8"))
-        d["_id"] = md5.hexdigest()
-        d["create_time"] = str(datetime.datetime.now()).replace("T", " ")[:19]
-        d["create_timestamp_flt"] = datetime.datetime.now().timestamp()
+        d["id"] = xxhash.xxh64((content + str(d["doc_id"])).encode("utf-8")).hexdigest()
+        d["create_time"] = str(datetime.now()).replace("T", " ")[:19]
+        d["create_timestamp_flt"] = datetime.now().timestamp()
         d[vctr_nm] = vctr.tolist()
         d["content_with_weight"] = content
         d["content_ltks"] = rag_tokenizer.tokenize(content)
         d["content_sm_ltks"] = rag_tokenizer.fine_grained_tokenize(d["content_ltks"])
         res.append(d)
         tk_count += num_tokens_from_string(content)
-    return res, tk_count
+    return res, tk_count, vector_size
 
 
-def main():
-    # 从Redis收集最新的任务列表
-    rows = collect()
-    # 如果没有任务，则直接返回
-    if len(rows) == 0:
+
+
+def do_handle_task(task):
+    task_id = task["id"]
+    task_from_page = task["from_page"]
+    task_to_page = task["to_page"]
+    task_tenant_id = task["tenant_id"]
+    task_embedding_id = task["embd_id"]
+    task_language = task["language"]
+    task_llm_id = task["llm_id"]
+    task_dataset_id = task["kb_id"]
+    task_doc_id = task["doc_id"]
+    task_document_name = task["name"]
+    task_parser_config = task["parser_config"]
+
+    # prepare the progress callback function
+    progress_callback = partial(set_progress, task_id, task_from_page, task_to_page)
+
+    try:
+        task_canceled = TaskService.do_cancel(task_id)
+    except DoesNotExist:
+        logging.warning(f"task {task_id} is unknown")
+        return
+    if task_canceled:
+        progress_callback(-1, msg="Task has been canceled.")
         return
 
-    # 循环取出一个任务
-    for _, r in rows.iterrows():
-        # 创建一个回调函数，用于更新任务进度
-        callback = partial(set_progress, r["id"], r["from_page"], r["to_page"])
+    try:
+        # bind embedding model
+        embedding_model = LLMBundle(task_tenant_id, LLMType.EMBEDDING, llm_name=task_embedding_id, lang=task_language)
+    except Exception as e:
+        error_message = f'Fail to bind embedding model: {str(e)}'
+        progress_callback(-1, msg=error_message)
+        logging.exception(error_message)
+        raise
 
+    # Either using RAPTOR or Standard chunking methods
+    if task.get("task_type", "") == "raptor":
         try:
-            # 创建一个嵌入模型实例
-            embd_mdl = LLMBundle(r["tenant_id"], LLMType.EMBEDDING, llm_name=r["embd_id"], lang=r["language"])
+            # bind LLM for raptor
+            chat_model = LLMBundle(task_tenant_id, LLMType.CHAT, llm_name=task_llm_id, lang=task_language)
+
+            # run RAPTOR
+            chunks, token_count, vector_size = run_raptor(task, chat_model, embedding_model, progress_callback)
+        except TaskCanceledException:
+            raise
         except Exception as e:
-            # 如果创建嵌入模型失败，则记录错误并继续下一个任务
-            callback(-1, msg=str(e))
-            cron_logger.error(str(e))
-            continue
+            error_message = f'Fail to bind LLM used by RAPTOR: {str(e)}'
+            progress_callback(-1, msg=error_message)
+            logging.exception(error_message)
+            raise
+    else:
+        # Standard chunking methods
+        start_ts = timer()
+        chunks = build_chunks(task, progress_callback)
+        logging.info("Build document {}: {:.2f}s".format(task_document_name, timer() - start_ts))
+        if chunks is None:
+            return
+        if not chunks:
+            progress_callback(1., msg=f"No chunk built from {task_document_name}")
+            return
+        # TODO: exception handler
+        ## set_progress(task["did"], -1, "ERROR: ")
+        progress_callback(msg="Generate {} chunks".format(len(chunks)))
+        start_ts = timer()
+        try:
+            token_count, vector_size = embedding(chunks, embedding_model, task_parser_config, progress_callback)
+        except Exception as e:
+            error_message = "Generate embedding error:{}".format(str(e))
+            progress_callback(-1, error_message)
+            logging.exception(error_message)
+            token_count = 0
+            raise
+        progress_message = "Embedding chunks ({:.2f}s)".format(timer() - start_ts)
+        logging.info(progress_message)
+        progress_callback(msg=progress_message)
 
-        if r.get("task_type", "") == "raptor":
+    # logging.info(f"task_executor init_kb index {search.index_name(task_tenant_id)} embedding_model {embedding_model.llm_name} vector length {vector_size}")
+    init_kb(task, vector_size)
+    chunk_count = len(set([chunk["id"] for chunk in chunks]))
+    start_ts = timer()
+    doc_store_result = ""
+    es_bulk_size = 4
+    for b in range(0, len(chunks), es_bulk_size):
+        doc_store_result = settings.docStoreConn.insert(chunks[b:b + es_bulk_size], search.index_name(task_tenant_id), task_dataset_id)
+        if b % 128 == 0:
+            progress_callback(prog=0.8 + 0.1 * (b + 1) / len(chunks), msg="")
+        if doc_store_result:
+            error_message = f"Insert chunk error: {doc_store_result}, please check log file and Elasticsearch/Infinity status!"
+            progress_callback(-1, msg=error_message)
+            raise Exception(error_message)
+        chunk_ids = [chunk["id"] for chunk in chunks[:b + es_bulk_size]]
+        chunk_ids_str = " ".join(chunk_ids)
+        try:
+            TaskService.update_chunk_ids(task["id"], chunk_ids_str)
+        except DoesNotExist:
+            logging.warning(f"do_handle_task update_chunk_ids failed since task {task['id']} is unknown.")
+            doc_store_result = settings.docStoreConn.delete({"id": chunk_ids}, search.index_name(task_tenant_id), task_dataset_id)
+            return
+    logging.info("Indexing doc({}), page({}-{}), chunks({}), elapsed: {:.2f}".format(task_document_name, task_from_page, task_to_page, len(chunks), timer() - start_ts))
+
+    DocumentService.increment_chunk_num(task_doc_id, task_dataset_id, token_count, chunk_count, 0)
+
+    time_cost = timer() - start_ts
+    progress_callback(prog=1.0, msg="Done ({:.2f}s)".format(time_cost))
+    logging.info("Chunk doc({}), page({}-{}), chunks({}), token({}), elapsed:{:.2f}".format(task_document_name, task_from_page, task_to_page, len(chunks), token_count, time_cost))
+
+
+def handle_task():
+    global PAYLOAD, mt_lock, DONE_TASKS, FAILED_TASKS, CURRENT_TASK
+    task = collect()
+    if task:
+        try:
+            logging.info(f"handle_task begin for task {json.dumps(task)}")
+            with mt_lock:
+                CURRENT_TASK = copy.deepcopy(task)
+            do_handle_task(task)
+            with mt_lock:
+                DONE_TASKS += 1
+                CURRENT_TASK = None
+            logging.info(f"handle_task done for task {json.dumps(task)}")
+        except TaskCanceledException:
+            with mt_lock:
+                DONE_TASKS += 1
+                CURRENT_TASK = None
             try:
-                # 如果任务类型是 "raptor"，则创建一个聊天模型实例，用于生成文件的摘要
-                chat_mdl = LLMBundle(r["tenant_id"], LLMType.CHAT, llm_name=r["llm_id"], lang=r["language"])
-                # 执行文档聚簇和摘要生成任务,cks是文档原来的chunks(从ES搜索得来)添加了摘要和摘要嵌入以后，生成的新的chunks
-                cks, tk_count = run_raptor(r, chat_mdl, embd_mdl, callback)
-            except Exception as e:
-                # 如果 Raptor 任务执行失败，则记录错误并继续下一个任务
-                callback(-1, msg=str(e))
-                cron_logger.error(str(e))
-                continue
-        else:
-            # 对文件切块，自动生成关键词，自动生成QA，然后把这些信息放到到cks数组中（一个切块一条记录）
-            st = timer()
-
-            cks = build(r)
-            # 记录构建耗时
-            cron_logger.info("Build chunks({}): {}".format(r["name"], timer() - st))
-
-            # 如果chunks为 None，则跳过后续处理
-            if cks is None:
-                continue
-
-            if not cks:
-                # 如果没有构建任何 chunk，则记录信息并继续下一个任务
-                callback(1., "No chunk! Done!")
-                continue
-
-            # 提示文件切块完成
-            callback(
-                msg="Finished slicing files(%d). Start to embedding the content." %
-                    len(cks))
-            # 开始计时
-            st = timer()
+                set_progress(task["id"], prog=-1, msg="handle_task got TaskCanceledException")
+            except Exception:
+                pass
+            logging.debug("handle_task got TaskCanceledException", exc_info=True)
+        except Exception:
+            with mt_lock:
+                FAILED_TASKS += 1
+                CURRENT_TASK = None
             try:
-                # 进行文本嵌入,返回后cks增加了新的键值对（例如q_768_vec），包含了文档嵌入向量
-                tk_count = embedding(cks, embd_mdl, r["parser_config"], callback)
-            except Exception as e:
-                # 如果嵌入过程出错，则记录错误并继续下一个任务
-                callback(-1, "Embedding error:{}".format(str(e)))
-                cron_logger.error(str(e))
-                tk_count = 0
-            # 记录嵌入耗时
-            cron_logger.info("Embedding elapsed({}): {:.2f}".format(r["name"], timer() - st))
-            # 设置进度
-            callback(msg="Finished embedding({:.2f})! Start to build index!".format(timer() - st))
-
-        # 上面已经得到了cks(chunks),下面是保存到es中
-        # 在ES中为该知识库新生成索引，如果索引已经存在则退出,知识库的所有文件的所有文档切块的嵌入向量都由这个索引进行索引
-        init_kb(r)
-
-        # 计算 chunk 数量
-        chunk_count = len(set([c["_id"] for c in cks]))
-        # 开始计时
-        st = timer()
-        es_r = ""
-        es_bulk_size = 4
-        # cks分批插入 Elasticsearch,每次插入4条记录
-        for b in range(0, len(cks), es_bulk_size):
-            es_r = ELASTICSEARCH.bulk(cks[b:b + es_bulk_size], search.index_name(r["tenant_id"]))
-            if b % 128 == 0:
-                # 更新进度
-                callback(prog=0.8 + 0.1 * (b + 1) / len(cks), msg="")
-
-        # 记录索引耗时
-        cron_logger.info("Indexing elapsed({}): {:.2f}".format(r["name"], timer() - st))
-        if es_r:
-            # 如果 Elasticsearch 插入失败，则记录错误并删除相关数据
-            callback(-1, "Insert chunk error, detail info please check ragflow-logs/api/cron_logger.log. Please also check ES status!")
-            ELASTICSEARCH.deleteByQuery(
-                Q("match", doc_id=r["doc_id"]), idxnm=search.index_name(r["tenant_id"]))
-            cron_logger.error(str(es_r))
-        else:
-            if TaskService.do_cancel(r["id"]):
-                # 如果任务被取消，则删除相关数据
-                ELASTICSEARCH.deleteByQuery(
-                    Q("match", doc_id=r["doc_id"]), idxnm=search.index_name(r["tenant_id"]))
-                continue
-            # 任务完成，更新进度
-            callback(1., "Done!")
-            # 更新文档的 chunk 数量
-            DocumentService.increment_chunk_num(
-                r["doc_id"], r["kb_id"], tk_count, chunk_count, 0)
-            # 记录任务完成信息
-            cron_logger.info(
-                "Chunk doc({}), token({}), chunks({}), elapsed:{:.2f}".format(
-                    r["id"], tk_count, len(cks), timer() - st))
+                set_progress(task["id"], prog=-1, msg="handle_task got exception, please check log")
+            except Exception:
+                pass
+            logging.exception(f"handle_task got exception for task {json.dumps(task)}")
+    if PAYLOAD:
+        PAYLOAD.ack()
+        PAYLOAD = None
 
 
 def report_status():
-    global CONSUMER_NAME
+    global CONSUMER_NAME, BOOT_AT, PENDING_TASKS, LAG_TASKS, mt_lock, DONE_TASKS, FAILED_TASKS, CURRENT_TASK
+    REDIS_CONN.sadd("TASKEXE", CONSUMER_NAME)
     while True:
         try:
-            obj = REDIS_CONN.get("TASKEXE")
-            if not obj: obj = {}
-            else: obj = json.loads(obj)
-            if CONSUMER_NAME not in obj: obj[CONSUMER_NAME] = []
-            obj[CONSUMER_NAME].append(timer())
-            obj[CONSUMER_NAME] = obj[CONSUMER_NAME][-60:]
-            REDIS_CONN.set_obj("TASKEXE", obj, 60*2)
-        except Exception as e:
-            print("[Exception]:", str(e))
+            now = datetime.now()
+            group_info = REDIS_CONN.queue_info(SVR_QUEUE_NAME, "rag_flow_svr_task_broker")
+            if group_info is not None:
+                PENDING_TASKS = int(group_info.get("pending", 0))
+                LAG_TASKS = int(group_info.get("lag", 0))
+
+            with mt_lock:
+                heartbeat = json.dumps({
+                    "name": CONSUMER_NAME,
+                    "now": now.isoformat(),
+                    "boot_at": BOOT_AT,
+                    "pending": PENDING_TASKS,
+                    "lag": LAG_TASKS,
+                    "done": DONE_TASKS,
+                    "failed": FAILED_TASKS,
+                    "current": CURRENT_TASK,
+                })
+            REDIS_CONN.zadd(CONSUMER_NAME, heartbeat, now.timestamp())
+            logging.info(f"{CONSUMER_NAME} reported heartbeat: {heartbeat}")
+
+            expired = REDIS_CONN.zcount(CONSUMER_NAME, 0, now.timestamp() - 60 * 30)
+            if expired > 0:
+                REDIS_CONN.zpopmin(CONSUMER_NAME, expired)
+        except Exception:
+            logging.exception("report_status got exception")
         time.sleep(30)
 
 
-if __name__ == "__main__":
-    peewee_logger = logging.getLogger('peewee')
-    peewee_logger.propagate = False
-    peewee_logger.addHandler(database_logger.handlers[0])
-    peewee_logger.setLevel(database_logger.level)
-    print("开始执行任务")
+def analyze_heap(snapshot1: tracemalloc.Snapshot, snapshot2: tracemalloc.Snapshot, snapshot_id: int, dump_full: bool):
+    msg = ""
+    if dump_full:
+        stats2 = snapshot2.statistics('lineno')
+        msg += f"{CONSUMER_NAME} memory usage of snapshot {snapshot_id}:\n"
+        for stat in stats2[:10]:
+            msg += f"{stat}\n"
+    stats1_vs_2 = snapshot2.compare_to(snapshot1, 'lineno')
+    msg += f"{CONSUMER_NAME} memory usage increase from snapshot {snapshot_id - 1} to snapshot {snapshot_id}:\n"
+    for stat in stats1_vs_2[:10]:
+        msg += f"{stat}\n"
+    msg += f"{CONSUMER_NAME} detailed traceback for the top memory consumers:\n"
+    for stat in stats1_vs_2[:3]:
+        msg += '\n'.join(stat.traceback.format())
+    logging.info(msg)
 
-    exe = ThreadPoolExecutor(max_workers=1)
-    exe.submit(report_status)
 
-    # 无限循环执行main--不停地取出任务
+def main():
+    logging.info(r"""
+  ______           __      ______                     __            
+ /_  __/___ ______/ /__   / ____/  _____  _______  __/ /_____  _____
+  / / / __ `/ ___/ //_/  / __/ | |/_/ _ \/ ___/ / / / __/ __ \/ ___/
+ / / / /_/ (__  ) ,<    / /____>  </  __/ /__/ /_/ / /_/ /_/ / /    
+/_/  \__,_/____/_/|_|  /_____/_/|_|\___/\___/\__,_/\__/\____/_/                               
+    """)
+    logging.info(f'TaskExecutor: RAGFlow version: {get_ragflow_version()}')
+    settings.init_settings()
+    print_rag_settings()
+    background_thread = threading.Thread(target=report_status)
+    background_thread.daemon = True
+    background_thread.start()
+
+    TRACE_MALLOC_DELTA = int(os.environ.get('TRACE_MALLOC_DELTA', "0"))
+    TRACE_MALLOC_FULL = int(os.environ.get('TRACE_MALLOC_FULL', "0"))
+    if TRACE_MALLOC_DELTA > 0:
+        if TRACE_MALLOC_FULL < TRACE_MALLOC_DELTA:
+            TRACE_MALLOC_FULL = TRACE_MALLOC_DELTA
+        tracemalloc.start()
+        snapshot1 = tracemalloc.take_snapshot()
     while True:
-        main()
-        if PAYLOAD:
-            PAYLOAD.ack()
-            PAYLOAD = None
+        handle_task()
+        num_tasks = DONE_TASKS + FAILED_TASKS
+        if TRACE_MALLOC_DELTA > 0 and num_tasks > 0 and num_tasks % TRACE_MALLOC_DELTA == 0:
+            snapshot2 = tracemalloc.take_snapshot()
+            analyze_heap(snapshot1, snapshot2, int(num_tasks / TRACE_MALLOC_DELTA), num_tasks % TRACE_MALLOC_FULL == 0)
+            snapshot1 = snapshot2
+            snapshot2 = None
+
+
+if __name__ == "__main__":
+    main()

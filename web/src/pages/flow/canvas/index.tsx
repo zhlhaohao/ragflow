@@ -1,30 +1,54 @@
-import { useCallback } from 'react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { useSetModalState } from '@/hooks/common-hooks';
+import { get } from 'lodash';
+import { FolderInput, FolderOutput } from 'lucide-react';
+import { useCallback, useEffect } from 'react';
 import ReactFlow, {
   Background,
   ConnectionMode,
+  ControlButton,
   Controls,
   NodeMouseHandler,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import ChatDrawer from '../chat/drawer';
 import { Operator } from '../constant';
-import FlowDrawer from '../flow-drawer';
+import FormDrawer from '../flow-drawer';
 import {
+  useGetBeginNodeDataQuery,
   useHandleDrop,
-  useHandleKeyUp,
+  useHandleExportOrImportJsonFile,
   useSelectCanvasData,
-  useShowDrawer,
+  useShowFormDrawer,
+  useShowSingleDebugDrawer,
   useValidateConnection,
   useWatchNodeFormDataChange,
 } from '../hooks';
+import { BeginQuery } from '../interface';
+import JsonUploadModal from '../json-upload-modal';
+import RunDrawer from '../run-drawer';
 import { ButtonEdge } from './edge';
 import styles from './index.less';
 import { RagNode } from './node';
 import { BeginNode } from './node/begin-node';
 import { CategorizeNode } from './node/categorize-node';
+import { EmailNode } from './node/email-node';
+import { GenerateNode } from './node/generate-node';
+import { InvokeNode } from './node/invoke-node';
+import { KeywordNode } from './node/keyword-node';
 import { LogicNode } from './node/logic-node';
+import { MessageNode } from './node/message-node';
 import NoteNode from './node/note-node';
 import { RelevantNode } from './node/relevant-node';
+import { RetrievalNode } from './node/retrieval-node';
+import { RewriteNode } from './node/rewrite-node';
+import { SwitchNode } from './node/switch-node';
+import { TemplateNode } from './node/template-node';
 
 const nodeTypes = {
   ragNode: RagNode,
@@ -33,6 +57,15 @@ const nodeTypes = {
   relevantNode: RelevantNode,
   logicNode: LogicNode,
   noteNode: NoteNode,
+  switchNode: SwitchNode,
+  generateNode: GenerateNode,
+  retrievalNode: RetrievalNode,
+  messageNode: MessageNode,
+  rewriteNode: RewriteNode,
+  keywordNode: KeywordNode,
+  invokeNode: InvokeNode,
+  templateNode: TemplateNode,
+  emailNode: EmailNode,
 };
 
 const edgeTypes = {
@@ -40,11 +73,11 @@ const edgeTypes = {
 };
 
 interface IProps {
-  chatDrawerVisible: boolean;
-  hideChatDrawer(): void;
+  drawerVisible: boolean;
+  hideDrawer(): void;
 }
 
-function FlowCanvas({ chatDrawerVisible, hideChatDrawer }: IProps) {
+function FlowCanvas({ drawerVisible, hideDrawer }: IProps) {
   const {
     nodes,
     edges,
@@ -54,27 +87,93 @@ function FlowCanvas({ chatDrawerVisible, hideChatDrawer }: IProps) {
     onSelectionChange,
   } = useSelectCanvasData();
   const isValidConnection = useValidateConnection();
+  const {
+    visible: runVisible,
+    showModal: showRunModal,
+    hideModal: hideRunModal,
+  } = useSetModalState();
+  const {
+    visible: chatVisible,
+    showModal: showChatModal,
+    hideModal: hideChatModal,
+  } = useSetModalState();
+  const {
+    singleDebugDrawerVisible,
+    showSingleDebugDrawer,
+    hideSingleDebugDrawer,
+  } = useShowSingleDebugDrawer();
 
-  const { drawerVisible, hideDrawer, showDrawer, clickedNode } =
-    useShowDrawer();
+  const controlIconClassname = 'text-black';
+
+  const { formDrawerVisible, hideFormDrawer, showFormDrawer, clickedNode } =
+    useShowFormDrawer();
+
+  const onPaneClick = useCallback(() => {
+    hideFormDrawer();
+  }, [hideFormDrawer]);
+
+  const { onDrop, onDragOver, setReactFlowInstance } = useHandleDrop();
+
+  useWatchNodeFormDataChange();
+
+  const hideRunOrChatDrawer = useCallback(() => {
+    hideChatModal();
+    hideRunModal();
+    hideDrawer();
+  }, [hideChatModal, hideDrawer, hideRunModal]);
 
   const onNodeClick: NodeMouseHandler = useCallback(
     (e, node) => {
       if (node.data.label !== Operator.Note) {
-        showDrawer(node);
+        hideSingleDebugDrawer();
+        hideRunOrChatDrawer();
+        showFormDrawer(node);
+      }
+      // handle single debug icon click
+      if (
+        get(e.target, 'dataset.play') === 'true' ||
+        get(e.target, 'parentNode.dataset.play') === 'true'
+      ) {
+        showSingleDebugDrawer();
       }
     },
-    [showDrawer],
+    [
+      hideRunOrChatDrawer,
+      hideSingleDebugDrawer,
+      showFormDrawer,
+      showSingleDebugDrawer,
+    ],
   );
 
-  const onPaneClick = useCallback(() => {
-    hideDrawer();
-  }, [hideDrawer]);
+  const getBeginNodeDataQuery = useGetBeginNodeDataQuery();
 
-  const { onDrop, onDragOver, setReactFlowInstance } = useHandleDrop();
+  const {
+    handleExportJson,
+    handleImportJson,
+    fileUploadVisible,
+    onFileUploadOk,
+    hideFileUploadModal,
+  } = useHandleExportOrImportJsonFile();
 
-  const { handleKeyUp } = useHandleKeyUp();
-  useWatchNodeFormDataChange();
+  useEffect(() => {
+    if (drawerVisible) {
+      const query: BeginQuery[] = getBeginNodeDataQuery();
+      if (query.length > 0) {
+        showRunModal();
+        hideChatModal();
+      } else {
+        showChatModal();
+        hideRunModal();
+      }
+    }
+  }, [
+    hideChatModal,
+    hideRunModal,
+    showChatModal,
+    showRunModal,
+    drawerVisible,
+    getBeginNodeDataQuery,
+  ]);
 
   return (
     <div className={styles.canvasWrapper}>
@@ -113,13 +212,9 @@ function FlowCanvas({ chatDrawerVisible, hideChatDrawer }: IProps) {
         onNodeClick={onNodeClick}
         onPaneClick={onPaneClick}
         onInit={setReactFlowInstance}
-        onKeyUp={handleKeyUp}
         onSelectionChange={onSelectionChange}
         nodeOrigin={[0.5, 0]}
         isValidConnection={isValidConnection}
-        onChange={(...params) => {
-          console.info('params:', ...params);
-        }}
         defaultEdgeOptions={{
           type: 'buttonEdge',
           markerEnd: 'logo',
@@ -128,20 +223,61 @@ function FlowCanvas({ chatDrawerVisible, hideChatDrawer }: IProps) {
             stroke: 'rgb(202 197 245)',
           },
         }}
+        deleteKeyCode={['Delete', 'Backspace']}
       >
         <Background />
-        <Controls />
+        <Controls>
+          <ControlButton onClick={handleImportJson}>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <FolderInput className={controlIconClassname} />
+                </TooltipTrigger>
+                <TooltipContent>Import</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </ControlButton>
+          <ControlButton onClick={handleExportJson}>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <FolderOutput className={controlIconClassname} />
+                </TooltipTrigger>
+                <TooltipContent>Export</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </ControlButton>
+        </Controls>
       </ReactFlow>
-      <FlowDrawer
-        node={clickedNode}
-        visible={drawerVisible}
-        hideModal={hideDrawer}
-      ></FlowDrawer>
-      {chatDrawerVisible && (
+      {formDrawerVisible && (
+        <FormDrawer
+          node={clickedNode}
+          visible={formDrawerVisible}
+          hideModal={hideFormDrawer}
+          singleDebugDrawerVisible={singleDebugDrawerVisible}
+          hideSingleDebugDrawer={hideSingleDebugDrawer}
+          showSingleDebugDrawer={showSingleDebugDrawer}
+        ></FormDrawer>
+      )}
+      {chatVisible && (
         <ChatDrawer
-          visible={chatDrawerVisible}
-          hideModal={hideChatDrawer}
+          visible={chatVisible}
+          hideModal={hideRunOrChatDrawer}
         ></ChatDrawer>
+      )}
+
+      {runVisible && (
+        <RunDrawer
+          hideModal={hideRunOrChatDrawer}
+          showModal={showChatModal}
+        ></RunDrawer>
+      )}
+      {fileUploadVisible && (
+        <JsonUploadModal
+          onOk={onFileUploadOk}
+          visible={fileUploadVisible}
+          hideModal={hideFileUploadModal}
+        ></JsonUploadModal>
       )}
     </div>
   );

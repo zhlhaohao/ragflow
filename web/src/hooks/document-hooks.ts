@@ -1,11 +1,13 @@
+import { IReferenceChunk } from '@/interfaces/database/chat';
 import { IDocumentInfo } from '@/interfaces/database/document';
 import { IChunk } from '@/interfaces/database/knowledge';
 import { IChangeParserConfigRequestBody } from '@/interfaces/request/document';
 import i18n from '@/locales/config';
 import chatService from '@/services/chat-service';
 import kbService from '@/services/knowledge-service';
-import { api_host } from '@/utils/api';
+import api, { api_host } from '@/utils/api';
 import { buildChunkHighlights } from '@/utils/document-util';
+import { post } from '@/utils/request';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { UploadFile, message } from 'antd';
 import { get } from 'lodash';
@@ -31,7 +33,9 @@ export const useGetDocumentUrl = (documentId?: string) => {
   return getDocumentUrl;
 };
 
-export const useGetChunkHighlights = (selectedChunk: IChunk) => {
+export const useGetChunkHighlights = (
+  selectedChunk: IChunk | IReferenceChunk,
+) => {
   const [size, setSize] = useState({ width: 849, height: 1200 });
 
   const highlights: IHighlight[] = useMemo(() => {
@@ -69,7 +73,7 @@ export const useFetchNextDocumentList = () => {
         page_size: pagination.pageSize,
         page: pagination.current,
       });
-      if (ret.data.retcode === 0) {
+      if (ret.data.code === 0) {
         return ret.data.data;
       }
 
@@ -118,7 +122,7 @@ export const useSetNextDocumentStatus = () => {
         doc_id: documentId,
         status: Number(status),
       });
-      if (data.retcode === 0) {
+      if (data.code === 0) {
         message.success(i18n.t('message.modified'));
         queryClient.invalidateQueries({ queryKey: ['fetchDocumentList'] });
       }
@@ -149,11 +153,11 @@ export const useSaveNextDocumentName = () => {
         doc_id: documentId,
         name: name,
       });
-      if (data.retcode === 0) {
+      if (data.code === 0) {
         message.success(i18n.t('message.renamed'));
         queryClient.invalidateQueries({ queryKey: ['fetchDocumentList'] });
       }
-      return data.retcode;
+      return data.code;
     },
   });
 
@@ -176,7 +180,7 @@ export const useCreateNextDocument = () => {
         name,
         kb_id: knowledgeId,
       });
-      if (data.retcode === 0) {
+      if (data.code === 0) {
         if (page === 1) {
           queryClient.invalidateQueries({ queryKey: ['fetchDocumentList'] });
         } else {
@@ -185,7 +189,7 @@ export const useCreateNextDocument = () => {
 
         message.success(i18n.t('message.created'));
       }
-      return data.retcode;
+      return data.code;
     },
   });
 
@@ -215,12 +219,12 @@ export const useSetNextDocumentParser = () => {
         doc_id: documentId,
         parser_config: parserConfig,
       });
-      if (data.retcode === 0) {
+      if (data.code === 0) {
         queryClient.invalidateQueries({ queryKey: ['fetchDocumentList'] });
 
         message.success(i18n.t('message.modified'));
       }
-      return data.retcode;
+      return data.code;
     },
   });
 
@@ -246,12 +250,12 @@ export const useUploadNextDocument = () => {
 
       try {
         const ret = await kbService.document_upload(formData);
-        const retcode = get(ret, 'data.retcode');
-        if (retcode === 0) {
+        const code = get(ret, 'data.code');
+        if (code === 0) {
           message.success(i18n.t('message.uploaded'));
         }
 
-        if (retcode === 0 || retcode === 500) {
+        if (code === 0 || code === 500) {
           queryClient.invalidateQueries({ queryKey: ['fetchDocumentList'] });
         }
         return ret?.data;
@@ -281,12 +285,12 @@ export const useNextWebCrawl = () => {
       formData.append('kb_id', knowledgeId);
 
       const ret = await kbService.web_crawl(formData);
-      const retcode = get(ret, 'data.retcode');
-      if (retcode === 0) {
+      const code = get(ret, 'data.code');
+      if (code === 0) {
         message.success(i18n.t('message.uploaded'));
       }
 
-      return retcode;
+      return code;
     },
   });
 
@@ -309,21 +313,24 @@ export const useRunNextDocument = () => {
     mutationFn: async ({
       documentIds,
       run,
+      shouldDelete,
     }: {
       documentIds: string[];
       run: number;
+      shouldDelete: boolean;
     }) => {
       const ret = await kbService.document_run({
         doc_ids: documentIds,
         run,
+        delete: shouldDelete,
       });
-      const retcode = get(ret, 'data.retcode');
-      if (retcode === 0) {
+      const code = get(ret, 'data.code');
+      if (code === 0) {
         queryClient.invalidateQueries({ queryKey: ['fetchDocumentList'] });
         message.success(i18n.t('message.operated'));
       }
 
-      return retcode;
+      return code;
     },
   });
 
@@ -338,7 +345,7 @@ export const useFetchDocumentInfosByIds = () => {
     initialData: [],
     queryFn: async () => {
       const { data } = await kbService.document_infos({ doc_ids: ids });
-      if (data.retcode === 0) {
+      if (data.code === 0) {
         return data.data;
       }
 
@@ -357,7 +364,7 @@ export const useFetchDocumentThumbnailsByIds = () => {
     initialData: {},
     queryFn: async () => {
       const { data } = await kbService.document_thumbnails({ doc_ids: ids });
-      if (data.retcode === 0) {
+      if (data.code === 0) {
         return data.data;
       }
       return {};
@@ -377,11 +384,11 @@ export const useRemoveNextDocument = () => {
     mutationKey: ['removeDocument'],
     mutationFn: async (documentIds: string | string[]) => {
       const { data } = await kbService.document_rm({ doc_id: documentIds });
-      if (data.retcode === 0) {
+      if (data.code === 0) {
         message.success(i18n.t('message.deleted'));
         queryClient.invalidateQueries({ queryKey: ['fetchDocumentList'] });
       }
-      return data.retcode;
+      return data.code;
     },
   });
 
@@ -398,7 +405,7 @@ export const useDeleteDocument = () => {
     mutationKey: ['deleteDocument'],
     mutationFn: async (documentIds: string[]) => {
       const data = await kbService.document_delete({ doc_ids: documentIds });
-      // if (data.retcode === 0) {
+      // if (data.code === 0) {
       //   queryClient.invalidateQueries({ queryKey: ['fetchFlowList'] });
       // }
       return data;
@@ -441,4 +448,28 @@ export const useUploadAndParseDocument = (uploadMethod: string) => {
   });
 
   return { data, loading, uploadAndParseDocument: mutateAsync };
+};
+
+export const useParseDocument = () => {
+  const {
+    data,
+    isPending: loading,
+    mutateAsync,
+  } = useMutation({
+    mutationKey: ['parseDocument'],
+    mutationFn: async (url: string) => {
+      try {
+        const data = await post(api.parse, { url });
+        if (data?.code === 0) {
+          message.success(i18n.t('message.uploaded'));
+        }
+        return data;
+      } catch (error) {
+        console.log('🚀 ~ mutationFn: ~ error:', error);
+        message.error('error');
+      }
+    },
+  });
+
+  return { parseDocument: mutateAsync, data, loading };
 };

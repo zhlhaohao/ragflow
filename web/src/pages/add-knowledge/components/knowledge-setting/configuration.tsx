@@ -8,6 +8,7 @@ import EntityTypesItem from '@/components/entity-types-item';
 import ExcelToHtml from '@/components/excel-to-html';
 import LayoutRecognize from '@/components/layout-recognize';
 import MaxTokenNumber from '@/components/max-token-number';
+import PageRank from '@/components/page-rank';
 import ParseConfiguration, {
   showRaptorParseConfiguration,
 } from '@/components/parse-configuration';
@@ -69,6 +70,7 @@ const ConfigurationForm = ({ form }: { form: FormInstance }) => {
         <Select placeholder={t('languagePlaceholder')}>
           <Option value="English">{t('english')}</Option>
           <Option value="Chinese">{t('chinese')}</Option>
+          <Option value="Vietnamese">{t('vietnamese')}</Option>
         </Select>
       </Form.Item>
       <Form.Item
@@ -112,7 +114,7 @@ const ConfigurationForm = ({ form }: { form: FormInstance }) => {
           ))}
         </Select>
       </Form.Item>
-
+      <PageRank></PageRank>
       <Form.Item noStyle dependencies={['parser_id']}>
         {({ getFieldValue }) => {
           const parserId = getFieldValue('parser_id');

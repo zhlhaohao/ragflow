@@ -19,7 +19,8 @@ import pandas as pd
 import pymysql
 import psycopg2
 from agent.component.base import ComponentBase, ComponentParamBase
-
+import pyodbc
+import logging
 
 class ExeSQLParam(ComponentParamBase):
     """
@@ -38,7 +39,7 @@ class ExeSQLParam(ComponentParamBase):
         self.top_n = 30
 
     def check(self):
-        self.check_valid_value(self.db_type, "Choose DB type", ['mysql', 'postgresql', 'mariadb'])
+        self.check_valid_value(self.db_type, "Choose DB type", ['mysql', 'postgresql', 'mariadb', 'mssql'])
         self.check_empty(self.database, "Database name")
         self.check_empty(self.username, "database username")
         self.check_empty(self.host, "IP Address")
@@ -46,8 +47,10 @@ class ExeSQLParam(ComponentParamBase):
         self.check_empty(self.password, "Database password")
         self.check_positive_integer(self.top_n, "Number of records")
         if self.database == "rag_flow":
-            if self.host == "ragflow-mysql": raise ValueError("The host is not accessible.")
-            if self.password == "infini_rag_flow": raise ValueError("The host is not accessible.")
+            if self.host == "ragflow-mysql":
+                raise ValueError("The host is not accessible.")
+            if self.password == "infini_rag_flow":
+                raise ValueError("The host is not accessible.")
 
 
 class ExeSQL(ComponentBase, ABC):
@@ -62,20 +65,41 @@ class ExeSQL(ComponentBase, ABC):
         self._loop += 1
 
         ans = self.get_input()
-        ans = "".join(ans["content"]) if "content" in ans else ""
-        ans = re.sub(r'^.*?SELECT ', 'SELECT ', repr(ans), flags=re.IGNORECASE)
+      
+
+        ans = "".join([str(a) for a in ans["content"]]) if "content" in ans else ""
+        if self._param.db_type == 'mssql':
+            # improve the information extraction, most llm return results in markdown format ```sql query ```
+            match = re.search(r"```sql\s*(.*?)\s*```", ans, re.DOTALL)
+            if match:
+                ans = match.group(1)  # Query content
+                print(ans)
+            else:
+                print("no markdown")
+            ans = re.sub(r'^.*?SELECT ', 'SELECT ', (ans), flags=re.IGNORECASE)
+        else:
+            ans = re.sub(r'^.*?SELECT ', 'SELECT ', repr(ans), flags=re.IGNORECASE)
         ans = re.sub(r';.*?SELECT ', '; SELECT ', ans, flags=re.IGNORECASE)
         ans = re.sub(r';[^;]*$', r';', ans)
         if not ans:
             raise Exception("SQL statement not found!")
 
+        logging.info("db_type: ",self._param.db_type)
         if self._param.db_type in ["mysql", "mariadb"]:
             db = pymysql.connect(db=self._param.database, user=self._param.username, host=self._param.host,
                                  port=self._param.port, password=self._param.password)
         elif self._param.db_type == 'postgresql':
             db = psycopg2.connect(dbname=self._param.database, user=self._param.username, host=self._param.host,
                                   port=self._param.port, password=self._param.password)
-
+        elif self._param.db_type == 'mssql':
+            conn_str = (
+                r'DRIVER={ODBC Driver 17 for SQL Server};'
+                r'SERVER=' + self._param.host + ',' + str(self._param.port) + ';'
+                r'DATABASE=' + self._param.database + ';'
+                r'UID=' + self._param.username + ';'
+                r'PWD=' + self._param.password
+            )
+            db = pyodbc.connect(conn_str)
         try:
             cursor = db.cursor()
         except Exception as e:
@@ -85,11 +109,12 @@ class ExeSQL(ComponentBase, ABC):
             if not single_sql:
                 continue
             try:
+                logging.info("single_sql: ",single_sql)
                 cursor.execute(single_sql)
                 if cursor.rowcount == 0:
                     sql_res.append({"content": "\nTotal: 0\n No record in the database!"})
                     continue
-                single_res = pd.DataFrame([i for i in cursor.fetchmany(size=self._param.top_n)])
+                single_res = pd.DataFrame([i for i in cursor.fetchmany(self._param.top_n)])
                 single_res.columns = [i[0] for i in cursor.description]
                 sql_res.append({"content": "\nTotal: " + str(cursor.rowcount) + "\n" + single_res.to_markdown()})
             except Exception as e:

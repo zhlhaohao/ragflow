@@ -11,15 +11,20 @@
 #  limitations under the License.
 #
 
+import logging
 import os
+import math
+import numpy as np
+import cv2
 from copy import deepcopy
+
 
 import onnxruntime as ort
 from huggingface_hub import snapshot_download
 
 from api.utils.file_utils import get_project_base_directory
-from .operators import *
-
+from .operators import *  # noqa: F403
+from .operators import preprocess
 
 class Recognizer(object):
     def __init__(self, label_list, task_name, model_dir=None):
@@ -276,7 +281,8 @@ class Recognizer(object):
             return
         min_dis, min_i = 1000000, None
         for i,b in enumerate(boxes):
-            if box.get("layoutno", "0") != b.get("layoutno", "0"): continue
+            if box.get("layoutno", "0") != b.get("layoutno", "0"):
+                continue
             dis = min(abs(box["x0"] - b["x0"]), abs(box["x1"] - b["x1"]), abs(box["x0"]+box["x1"] - b["x1"] - b["x0"])/2)
             if dis < min_dis:
                 min_i = i
@@ -401,7 +407,8 @@ class Recognizer(object):
         scores = np.max(boxes[:, 4:], axis=1)
         boxes = boxes[scores > thr, :]
         scores = scores[scores > thr]
-        if len(boxes) == 0: return []
+        if len(boxes) == 0:
+            return []
 
         # Get the class with the highest confidence
         class_ids = np.argmax(boxes[:, 4:], axis=1)
@@ -431,7 +438,8 @@ class Recognizer(object):
         for i in range(len(image_list)):
             if not isinstance(image_list[i], np.ndarray):
                 imgs.append(np.array(image_list[i]))
-            else: imgs.append(image_list[i])
+            else:
+                imgs.append(image_list[i])
 
         batch_loop_cnt = math.ceil(float(len(imgs)) / batch_size)
         for i in range(batch_loop_cnt):
@@ -439,7 +447,7 @@ class Recognizer(object):
             end_index = min((i + 1) * batch_size, len(imgs))
             batch_image_list = imgs[start_index:end_index]
             inputs = self.preprocess(batch_image_list)
-            print("preprocess")
+            logging.debug("preprocess")
             for ins in inputs:
                 bb = self.postprocess(self.ort_sess.run(None, {k:v for k,v in ins.items() if k in self.input_names})[0], ins, thr)
                 res.append(bb)

@@ -148,20 +148,20 @@ export const useHandleUploadDocument = () => {
     async (fileList: UploadFile[]): Promise<number | undefined> => {
       if (fileList.length > 0) {
         const ret: any = await uploadDocument(fileList);
-        if (typeof ret?.retmsg !== 'string') {
+        if (typeof ret?.message !== 'string') {
           return;
         }
-        const count = getUnSupportedFilesCount(ret?.retmsg);
+        const count = getUnSupportedFilesCount(ret?.message);
         /// 500 error code indicates that some file types are not supported
-        let retcode = ret?.retcode;
+        let code = ret?.code;
         if (
-          ret?.retcode === 0 ||
-          (ret?.retcode === 500 && count !== fileList.length) // Some files were not uploaded successfully, but some were uploaded successfully.
+          ret?.code === 0 ||
+          (ret?.code === 500 && count !== fileList.length) // Some files were not uploaded successfully, but some were uploaded successfully.
         ) {
-          retcode = 0;
+          code = 0;
           hideDocumentUploadModal();
         }
-        return retcode;
+        return code;
       }
     },
     [uploadDocument, hideDocumentUploadModal],
@@ -213,6 +213,7 @@ export const useHandleRunDocumentByIds = (id: string) => {
   const handleRunDocumentByIds = async (
     documentId: string,
     isRunning: boolean,
+    shouldDelete: boolean = false,
   ) => {
     if (isLoading) {
       return;
@@ -222,6 +223,7 @@ export const useHandleRunDocumentByIds = (id: string) => {
       await runDocumentByIds({
         documentIds: [documentId],
         run: isRunning ? 2 : 1,
+        shouldDelete,
       });
       setCurrentId('');
     } catch (error) {

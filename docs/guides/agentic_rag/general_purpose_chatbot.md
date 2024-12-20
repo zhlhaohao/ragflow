@@ -15,7 +15,7 @@ This document provides guides on creating such a chatbot using our chatbot templ
 
 1. Ensure you have properly set the LLM to use. See the guides on [Configure your API key](../llm_api_key_setup.md) or [Deploy a local LLM](../deploy_local_llm.mdx) for more information.
 2. Ensure you have a knowledge base configured and the corresponding files properly parsed. See the guide on [Configure a knowledge base](../configure_knowledge_base.md) for more information.
-3. Make sure you have read the [Introduction to Agentic RAG](./agentic_rag_introduction.md).
+3. Make sure you have read the [Introduction to Agentic RAG](./agent_introduction.md).
 
 ## Create a chatbot agent from template
 
@@ -37,7 +37,7 @@ RAGFlow's no-code editor spares you the trouble of coding, making agent developm
 Here’s a breakdown of each component and its role and requirements in the chatbot template:
 
 - **Begin**
-  - Function: Sets the opening greeting for the user.
+  - Function: Sets an opening greeting for users.
   - Purpose: Establishes a welcoming atmosphere and prepares the user for interaction.
 
 - **Interact**

@@ -13,14 +13,40 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-import dotenv
-import typing
+
+import os
+import subprocess
+
+RAGFLOW_VERSION_INFO = "unknown"
 
 
-def get_versions() -> typing.Mapping[str, typing.Any]:
-    dotenv.load_dotenv(dotenv.find_dotenv())
-    return dotenv.dotenv_values()
+def get_ragflow_version() -> str:
+    global RAGFLOW_VERSION_INFO
+    if RAGFLOW_VERSION_INFO != "unknown":
+        return RAGFLOW_VERSION_INFO
+    version_path = os.path.abspath(
+        os.path.join(
+            os.path.dirname(os.path.realpath(__file__)), os.pardir, "VERSION"
+        )
+    )
+    if os.path.exists(version_path):
+        with open(version_path, "r") as f:
+            RAGFLOW_VERSION_INFO = f.read().strip()
+    else:
+        RAGFLOW_VERSION_INFO = get_closest_tag_and_count()
+        LIGHTEN = int(os.environ.get("LIGHTEN", "0"))
+        RAGFLOW_VERSION_INFO += " slim" if LIGHTEN == 1 else " full"
+    return RAGFLOW_VERSION_INFO
 
 
-def get_rag_version() -> typing.Optional[str]:
-    return get_versions().get("RAGFLOW_IMAGE", "infiniflow/ragflow:dev").split(":")[-1]
+def get_closest_tag_and_count():
+    try:
+        # Get the current commit hash
+        version_info = (
+            subprocess.check_output(["git", "describe", "--tags", "--match=v*", "--first-parent", "--always"])
+            .strip()
+            .decode("utf-8")
+        )
+        return version_info
+    except Exception:
+        return "unknown"

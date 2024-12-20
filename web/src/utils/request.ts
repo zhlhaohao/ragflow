@@ -99,39 +99,33 @@ request.interceptors.request.use((url: string, options: any) => {
 });
 
 request.interceptors.response.use(async (response: any, options) => {
-  if (response?.status === 413) {
-    message.error(RetcodeMessage[413]);
+  if (response?.status === 413 || response?.status === 504) {
+    message.error(RetcodeMessage[response?.status as ResultCode]);
   }
 
   if (options.responseType === 'blob') {
     return response;
   }
 
-  const data: ResponseType = await response.clone().json();
-
-  if (data.retcode === 401 || data.retcode === 401) {
+  const data: ResponseType = await response?.clone()?.json();
+  if (data?.code === 100) {
+    message.error(data?.message);
+  } else if (data?.code === 401) {
     notification.error({
-      message: data.retmsg,
-      description: data.retmsg,
+      message: data?.message,
+      description: data?.message,
       duration: 3,
     });
     authorizationUtil.removeAll();
     history.push('/login'); // Will not jump to the login page
-  } else if (data.retcode !== 0) {
-    if (data.retcode === 100) {
-      message.error(data.retmsg);
-    } else {
-      notification.error({
-        message: `${i18n.t('message.hint')} : ${data.retcode}`,
-        description: data.retmsg,
-        duration: 3,
-      });
-    }
-
-    return response;
-  } else {
-    return response;
+  } else if (data?.code !== 0) {
+    notification.error({
+      message: `${i18n.t('message.hint')} : ${data?.code}`,
+      description: data?.message,
+      duration: 3,
+    });
   }
+  return response;
 });
 
 export default request;

@@ -38,7 +38,7 @@ cd ragflow/
 1. Install Poetry:
    
    ```bash
-   curl -sSL https://install.python-poetry.org | python3 -
+   pipx install poetry
    ```
 
 2. Configure Poetry:
@@ -48,9 +48,13 @@ cd ragflow/
    ```
 
 3. Install Python dependencies:
-
+   - slim:
    ```bash
    ~/.local/bin/poetry install --sync --no-root
+   ```
+   - full:
+   ```bash
+   ~/.local/bin/poetry install --sync --no-root --with full
    ```
    *A virtual environment named `.venv` is created, and all Python dependencies are installed into the new environment.*
 
@@ -64,13 +68,13 @@ docker compose -f docker/docker-compose-base.yml up -d
 
 ### Update `host` and `port` Settings for Third-party Services
 
-1. Add the following line to `/etc/hosts` to resolve all hosts specified in **docker/service_conf.yaml** to `127.0.0.1`:
+1. Add the following line to `/etc/hosts` to resolve all hosts specified in **docker/service_conf.yaml.template** to `127.0.0.1`:
 
    ```
-   127.0.0.1       es01 mysql minio redis
+   127.0.0.1       es01 infinity mysql minio redis
    ```
 
-2. In **docker/service_conf.yaml**, update mysql port to `5455` and es port to `1200`, as specified in **docker/.env**.
+2. In **docker/service_conf.yaml.template**, update mysql port to `5455` and es port to `1200`, as specified in **docker/.env**.
 
 ### Launch the RAGFlow Backend Service
 

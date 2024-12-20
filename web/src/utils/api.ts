@@ -62,6 +62,7 @@ export default {
   web_crawl: `${api_host}/document/web_crawl`,
   document_infos: `${api_host}/document/infos`,
   upload_and_parse: `${api_host}/document/upload_and_parse`,
+  parse: `${api_host}/document/parse`,
 
   // chat
   setDialog: `${api_host}/dialog/set`,
@@ -70,6 +71,7 @@ export default {
   listDialog: `${api_host}/dialog/list`,
   setConversation: `${api_host}/conversation/set`,
   getConversation: `${api_host}/conversation/get`,
+  getConversationSSE: `${api_host}/conversation/getsse`,
   listConversation: `${api_host}/conversation/list`,
   removeConversation: `${api_host}/conversation/rm`,
   completeConversation: `${api_host}/conversation/completion`,
@@ -112,9 +114,12 @@ export default {
   listTemplates: `${api_host}/canvas/templates`,
   listCanvas: `${api_host}/canvas/list`,
   getCanvas: `${api_host}/canvas/get`,
+  getCanvasSSE: `${api_host}/canvas/getsse`,
   removeCanvas: `${api_host}/canvas/rm`,
   setCanvas: `${api_host}/canvas/set`,
   resetCanvas: `${api_host}/canvas/reset`,
   runCanvas: `${api_host}/canvas/completion`,
   testDbConnect: `${api_host}/canvas/test_db_connect`,
+  getInputElements: `${api_host}/canvas/input_elements`,
+  debug: `${api_host}/canvas/debug`,
 };

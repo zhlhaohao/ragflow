@@ -24,7 +24,7 @@ const AssistantSetting = ({ show, form }: ISegmentedContentProps) => {
     (checked: boolean) => {
       if (checked && !data.tts_id) {
         message.error(`Please set TTS model firstly. 
-        Setting >> Model Providers >> System model settings`);
+        Setting >> Model providers >> System model settings`);
         form.setFieldValue(['prompt_config', 'tts'], false);
       }
     },
@@ -50,6 +50,9 @@ const AssistantSetting = ({ show, form }: ISegmentedContentProps) => {
         rules={[{ required: true, message: t('assistantNameMessage') }]}
       >
         <Input placeholder={t('namePlaceholder')} />
+      </Form.Item>
+      <Form.Item name={'description'} label={t('description')}>
+        <Input placeholder={t('descriptionPlaceholder')} />
       </Form.Item>
       <Form.Item
         name="icon"
