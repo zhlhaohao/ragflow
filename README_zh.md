@@ -1,3 +1,26 @@
+## 更新到 0.18版后的需要补充安装的依赖
+pip install infinity-sdk=="0.5.0"
+pip install infinity-emb=="0.0.66"
+
+pip install flasgger=="0.9.7.1"
+pip install polars=="1.9.0"
+
+pip install xxhash=="3.5.0"
+pip install valkey=="6.0.2"
+pip install pyodbc=="5.2.0"
+
+sudo apt-get update
+sudo apt-get install unixodbc unixodbc-dev
+
+
+## 上游仓库更新后同步到本地
+```
+git remote add upstream https://github.com/infiniflow/ragflow.git 
+git fetch upstream
+git merge upstream/main
+```
+
+
 <div align="center">
 <a href="https://demo.ragflow.io/">
 <img src="web/src/assets/logo-with-text.png" width="350" alt="ragflow logo">
@@ -8,28 +31,21 @@
   <a href="./README.md">English</a> |
   <a href="./README_zh.md">简体中文</a> |
   <a href="./README_ja.md">日本語</a> |
-  <a href="./README_ko.md">한국어</a> |
-  <a href="./README_id.md">Bahasa Indonesia</a>
+  <a href="./README_ko.md">한국어</a>
 </p>
 
 <p align="center">
-    <a href="https://x.com/intent/follow?screen_name=infiniflowai" target="_blank">
-        <img src="https://img.shields.io/twitter/follow/infiniflow?logo=X&color=%20%23f5f5f5" alt="follow on X(Twitter)">
-    </a>
-    <a href="https://demo.ragflow.io" target="_blank">
-        <img alt="Static Badge" src="https://img.shields.io/badge/Online-Demo-4e6b99">
-    </a>
-    <a href="https://hub.docker.com/r/infiniflow/ragflow" target="_blank">
-        <img src="https://img.shields.io/badge/docker_pull-ragflow:v0.15.0-brightgreen" alt="docker pull infiniflow/ragflow:v0.15.0">
-    </a>
     <a href="https://github.com/infiniflow/ragflow/releases/latest">
         <img src="https://img.shields.io/github/v/release/infiniflow/ragflow?color=blue&label=Latest%20Release" alt="Latest Release">
     </a>
+    <a href="https://demo.ragflow.io" target="_blank">
+        <img alt="Static Badge" src="https://img.shields.io/badge/Online-Demo-4e6b99"></a>
+    <a href="https://hub.docker.com/r/infiniflow/ragflow" target="_blank">
+        <img src="https://img.shields.io/badge/docker_pull-ragflow:v0.12.0-brightgreen" alt="docker pull infiniflow/ragflow:v0.12.0"></a>
     <a href="https://github.com/infiniflow/ragflow/blob/main/LICENSE">
-        <img height="21" src="https://img.shields.io/badge/License-Apache--2.0-ffffff?labelColor=d4eaf7&color=2e6cc4" alt="license">
-    </a>
+    <img height="21" src="https://img.shields.io/badge/License-Apache--2.0-ffffff?labelColor=d4eaf7&color=2e6cc4" alt="license">
+  </a>
 </p>
-
 
 <h4 align="center">
   <a href="https://ragflow.io/docs/dev/">Document</a> |
@@ -48,16 +64,15 @@
 请登录网址 [https://demo.ragflow.io](https://demo.ragflow.io) 试用 demo。
 <div align="center" style="margin-top:20px;margin-bottom:20px;">
 <img src="https://github.com/infiniflow/ragflow/assets/7248/2f6baa3e-1092-4f11-866d-36f6a9d075e5" width="1200"/>
-<img src="https://github.com/user-attachments/assets/504bbbf1-c9f7-4d83-8cc5-e9cb63c26db6" width="1200"/>
+<img src="https://github.com/infiniflow/ragflow/assets/12318111/b083d173-dadc-4ea9-bdeb-180d7df514eb" width="1200"/>
 </div>
 
 
 ## 🔥 近期更新
 
-- 2024-12-18 升级了 Deepdoc 的文档布局分析模型。
-- 2024-12-04 支持知识库的 Pagerank 分数。
-- 2024-11-22 完善了 Agent 中的变量定义和使用。
-- 2024-11-01 对解析后的 chunk 加入关键词抽取和相关问题生成以提高召回的准确度。
+- 2024-09-29 优化多轮对话.
+- 2024-09-13 增加知识库问答搜索模式。
+- 2024-09-09 在 Agent 中加入医疗问诊模板。
 - 2024-08-22 支持用 RAG 技术实现从自然语言到 SQL 语句的转换。
 - 2024-08-02 支持 GraphRAG 启发于 [graphrag](https://github.com/microsoft/graphrag) 和思维导图。
 
@@ -143,25 +158,18 @@
 
 3. 进入 **docker** 文件夹，利用提前编译好的 Docker 镜像启动服务器：
 
-   > 运行以下命令会自动下载 RAGFlow slim Docker 镜像 `v0.15.0-slim`。请参考下表查看不同 Docker 发行版的描述。如需下载不同于 `v0.15.0-slim` 的 Docker 镜像，请在运行 `docker compose` 启动服务之前先更新 **docker/.env** 文件内的 `RAGFLOW_IMAGE` 变量。比如，你可以通过设置 `RAGFLOW_IMAGE=infiniflow/ragflow:v0.15.0` 来下载 RAGFlow 镜像的 `v0.15.0` 完整发行版。
+   > 运行以下命令会自动下载 dev 版的 RAGFlow slim Docker 镜像（`dev-slim`），该镜像并不包含 embedding 模型以及一些 Python 库，因此镜像大小约 1GB。
 
    ```bash
-   $ cd ragflow
-   $ docker compose -f docker/docker-compose.yml up -d
+   $ cd ragflow/docker
+   $ docker compose -f docker-compose.yml up -d
    ```
 
-   | RAGFlow image tag | Image size (GB) | Has embedding models? | Stable?                  |
-   | ----------------- | --------------- | --------------------- | ------------------------ |
-   | v0.15.0           | &approx;9       | :heavy_check_mark:    | Stable release           |
-   | v0.15.0-slim      | &approx;2       | ❌                    | Stable release           |
-   | nightly           | &approx;9       | :heavy_check_mark:    | *Unstable* nightly build |
-   | nightly-slim      | &approx;2       | ❌                    | *Unstable* nightly build |
-
-   > [!TIP] 
-   > 如果你遇到 Docker 镜像拉不下来的问题，可以在 **docker/.env** 文件内根据变量 `RAGFLOW_IMAGE` 的注释提示选择华为云或者阿里云的相应镜像。
-   > - 华为云镜像名：`swr.cn-north-4.myhuaweicloud.com/infiniflow/ragflow`
-   > - 阿里云镜像名：`registry.cn-hangzhou.aliyuncs.com/infiniflow/ragflow`
-
+   > - 如果你想下载并运行特定版本的 RAGFlow slim Docker 镜像，请在 **docker/.env** 文件中找到 `RAGFLOW_IMAGE` 变量，将其改为对应版本。例如 `RAGFLOW_IMAGE=infiniflow/ragflow:v0.12.0-slim`，然后再运行上述命令。
+   > - 如果您想安装内置 embedding 模型和 Python 库的 dev 版本的 Docker 镜像，需要将 **docker/.env** 文件中的 `RAGFLOW_IMAGE` 变量修改为： `RAGFLOW_IMAGE=infiniflow/ragflow:dev`。
+   > - 如果您想安装内置 embedding 模型和 Python 库的指定版本的 RAGFlow Docker 镜像，需要将 **docker/.env** 文件中的 `RAGFLOW_IMAGE` 变量修改为： `RAGFLOW_IMAGE=infiniflow/ragflow:v0.12.0`。修改后，再运行上面的命令。
+   > **注意：** 安装内置 embedding 模型和 Python 库的指定版本的 RAGFlow Docker 镜像大小约 9 GB，可能需要更长时间下载，请耐心等待。
+   
 4. 服务器启动成功后再次确认服务器状态：
 
    ```bash
@@ -182,11 +190,11 @@
     * Running on http://x.x.x.x:9380
     INFO:werkzeug:Press CTRL+C to quit
    ```
-   > 如果您跳过这一步系统确认步骤就登录 RAGFlow，你的浏览器有可能会提示 `network anormal` 或 `网络异常`，因为 RAGFlow 可能并未完全启动成功。
+   > 如果您跳过这一步系统确认步骤就登录 RAGFlow，你的浏览器有可能会提示 `network abnormal` 或 `网络异常`，因为 RAGFlow 可能并未完全启动成功。
 
 5. 在你的浏览器中输入你的服务器对应的 IP 地址并登录 RAGFlow。
    > 上面这个例子中，您只需输入 http://IP_OF_YOUR_MACHINE 即可：未改动过配置则无需输入端口（默认的 HTTP 服务端口 80）。
-6. 在 [service_conf.yaml.template](./docker/service_conf.yaml.template) 文件的 `user_default_llm` 栏配置 LLM factory，并在 `API_KEY` 栏填写和你选择的大模型相对应的 API key。
+6. 在 [service_conf.yaml](./docker/service_conf.yaml) 文件的 `user_default_llm` 栏配置 LLM factory，并在 `API_KEY` 栏填写和你选择的大模型相对应的 API key。
 
    > 详见 [llm_api_key_setup](https://ragflow.io/docs/dev/llm_api_key_setup)。
 
@@ -197,53 +205,33 @@
 系统配置涉及以下三份文件：
 
 - [.env](./docker/.env)：存放一些基本的系统环境变量，比如 `SVR_HTTP_PORT`、`MYSQL_PASSWORD`、`MINIO_PASSWORD` 等。
-- [service_conf.yaml.template](./docker/service_conf.yaml.template)：配置各类后台服务。
+- [service_conf.yaml](./docker/service_conf.yaml)：配置各类后台服务。
 - [docker-compose.yml](./docker/docker-compose.yml): 系统依赖该文件完成启动。
 
-请务必确保 [.env](./docker/.env) 文件中的变量设置与 [service_conf.yaml.template](./docker/service_conf.yaml.template) 文件中的配置保持一致！
+请务必确保 [.env](./docker/.env) 文件中的变量设置与 [service_conf.yaml](./docker/service_conf.yaml) 文件中的配置保持一致！
 
-如果不能访问镜像站点 hub.docker.com 或者模型站点 huggingface.co，请按照 [.env](./docker/.env) 注释修改 `RAGFLOW_IMAGE` 和 `HF_ENDPOINT`。
+如果不能访问镜像站点hub.docker.com或者模型站点huggingface.co，请按照[.env](./docker/.env)注释修改`RAGFLOW_IMAGE`和`HF_ENDPOINT`。
 
-> [./docker/README](./docker/README.md) 解释了 [service_conf.yaml.template](./docker/service_conf.yaml.template) 用到的环境变量设置和服务配置。
+> [./docker/README](./docker/README.md) 文件提供了环境变量设置和服务配置的详细信息。请**一定要**确保 [./docker/README](./docker/README.md) 文件当中列出来的环境变量的值与 [service_conf.yaml](./docker/service_conf.yaml) 文件当中的系统配置保持一致。
 
 如需更新默认的 HTTP 服务端口(80), 可以在 [docker-compose.yml](./docker/docker-compose.yml) 文件中将配置 `80:80` 改为 `<YOUR_SERVING_PORT>:80`。
 
 > 所有系统配置都需要通过系统重启生效：
 >
 > ```bash
-> $ docker compose -f docker/docker-compose.yml up -d
+> $ docker compose -f docker-compose.yml up -d
 > ```
-
-### 把文档引擎从 Elasticsearch 切换成为 Infinity
-
-RAGFlow 默认使用 Elasticsearch 存储文本和向量数据. 如果要切换为 [Infinity](https://github.com/infiniflow/infinity/), 可以按照下面步骤进行:
-
-1. 停止所有容器运行:
-
-   ```bash
-   $ docker compose -f docker/docker-compose.yml down -v
-   ```
-
-2. 设置 **docker/.env** 目录中的 `DOC_ENGINE` 为 `infinity`.
-
-3. 启动容器:
-
-   ```bash
-   $ docker compose -f docker/docker-compose.yml up -d
-   ```
-
-> [!WARNING] 
-> Infinity 目前官方并未正式支持在 Linux/arm64 架构下的机器上运行.
-
 
 ## 🔧 源码编译 Docker 镜像（不含 embedding 模型）
 
-本 Docker 镜像大小约 2 GB 左右并且依赖外部的大模型和 embedding 服务。
+本 Docker 镜像大小约 1 GB 左右并且依赖外部的大模型和 embedding 服务。
 
 ```bash
 git clone https://github.com/infiniflow/ragflow.git
 cd ragflow/
-docker build --build-arg LIGHTEN=1 --build-arg NEED_MIRROR=1 -f Dockerfile -t infiniflow/ragflow:nightly-slim .
+pip3 install huggingface-hub nltk
+python3 download_deps.py
+docker build -f Dockerfile.slim -t infiniflow/ragflow:dev-slim .
 ```
 
 ## 🔧 源码编译 Docker 镜像（包含 embedding 模型）
@@ -253,23 +241,23 @@ docker build --build-arg LIGHTEN=1 --build-arg NEED_MIRROR=1 -f Dockerfile -t in
 ```bash
 git clone https://github.com/infiniflow/ragflow.git
 cd ragflow/
-docker build --build-arg NEED_MIRROR=1 -f Dockerfile -t infiniflow/ragflow:nightly .
+pip3 install huggingface-hub nltk
+python3 download_deps.py
+docker build -f Dockerfile -t infiniflow/ragflow:dev .
 ```
 
 ## 🔨 以源代码启动服务
 
 1. 安装 Poetry。如已经安装，可跳过本步骤：  
    ```bash
-   pipx install poetry
-   pipx inject poetry poetry-plugin-pypi-mirror
-   export POETRY_VIRTUALENVS_CREATE=true POETRY_VIRTUALENVS_IN_PROJECT=true
-   export POETRY_PYPI_MIRROR_URL=https://pypi.tuna.tsinghua.edu.cn/simple/
+   curl -sSL https://install.python-poetry.org | python3 -
    ```
 
 2. 下载源代码并安装 Python 依赖：  
    ```bash
    git clone https://github.com/infiniflow/ragflow.git
    cd ragflow/
+   export POETRY_VIRTUALENVS_CREATE=true POETRY_VIRTUALENVS_IN_PROJECT=true
    ~/.local/bin/poetry install --sync --no-root # install RAGFlow dependent python modules
    ```
 
@@ -278,10 +266,11 @@ docker build --build-arg NEED_MIRROR=1 -f Dockerfile -t infiniflow/ragflow:night
    docker compose -f docker/docker-compose-base.yml up -d
    ```
 
-   在 `/etc/hosts` 中添加以下代码，将 **conf/service_conf.yaml** 文件中的所有 host 地址都解析为 `127.0.0.1`：  
+   在 `/etc/hosts` 中添加以下代码，将 **docker/service_conf.yaml** 文件中的所有 host 地址都解析为 `127.0.0.1`：  
    ```
-   127.0.0.1       es01 infinity mysql minio redis
+   127.0.0.1       es01 mysql minio redis
    ```  
+   在文件 **docker/service_conf.yaml** 中，对照 **docker/.env** 的配置将 mysql 端口更新为 `5455`，es 端口更新为 `1200`。
 
 4. 如果无法访问 HuggingFace，可以把环境变量 `HF_ENDPOINT` 设成相应的镜像站点：  
  
@@ -301,7 +290,8 @@ docker build --build-arg NEED_MIRROR=1 -f Dockerfile -t infiniflow/ragflow:night
    cd web
    npm install --force
    ```  
-7. 启动前端服务：  
+7. 配置前端，将 **.umirc.ts** 的 `proxy.target` 更新为 `http://127.0.0.1:9380`：  
+8. 启动前端服务：  
    ```bash
    npm run dev 
    ```  

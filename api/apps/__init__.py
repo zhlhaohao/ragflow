@@ -150,7 +150,7 @@ client_urls_prefix = [
 def load_user(web_request):
     """jwt令牌解码为用户access_token
     """
-    jwt = Serializer(secret_key=SECRET_KEY)
+    jwt = Serializer(secret_key=settings.SECRET_KEY)
     authorization = web_request.headers.get("Authorization")
     if authorization:
         try:

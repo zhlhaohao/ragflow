@@ -39,9 +39,6 @@ from api import utils
 """Mysql数据库ORM
 """
 
-LOGGER = getLogger()
-
-
 def singleton(cls, *args, **kw):
     instances = {}
 
