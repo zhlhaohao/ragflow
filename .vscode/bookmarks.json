@@ -9,8 +9,23 @@
 					"label": ""
 				},
 				{
-					"line": 395,
+					"line": 381,
 					"column": 10,
+					"label": ""
+				}
+			]
+		},
+		{
+			"path": "rag/svr/task_executor.py",
+			"bookmarks": [
+				{
+					"line": 180,
+					"column": 7,
+					"label": ""
+				},
+				{
+					"line": 411,
+					"column": 7,
 					"label": ""
 				}
 			]
@@ -29,12 +44,12 @@
 			"path": "api/db/services/llm_service.py",
 			"bookmarks": [
 				{
-					"line": 126,
+					"line": 89,
 					"column": 14,
 					"label": ""
 				},
 				{
-					"line": 307,
+					"line": 271,
 					"column": 10,
 					"label": ""
 				}
@@ -69,7 +84,7 @@
 					"label": "Mysql数据库ORM"
 				},
 				{
-					"line": 480,
+					"line": 483,
 					"column": 9,
 					"label": "生成jwt令牌access_token->Authorization"
 				}
@@ -99,17 +114,17 @@
 			"path": "rag/llm/embedding_model.py",
 			"bookmarks": [
 				{
-					"line": 48,
+					"line": 49,
 					"column": 4,
 					"label": "默认的嵌入模型：BAAI/bge-large-zh-v1.5"
 				},
 				{
-					"line": 72,
+					"line": 71,
 					"column": 18,
 					"label": "线程锁保证模型只初始化一次，只有一个实例"
 				},
 				{
-					"line": 172,
+					"line": 168,
 					"column": 8,
 					"label": "QWenEmbed(Base):   通义千问嵌入模型"
 				}
@@ -169,12 +184,12 @@
 			"path": "rag/utils/redis_conn.py",
 			"bookmarks": [
 				{
-					"line": 156,
+					"line": 153,
 					"column": 15,
 					"label": ""
 				},
 				{
-					"line": 203,
+					"line": 200,
 					"column": 14,
 					"label": ""
 				}
@@ -194,7 +209,7 @@
 			"path": "rag/utils/es_conn.py",
 			"bookmarks": [
 				{
-					"line": 113,
+					"line": 109,
 					"column": 7,
 					"label": "bulk 批量更新或插入Elasticsearch索引中的文档。"
 				}

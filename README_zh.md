@@ -1,4 +1,5 @@
 ## 更新到 0.15版后的需要补充安装的依赖
+```shell
 pip install infinity-sdk=="0.5.0"
 pip install infinity-emb=="0.0.66"
 
@@ -11,16 +12,16 @@ pip install pyodbc=="5.2.0"
 
 sudo apt-get update
 sudo apt-get install unixodbc unixodbc-dev
-
+```
 
 ## 上游仓库更新后同步到本地
-```
-git remote add upstream https://github.com/infiniflow/ragflow.git 
+```shell
+git remote add upstream https://github.com/infiniflow/ragflow.git --- 只需要执行一次
 git fetch upstream
 git merge upstream/main
 ```
 
-
+## 原始内容
 
 <div align="center">
 <a href="https://demo.ragflow.io/">

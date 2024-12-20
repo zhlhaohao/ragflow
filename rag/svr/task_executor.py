@@ -80,6 +80,7 @@ FACTORY = {
     ParserType.EMAIL.value: email,
     ParserType.KG.value: knowledge_graph
 }
+# redis消费者名称，用于区分不同的消费者,在这里用进程编号(参数1)作为消费者名称
 
 CONSUMER_NAME = "task_consumer_" + CONSUMER_NO
 PAYLOAD: Payload | None = None
@@ -138,28 +139,39 @@ def set_progress(task_id, from_page=0, to_page=-1, prog=None, msg="Processing...
 
 
 def collect():
+    # 声明全局变量，以便可以在函数内部修改它们
+
     global CONSUMER_NAME, PAYLOAD, DONE_TASKS, FAILED_TASKS
     try:
+        # 尝试从Redis队列中获取未确认的消息（就是尚未完成的任务）,在消息队列系统中，消息通常经过以下几个阶段：发布\获取\处理\确认\重试        
         PAYLOAD = REDIS_CONN.get_unacked_for(CONSUMER_NAME, SVR_QUEUE_NAME, "rag_flow_svr_task_broker")
+        # 如果没有未确认的消息，则作为消费者从队列中获取一条消息
         if not PAYLOAD:
             PAYLOAD = REDIS_CONN.queue_consumer(SVR_QUEUE_NAME, "rag_flow_svr_task_broker", CONSUMER_NAME)
+        # 如果还是没有消息，则等待一秒后返回空DataFrame
         if not PAYLOAD:
             time.sleep(1)
             return None
     except Exception:
+        # 记录获取队列事件时发生的异常,返回空的DataFrame
         logging.exception("Get task event from queue exception")
         return None
 
+    # 提取消息内容
     msg = PAYLOAD.get_message()
+    # 如果消息为空，则返回空DataFrame
     if not msg:
         return None
 
     task = None
     canceled = False
     try:
+        # 获取与消息ID相关联的任务列表，任务列表的任务包括：文档切割、文档嵌入等
         task = TaskService.get_task(msg["id"])
         if task:
             _, doc = DocumentService.get_by_id(task["doc_id"])
+
+            # 检查任务是否已被取消,返回空的DataFrame
             canceled = doc.run == TaskStatus.CANCEL.value or doc.progress < 0
     except DoesNotExist:
         pass
@@ -174,6 +186,7 @@ def collect():
 
     if msg.get("type", "") == "raptor":
         task["task_type"] = "raptor"
+    # 返回包含任务数据的DataFrame
     return task
 
 
@@ -182,15 +195,24 @@ def get_storage_binary(bucket, name):
 
 
 def build_chunks(task, progress_callback):
+    """
+    对文件切块，自动生成关键词，自动生成QA，然后把这些信息放到到docs，并返回
+    row: 任务配置- doc_id \ location\ name \ size \ parser_id切块器id \ parser_config
+    返回 docs: doc_id \ kb_id \
+    """
+    # 检查文件大小是否超过限制
     if task["size"] > DOC_MAXIMUM_SIZE:
         set_progress(task["id"], prog=-1, msg="File size exceeds( <= %dMb )" %
                                               (int(DOC_MAXIMUM_SIZE / 1024 / 1024)))
         return []
 
+    # 获取对应的切块器
     chunker = FACTORY[task["parser_id"].lower()]
     try:
+        # 获取文件的存储地址
         st = timer()
         bucket, name = File2DocumentService.get_storage_address(doc_id=task["doc_id"])
+        # 从minio存储中获取文件二进制内容
         binary = get_storage_binary(bucket, name)
         logging.info("From minio({}) {}/{}".format(timer() - st, task["location"], task["name"]))
     except TimeoutError:
@@ -206,6 +228,10 @@ def build_chunks(task, progress_callback):
         raise
 
     try:
+        # 使用切块器对文件进行解析、切块、合并较小的块、tokenize
+        # naive.chunk(row["name"], binary=binary, from_page=row["from_page"],
+        #                     to_page=row["to_page"], lang=row["language"], callback=callback,
+        #                     kb_id=row["kb_id"], parser_config=row["parser_config"], tenant_id=row["tenant_id"])
         cks = chunker.chunk(task["name"], binary=binary, from_page=task["from_page"],
                             to_page=task["to_page"], lang=task["language"], callback=progress_callback,
                             kb_id=task["kb_id"], parser_config=task["parser_config"], tenant_id=task["tenant_id"])
@@ -217,6 +243,7 @@ def build_chunks(task, progress_callback):
         logging.exception("Chunking {}/{} got exception".format(task["location"], task["name"]))
         raise
 
+    # 初始化文档列表(在这里文件的一个切块被视为一个doc)
     docs = []
     doc = {
         "doc_id": task["doc_id"],
@@ -225,26 +252,42 @@ def build_chunks(task, progress_callback):
     if task["pagerank"]:
         doc["pagerank_fea"] = int(task["pagerank"])
     el = 0
+    # 遍历切块结果
     for ck in cks:
+        # 深拷贝doc对象，深拷贝意味着新对象完全独立于原对象
         d = copy.deepcopy(doc)
+        # 字典 ck 中的所有键值对合并到字典 d 中。如果 ck 中的键已经在 d 中存在，那么 d 中对应的键的值将被 ck 中的值覆盖。
         d.update(ck)
+        # 为切块信息生成唯一标识符
         d["id"] = xxhash.xxh64((ck["content_with_weight"] + str(d["doc_id"])).encode("utf-8")).hexdigest()
+        # 为切块信息生成时间信息
         d["create_time"] = str(datetime.now()).replace("T", " ")[:19]
         d["create_timestamp_flt"] = datetime.now().timestamp()
+        # 如果切块没有图像数据,则跳过下面的处理
         if not d.get("image"):
             _ = d.pop("image", None)
             d["img_id"] = ""
             docs.append(d)
             continue
 
+        # 处理文档切块中的图像数据，并将其存储到指定的存储实现中
         try:
+            # 初始化缓冲区
             output_buffer = BytesIO()
+            # 检查 d["image"] 是否为字节串类型 (bytes)。
+            # 如果是字节串类型，直接使用 BytesIO 将其包装成一个文件对象。
+            # 如果不是字节串类型，假设 d["image"] 是一个支持 .save 方法的对象（如PIL图像对象），将其保存到 output_buffer 中，格式为 JPEG。
             if isinstance(d["image"], bytes):
                 output_buffer = BytesIO(d["image"])
             else:
                 d["image"].save(output_buffer, format='JPEG')
 
             st = timer()
+            # 从 output_buffer 中获取图像数据的字节串表示。
+            # 调用 STORAGE_IMPL.put 方法，将图像数据存储到指定的存储实现中（在这里是MinIO）。
+            # row["kb_id"] 是知识库的 ID。
+            # d["_id"] 是文档切块的唯一标识符。
+            # output_buffer.getvalue() 是图像数据的字节串表示。
             STORAGE_IMPL.put(task["kb_id"], d["id"], output_buffer.getvalue())
             el += timer() - st
         except Exception:
@@ -256,6 +299,7 @@ def build_chunks(task, progress_callback):
         docs.append(d)
     logging.info("MINIO PUT({}):{}".format(task["name"], el))
 
+    # 如果配置中有自动关键词生成，则生成关键词
     if task["parser_config"].get("auto_keywords", 0):
         st = timer()
         progress_callback(msg="Start to generate keywords for every chunk ...")
@@ -274,6 +318,7 @@ def build_chunks(task, progress_callback):
             d["important_tks"] = rag_tokenizer.tokenize(" ".join(d["important_kwd"]))
         progress_callback(msg="Keywords generation completed in {:.2f}s".format(timer() - st))
 
+    # 如果配置中有自动问题生成，则生成问题
     if task["parser_config"].get("auto_questions", 0):
         st = timer()
         progress_callback(msg="Start to generate questions for every chunk ...")
@@ -291,19 +336,43 @@ def build_chunks(task, progress_callback):
             d["question_tks"] = rag_tokenizer.tokenize("\n".join(d["question_kwd"]))
         progress_callback(msg="Question generation completed in {:.2f}s".format(timer() - st))
 
+    # 返回最终处理后的文档列表
     return docs
 
 
-def init_kb(row, vector_size: int):
+def init_kb(row, vector_size: int):    
+    """
+    Elasticsearch 中为特定租户初始化一个知识库索引，如果索引已经存在则不做任何操作，否则创建索引并应用指定的映射配置。这
+    """
     idxnm = search.index_name(row["tenant_id"])
     return settings.docStoreConn.createIdx(idxnm, row.get("kb_id",""), vector_size)
 
 
 def embedding(docs, mdl, parser_config=None, callback=None):
+    """
+    对文档标题和内容进行编码，并根据一定的权重组合这两个嵌入向量。
+    docs: 文档列表
+    mdl: 模型
+    parser_config: 解析器配置
+    callback: 回调函数
+    """
+
     if parser_config is None:
         parser_config = {}
     batch_size = 16
     tts, cnts = [], []
+
+    # 准备标题和内容，tts是标题 cnts是内容
+    # tts：这是一个列表推导式，遍历 docs 列表中的每一个文档 d。
+    # 使用 d.get("title_tks") 检查文档是否有标题词元。
+    # 如果文档有标题词元，则调用 rmSpace 函数来移除词元中的空白字符。
+    # 将处理后的标题词元加入到 tts 列表中。
+
+    # cnts：这也是一个列表推导式，同样遍历 docs 列表中的每一个文档 d。
+    # 使用正则表达式 re.sub 来替换文档中的 HTML 表格标签。
+    # 正则表达式 r"</?(table|td|caption|tr|th)( [^<>]{0,12})?>" 匹配所有的表格相关标签，包括 <table>, <td>, <caption>, <tr>, <th> 及其关闭标签，并且允许标签内有最多 12 个非尖括号字符的属性。
+    # 替换匹配到的标签为单个空格 " "。
+    # 将清理后的文档内容文本加入到 cnts 列表中    
     for d in docs:
         tts.append(d.get("docnm_kwd", "Title"))
         c = "\n".join(d.get("question_kwd", []))
@@ -313,8 +382,14 @@ def embedding(docs, mdl, parser_config=None, callback=None):
         cnts.append(c)
 
     tk_count = 0
+    # 初始化一个空的 NumPy 数组 tts_，用于存放处理后的标题嵌入向量。
     if len(tts) == len(cnts):
         tts_ = np.array([])
+        # 使用列表推导式遍历 tts，以 batch_size 为步长进行批量处理。
+        # 对于每个批次的数据 tts[i : i + batch_size]，调用 mdl.encode() 方法进行嵌入处理，返回嵌入向量 vts 和词汇数量 c。
+        # 如果 tts_ 数组是空的，则直接赋值为 vts；否则，将 vts 与现有的 tts_ 数组沿轴 0 方向进行拼接。
+        # 累加处理得到的词汇数量 c 到 tk_count。
+        # 调用 callback 函数更新进度条，进度条的值从 0.6 开始，逐渐增加到 0.7，这表示标题嵌入处理阶段的完成情况。
         for i in range(0, len(tts), batch_size):
             vts, c = mdl.encode(tts[i: i + batch_size])
             if len(tts_) == 0:
@@ -325,6 +400,7 @@ def embedding(docs, mdl, parser_config=None, callback=None):
             callback(prog=0.6 + 0.1 * (i + 1) / len(tts), msg="")
         tts = tts_
 
+    # 处理内容嵌入,解释同上
     cnts_ = np.array([])
     for i in range(0, len(cnts), batch_size):
         vts, c = mdl.encode(cnts[i: i + batch_size])
@@ -336,28 +412,38 @@ def embedding(docs, mdl, parser_config=None, callback=None):
         callback(prog=0.7 + 0.2 * (i + 1) / len(cnts), msg="")
     cnts = cnts_
 
+    # 计算标题权重,取parser_config["filename_embd_weight"]值。如果没有设置该键，则默认使用 0.1。
     title_w = float(parser_config.get("filename_embd_weight", 0.1))
+    # 如果标题嵌入向量 tts 和内容嵌入向量 cnts 的长度相同，那么就按照权重 title_w 组合这两个向量。
+    # 如果长度不同，则直接使用内容嵌入向量 cnts 作为最终的文档嵌入向量
     vects = (title_w * tts + (1 - title_w) *
              cnts) if len(tts) == len(cnts) else cnts
 
+    # 检查向量数量是否与文档数量一致
     assert len(vects) == len(docs)
     vector_size = 0
+    # 将文档嵌入向量存储到文档docs中
     for i, d in enumerate(docs):
+        # 从嵌入向量数组 vects 中获取第 i 个文档的嵌入向量。使用 .tolist() 方法将 NumPy 数组转换为 Python 列表。
         v = vects[i].tolist()
         vector_size = len(v)
+        # 键名格式为 "q_<嵌入向量长度>_vec"，例如，如果嵌入向量的长度为 768，则键名为 "q_768_vec"。
         d["q_%d_vec" % len(v)] = v
     return tk_count, vector_size
 
 
+# 对文档进行聚类,对每个类生成摘要，对摘要进行嵌入，将摘要内容和嵌入向量添加到chunks中
 def run_raptor(row, chat_mdl, embd_mdl, callback=None):
     vts, _ = embd_mdl.encode(["ok"])
     vector_size = len(vts[0])
     vctr_nm = "q_%d_vec" % vector_size
     chunks = []
+    # 从es中获取文档的内容和嵌入向量，并将它们添加到 chunks 列表中。
     for d in settings.retrievaler.chunk_list(row["doc_id"], row["tenant_id"], [str(row["kb_id"])],
                                              fields=["content_with_weight", vctr_nm]):
         chunks.append((d["content_with_weight"], np.array(d[vctr_nm])))
 
+    # 它使用高斯混合模型 (Gaussian Mixture Model, GMM) 对文档嵌入进行聚类(簇)，并对每个簇生成摘要。
     raptor = Raptor(
         row["parser_config"]["raptor"].get("max_cluster", 64),
         chat_mdl,
@@ -367,7 +453,9 @@ def run_raptor(row, chat_mdl, embd_mdl, callback=None):
         row["parser_config"]["raptor"]["threshold"]
     )
     original_length = len(chunks)
+    # 进行聚类、摘要生成和摘要嵌入生成，并附加到chunks中
     chunks = raptor(chunks, row["parser_config"]["raptor"]["random_seed"], callback)
+    # 深拷贝chunks,然后更新chunks项目中的关键字段，结果存放到res
     doc = {
         "doc_id": row["doc_id"],
         "kb_id": [str(row["kb_id"])],
