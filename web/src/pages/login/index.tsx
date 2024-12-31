@@ -9,6 +9,7 @@ import RightPanel from './right-panel';
 import { Domain } from '@/constants/common';
 import styles from './index.less';
 
+// 用户登录+用户注册页面
 const Login = () => {
   const [title, setTitle] = useState('login');
   const navigate = useNavigate();
@@ -30,6 +31,7 @@ const Login = () => {
     try {
       const params = await form.validateFields();
 
+      // 对密码进行加密
       const rsaPassWord = rsaPsw(params.password) as string;
 
       if (title === 'login') {
@@ -41,6 +43,7 @@ const Login = () => {
           navigate('/knowledge');
         }
       } else {
+        // 用户注册
         const code = await register({
           nickname: params.nickname,
           email: params.email,

@@ -103,6 +103,10 @@ const methods = {
   },
 } as const;
 
+// 创建一个名为 userService 的服务对象，它通过调用 registerServer 函数来注册一系列与用户相关的API方法：
+// methods定义了各个API端点的URL和HTTP方法。
+// request 是来自 umi-request 或其他HTTP请求库的一个方法
+// 例如：注册 GET ${api_host}/system/version ，并通过 userService.getSystemVersion() 来调用
 const userService = registerServer<keyof typeof methods>(methods, request);
 
 export const listTenantUser = (tenantId: string) =>

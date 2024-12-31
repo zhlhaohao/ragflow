@@ -38,7 +38,7 @@ def get_ragflow_version() -> str:
         RAGFLOW_VERSION_INFO += " slim" if LIGHTEN == 1 else " full"
     return RAGFLOW_VERSION_INFO
 
-
+# 通过调用 Git 命令来获取当前提交的版本信息(作为系统版本)。具体来说，它尝试找到最近的带有前缀 v 的标签（tag），并返回该标签以及从该标签到当前提交的提交次数。
 def get_closest_tag_and_count():
     try:
         # Get the current commit hash

@@ -134,6 +134,7 @@ export const useFetchSystemVersion = () => {
   const fetchSystemVersion = useCallback(async () => {
     try {
       setLoading(true);
+      // 调用后台api baseUrl/getSystemVersion 获取系统的版本
       const { data } = await userService.getSystemVersion();
       if (data.code === 0) {
         setVersion(data.data);

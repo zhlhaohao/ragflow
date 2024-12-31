@@ -137,6 +137,11 @@
 					"line": 42,
 					"column": 9,
 					"label": "get_base_config-读取配置文件"
+				},
+				{
+					"line": 389,
+					"column": 5,
+					"label": ""
 				}
 			]
 		},
@@ -167,16 +172,6 @@
 					"line": 541,
 					"column": 8,
 					"label": "OCR(object):  OCR识别pdf"
-				},
-				{
-					"line": 636,
-					"column": 13,
-					"label": "detect(self, img):  识别文本框(包含文本的图片框)"
-				},
-				{
-					"line": 657,
-					"column": 14,
-					"label": "recognize(self, ori_im, box):   从文本框识别文本"
 				}
 			]
 		},
@@ -284,8 +279,13 @@
 					"label": ""
 				},
 				{
-					"line": 66,
-					"column": 25,
+					"line": 47,
+					"column": 10,
+					"label": "后端:登录端点"
+				},
+				{
+					"line": 714,
+					"column": 12,
 					"label": ""
 				}
 			]
@@ -357,6 +357,46 @@
 					"line": 24,
 					"column": 1,
 					"label": "前端读office文件并渲染"
+				}
+			]
+		},
+		{
+			"path": "web/src/utils/file-util.ts",
+			"bookmarks": [
+				{
+					"line": 115,
+					"column": 8,
+					"label": "前端下载文档"
+				}
+			]
+		},
+		{
+			"path": "web/src/pages/user-setting/sidebar/index.tsx",
+			"bookmarks": [
+				{
+					"line": 18,
+					"column": 10,
+					"label": "前端：系统设置页面左侧的菜单栏"
+				}
+			]
+		},
+		{
+			"path": "web/src/hooks/user-setting-hooks.tsx",
+			"bookmarks": [
+				{
+					"line": 129,
+					"column": 16,
+					"label": "前端：获取系统版本"
+				}
+			]
+		},
+		{
+			"path": "web/src/pages/login/index.tsx",
+			"bookmarks": [
+				{
+					"line": 11,
+					"column": 8,
+					"label": ""
 				}
 			]
 		}

@@ -51,6 +51,7 @@ export const useLogin = () => {
   return { data, loading, login: mutateAsync };
 };
 
+// 新用户注册
 export const useRegister = () => {
   const { t } = useTranslation();
 

@@ -38,6 +38,7 @@ from timeit import default_timer as timer
 from rag.utils.redis_conn import REDIS_CONN
 
 
+# 获取ragflow系统版本号
 @manager.route("/version", methods=["GET"])  # noqa: F821
 @login_required
 def version():
