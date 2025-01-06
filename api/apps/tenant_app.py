@@ -44,6 +44,7 @@ def user_list(tenant_id):
         return server_error_response(e)
 
 
+# 邀请用户加入团队
 @manager.route('/<tenant_id>/user', methods=['POST'])  # noqa: F821
 @login_required
 @validate_request("email")
@@ -75,7 +76,8 @@ def create(tenant_id):
         user_id=user_id_to_invite,
         tenant_id=tenant_id,
         invited_by=current_user.id,
-        role=UserTenantRole.INVITE,
+        # role=UserTenantRole.INVITE,   自己改的，不要INVITE ，直接变成 NORMAL
+        role=UserTenantRole.NORMAL,
         status=StatusEnum.VALID.value)
 
     usr = invite_users[0].to_dict()

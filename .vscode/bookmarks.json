@@ -399,6 +399,16 @@
 					"label": ""
 				}
 			]
+		},
+		{
+			"path": "api/apps/tenant_app.py",
+			"bookmarks": [
+				{
+					"line": 46,
+					"column": 6,
+					"label": ""
+				}
+			]
 		}
 	]
 }

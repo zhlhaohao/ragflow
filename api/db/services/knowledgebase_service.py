@@ -48,6 +48,7 @@ class KnowledgebaseService(CommonService):
             cls.model.chunk_num,
             cls.model.parser_id,
             cls.model.embd_id,
+            cls.model.tenant_id,     # 这个是自己加上的，回传知识库的tenant_id，即创建人的user id，用户知识库的分权分域管理，即不是自己创建的文件就不能修改
             User.nickname,
             User.avatar.alias('tenant_avatar'),
             cls.model.update_time

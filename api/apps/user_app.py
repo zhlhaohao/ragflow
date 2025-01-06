@@ -712,7 +712,7 @@ def set_tenant_info():
     except Exception as e:
         return server_error_response(e)
 
-# 复位任意用户的密码，这个是自己加上的，注意不要覆盖
+# 这个是自己加上的，注意不要覆盖: 复位任意用户的密码
 @manager.route("/reset_password", methods=["POST"])
 def reset_password():
     update_dict = {}
@@ -737,3 +737,14 @@ def reset_password():
               return get_json_result(
                   data=False, message="Update failure!", code=settings.RetCode.EXCEPTION_ERROR
               )
+
+
+# 这个是自己加上的，注意不要覆盖: 判断用户(email)是否存在
+@manager.route("/exist", methods=["POST"])
+def user_exist():
+    email = request.json.get("email", "")
+    users = UserService.query(email=email)
+    if not users:
+        return get_json_result(data=False)
+
+    return get_json_result(data=True)
