@@ -1,10 +1,10 @@
 ## 此项目的配置文件详细说明
 
 ### docker/.env
-docker-compose-base.yaml\docker-compose.yaml需要读此文件，它指定了es、infinity、mysql、minio、redis等数据库服务的端口和密码等信息,容器启动后对外的端口和密码是由.env指定的
+管服务的，docker-compose-base.yaml\docker-compose.yaml需要读此文件，它指定了es、infinity、mysql、minio、redis等数据库服务的端口和密码等信息,容器启动后对外的端口和密码是由.env指定的
 
 ### conf/service_conf.yaml
-这个是后台应用读取的配置文件，指定了es、infinity、mysql、minio、redis等数据库服务的ip地址、端口和密码等信息，所以必须和.env的内容一致
+管应用的，这个是后台应用读取的配置文件，指定了es、infinity、mysql、minio、redis等数据库服务的ip地址、端口和密码等信息，所以必须和.env的内容一致
 
 ### conf/local.service_conf.yaml
 这个优先级比conf/service_conf.yaml，如果存在这个文件就读这个配置文件
