@@ -76,7 +76,7 @@ def create(tenant_id):
         user_id=user_id_to_invite,
         tenant_id=tenant_id,
         invited_by=current_user.id,
-        # role=UserTenantRole.INVITE,   自己改的，不要INVITE ，直接变成 NORMAL
+        # role=UserTenantRole.INVITE,   自己加上的，不要INVITE ，直接变成 NORMAL
         role=UserTenantRole.NORMAL,
         status=StatusEnum.VALID.value)
 

@@ -1,3 +1,51 @@
+## 此项目的配置文件详细说明
+
+### docker/.env
+docker-compose-base.yaml\docker-compose.yaml需要读此文件，它指定了es、infinity、mysql、minio、redis等数据库服务的端口和密码等信息,容器启动后对外的端口和密码是由.env指定的
+
+### conf/service_conf.yaml
+这个是后台应用读取的配置文件，指定了es、infinity、mysql、minio、redis等数据库服务的ip地址、端口和密码等信息，所以必须和.env的内容一致
+
+### conf/local.service_conf.yaml
+这个优先级比conf/service_conf.yaml，如果存在这个文件就读这个配置文件
+
+### docker/service_conf.yaml.template
+这个文件在通过Dockerfile创建镜像的过程中有用，因为会将该文件在docker build的时候，拷贝到conf/service_conf.yaml，为应用提供配置，所以也必须跟conf/service_conf.yaml一致
+
+### docker/service_conf.yaml
+无用，只是符号链接到conf/service_conf.yaml
+
+### 项目根目录/.env
+```
+PYTHONPATH=/home/lianghao/github/ragflow
+HF_ENDPOINT=https://hf-mirror.com
+```
+
+
+### 设置默认模型 
+1. local.service_conf.yaml 或者 service_conf.yaml
+
+```
+user_default_llm:
+  factory: 'Tongyi-Qianwen'   # 新建了用户和tenant的时候，所设置的默认的模型
+  api_key: 'sk-db2ad92210a348fd884c3b94655095c5'   # 默认的api_key
+```
+
+2. api/settings.py
+
+这里是设置了默认模型后，该模型的一些其它参数，例如 factory: 'Tongyi-Qianwen'，那么默认的 chat_model、embedding_model 就从这儿取
+```python
+default_llm = {
+   "Tongyi-Qianwen": {
+         "chat_model": "qwen-plus",
+         "embedding_model": "text-embedding-v3",     # 自己加上的，不要覆盖
+         # "embedding_model": "text-embedding-v2",
+         "image2text_model": "qwen-vl-max",
+         "asr_model": "paraformer-realtime-8k-v1",
+   },
+}
+```
+
 ## 更新到 0.15版后的需要补充安装的依赖
 ```shell
 pip install infinity-sdk=="0.5.0"

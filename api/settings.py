@@ -65,7 +65,10 @@ def init_settings():
     LIGHTEN = int(os.environ.get('LIGHTEN', "0"))
     DATABASE_TYPE = os.getenv("DB_TYPE", 'mysql')
     DATABASE = decrypt_database_config(name=DATABASE_TYPE)
+
+    # LLM 是从 service.conf 读取的 key=user_default_llm 的配置，是默认llm的配置信息
     LLM = get_base_config("user_default_llm", {})
+
     LLM_FACTORY = LLM.get("factory", "Tongyi-Qianwen")
     LLM_BASE_URL = LLM.get("base_url")
 
@@ -74,7 +77,8 @@ def init_settings():
         default_llm = {
             "Tongyi-Qianwen": {
                 "chat_model": "qwen-plus",
-                "embedding_model": "text-embedding-v2",
+                "embedding_model": "text-embedding-v3",     # 自己加上的，不要覆盖
+                # "embedding_model": "text-embedding-v2",
                 "image2text_model": "qwen-vl-max",
                 "asr_model": "paraformer-realtime-8k-v1",
             },
@@ -133,7 +137,14 @@ def init_settings():
             CHAT_MDL = default_llm[LLM_FACTORY]["chat_model"] + f"@{LLM_FACTORY}"
             ASR_MDL = default_llm[LLM_FACTORY]["asr_model"] + f"@{LLM_FACTORY}"
             IMAGE2TEXT_MDL = default_llm[LLM_FACTORY]["image2text_model"] + f"@{LLM_FACTORY}"
-        EMBEDDING_MDL = default_llm["BAAI"]["embedding_model"] + "@BAAI"
+
+            # 自己优化的，不要覆盖
+            # 嵌入模型采用你选择的模型的自己的嵌入模型，而不是一律用BAAI
+            if default_llm[LLM_FACTORY]["embedding_model"] == "":
+                EMBEDDING_MDL = default_llm["BAAI"]["embedding_model"] + "@BAAI"
+            else:
+                EMBEDDING_MDL = default_llm[LLM_FACTORY]["embedding_model"] + f"@{LLM_FACTORY}"
+
         RERANK_MDL = default_llm["BAAI"]["rerank_model"] + "@BAAI"
 
     global API_KEY, PARSERS, HOST_IP, HOST_PORT, SECRET_KEY
