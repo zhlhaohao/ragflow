@@ -77,7 +77,7 @@ def init_settings():
         default_llm = {
             "Tongyi-Qianwen": {
                 "chat_model": "qwen-plus",
-                "embedding_model": "text-embedding-v3",     # 自己加上的，不要覆盖
+                "embedding_model": "text-embedding-v3",     # 自己加上的，不要覆盖,选择最新的嵌入模型
                 # "embedding_model": "text-embedding-v2",
                 "image2text_model": "qwen-vl-max",
                 "asr_model": "paraformer-realtime-8k-v1",
