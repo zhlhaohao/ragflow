@@ -126,7 +126,26 @@ class TenantService(CommonService):
         if num == 0:
             raise LookupError("Tenant not found which is supposed to be there")
 
-
+    # F8080 - 读取所有的租户信息，包括租户的状态，用户信息，是否是超级用户
+    @classmethod
+    @DB.connection_context()
+    def get_all(cls):
+        fields = [
+            cls.model.id,
+            cls.model.status,
+            User.nickname,
+            User.email,
+            User.avatar,
+            User.is_authenticated,
+            User.is_active,
+            User.is_anonymous,
+            User.status,
+            User.update_date,
+            User.is_superuser]
+        return list(cls.model.select(*fields)
+                    .join(User, on=((cls.model.id == User.id) & (cls.model.status == StatusEnum.VALID.value)))
+                    .where(1==1)
+                    .dicts())
 class UserTenantService(CommonService):
     model = UserTenant
 

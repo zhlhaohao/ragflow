@@ -38,7 +38,7 @@ user_default_llm:
 default_llm = {
    "Tongyi-Qianwen": {
          "chat_model": "qwen-plus",
-         "embedding_model": "text-embedding-v3",     # 自己加上的，不要覆盖
+         "embedding_model": "text-embedding-v3",     # F8080 - 自己加上的，不要覆盖
          # "embedding_model": "text-embedding-v2",
          "image2text_model": "qwen-vl-max",
          "asr_model": "paraformer-realtime-8k-v1",

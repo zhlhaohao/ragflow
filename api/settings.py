@@ -77,7 +77,7 @@ def init_settings():
         default_llm = {
             "Tongyi-Qianwen": {
                 "chat_model": "qwen-plus",
-                "embedding_model": "text-embedding-v3",     # 自己加上的，不要覆盖,选择最新的嵌入模型
+                "embedding_model": "text-embedding-v3",     # F8080 - 自己加上的，不要覆盖,选择最新的嵌入模型
                 # "embedding_model": "text-embedding-v2",
                 "image2text_model": "qwen-vl-max",
                 "asr_model": "paraformer-realtime-8k-v1",
@@ -138,7 +138,7 @@ def init_settings():
             ASR_MDL = default_llm[LLM_FACTORY]["asr_model"] + f"@{LLM_FACTORY}"
             IMAGE2TEXT_MDL = default_llm[LLM_FACTORY]["image2text_model"] + f"@{LLM_FACTORY}"
 
-            # 自己优化的，不要覆盖
+            # F8080 - 自己优化的，不要覆盖
             # 嵌入模型采用你选择的模型的自己的嵌入模型，而不是一律用BAAI
             if default_llm[LLM_FACTORY]["embedding_model"] == "":
                 EMBEDDING_MDL = default_llm["BAAI"]["embedding_model"] + "@BAAI"

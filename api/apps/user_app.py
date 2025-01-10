@@ -712,7 +712,7 @@ def set_tenant_info():
     except Exception as e:
         return server_error_response(e)
 
-# 这个是自己加上的，注意不要覆盖: 复位任意用户的密码
+# F8080 - 这个是自己加上的，注意不要覆盖: 复位任意用户的密码
 @manager.route("/reset_password", methods=["POST"])
 def reset_password():
     update_dict = {}
@@ -739,7 +739,7 @@ def reset_password():
               )
 
 
-# 这个是自己加上的，注意不要覆盖: 判断用户(email)是否存在
+# F8080 - 这个是自己加上的，注意不要覆盖: 判断用户(email)是否存在
 @manager.route("/exist", methods=["POST"])
 def user_exist():
     email = request.json.get("email", "")

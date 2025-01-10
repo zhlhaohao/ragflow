@@ -21,6 +21,8 @@ from api import settings
 from api.db import UserTenantRole, StatusEnum
 from api.db.db_models import UserTenant
 from api.db.services.user_service import UserTenantService, UserService
+# F8080 ：引入租户的服务类
+from api.db.services.user_service import TenantService
 
 from api.utils import get_uuid, delta_seconds
 from api.utils.api_utils import get_json_result, validate_request, server_error_response, get_data_error_result
@@ -120,5 +122,17 @@ def agree(tenant_id):
     try:
         UserTenantService.filter_update([UserTenant.tenant_id == tenant_id, UserTenant.user_id == current_user.id], {"role": UserTenantRole.NORMAL})
         return get_json_result(data=True)
+    except Exception as e:
+        return server_error_response(e)
+
+# F8080 ：获取系统所有的租户（用户）
+@manager.route("/get_all", methods=["GET"])  # noqa: F821
+@login_required
+def tenant_get_all():
+    try:
+        users = TenantService.get_all()
+        for u in users:
+            u["delta_seconds"] = delta_seconds(str(u["update_date"]))
+        return get_json_result(data=users)
     except Exception as e:
         return server_error_response(e)
