@@ -267,7 +267,10 @@ class DocumentService(CommonService):
             cls.model.id).join(
             Knowledgebase, on=(
                     Knowledgebase.id == cls.model.kb_id)
-        ).where(cls.model.id == doc_id, Knowledgebase.created_by == user_id).paginate(0, 1)
+        ).where((cls.model.id == doc_id) & 
+        ((cls.model.created_by == user_id) | 
+         (Knowledgebase.created_by == user_id))).paginate(0, 1)  
+        # F8080 ：文件的上传人和知识库创建人可以删除文件  --  ).where(cls.model.id == doc_id, Knowledgebase.created_by == user_id).paginate(0, 1)
         docs = docs.dicts()
         if not docs:
             return False
