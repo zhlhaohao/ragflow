@@ -193,13 +193,20 @@ def completion():
             continue
         if m["role"] == "assistant" and not msg:
             continue
+
+        # 只取用户的消息
         msg.append(m)
+    # 获取最后一条历史消息的id    
     message_id = msg[-1].get("id")
     try:
+        # 获取聊天对象
         e, conv = ConversationService.get_by_id(req["conversation_id"])
         if not e:
             return get_data_error_result(message="Conversation not found!")
+        
+        # 深拷贝请求中的messages到会话对象中
         conv.message = deepcopy(req["messages"])
+        # 获取助理对象
         e, dia = DialogService.get_by_id(conv.dialog_id)
         if not e:
             return get_data_error_result(message="Dialog not found!")
@@ -228,13 +235,17 @@ def completion():
         if not conv.reference:
             conv.reference = []
         conv.reference.append({"chunks": [], "doc_aggs": []})
+
+        # 流式响应函数
         def stream():
             nonlocal dia, msg, req, conv
 
             # ic(msg)
 
             try:
+                # 调用chat函数生成答案，stream模式为True
                 for ans in chat(dia, msg, True, **req):
+                    # 结构化答案，将答案组装到聊天对象中
                     ans = structure_answer(conv, ans, message_id, conv.id)
                     yield "data:" + json.dumps({"code": 0, "message": "", "data": ans}, ensure_ascii=False) + "\n\n"
                 ConversationService.update_by_id(conv.id, conv.to_dict())
@@ -246,6 +257,7 @@ def completion():
             yield "data:" + json.dumps({"code": 0, "message": "", "data": True}, ensure_ascii=False) + "\n\n"
 
         if req.get("stream", True):
+            # 生成SSE响应
             resp = Response(stream(), mimetype="text/event-stream")
             resp.headers.add_header("Cache-control", "no-cache")
             resp.headers.add_header("Connection", "keep-alive")
@@ -255,6 +267,7 @@ def completion():
 
         else:
             answer = None
+            # 调用chat函数生成答案，stream模式为False
             for ans in chat(dia, msg, **req):
                 answer = structure_answer(conv, ans, message_id, req["conversation_id"])
                 ConversationService.update_by_id(conv.id, conv.to_dict())

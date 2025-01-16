@@ -143,11 +143,12 @@ def chat(dialog, messages, stream=True, **kwargs):
     # Get llm model name and model provider name
     llm_id, model_provider = TenantLLMService.split_model_name_and_factory(dialog.llm_id)
 
-    # Get llm model instance by model and provide name
+    # 从系统模型表中获取模型信息，Get llm model instance by model and provide name
     llm = LLMService.query(llm_name=llm_id) if not model_provider else LLMService.query(llm_name=llm_id, fid=model_provider)
 
     if not llm:
         # Model name is provided by tenant, but not system built-in
+        # 系统模型表中没有该模型，尝试从租户模型表中获取模型信息
         llm = TenantLLMService.query(tenant_id=dialog.tenant_id, llm_name=llm_id) if not model_provider else \
             TenantLLMService.query(tenant_id=dialog.tenant_id, llm_name=llm_id, llm_factory=model_provider)
         if not llm:
@@ -158,18 +159,22 @@ def chat(dialog, messages, stream=True, **kwargs):
 
     check_llm_ts = timer()
 
+    # 获取知识库信息
     kbs = KnowledgebaseService.get_by_ids(dialog.kb_ids)
     embedding_list = list(set([kb.embd_id for kb in kbs]))
-    if len(embedding_list) != 1:
+    if len(embedding_list) > 1:  # F8080 在自由提问模式下,不检查embedding是否一致
         yield {"answer": "**ERROR**: Knowledge bases use different embedding models.", "reference": []}
         return {"answer": "**ERROR**: Knowledge bases use different embedding models.", "reference": []}
 
-    embedding_model_name = embedding_list[0]
+    # embedding_model_name = embedding_list[0]  # F8080 移到下方
 
     is_knowledge_graph = all([kb.parser_id == ParserType.KG for kb in kbs])
     retriever = settings.retrievaler if not is_knowledge_graph else settings.kg_retrievaler
 
+    # 提取用户最近的3个问题
     questions = [m["content"] for m in messages if m["role"] == "user"][-3:]
+
+    # attachments数组存放函数传入的 doc_ids 参数
     attachments = kwargs["doc_ids"].split(",") if "doc_ids" in kwargs else None
     if "doc_ids" in messages[-1]:
         attachments = messages[-1]["doc_ids"]
@@ -179,12 +184,16 @@ def chat(dialog, messages, stream=True, **kwargs):
 
     create_retriever_ts = timer()
 
-    embd_mdl = LLMBundle(dialog.tenant_id, LLMType.EMBEDDING, embedding_model_name)
-    if not embd_mdl:
-        raise LookupError("Embedding model(%s) not found" % embedding_model_name)
+    # 绑定嵌入模型
+    if len(embedding_list) > 0:   # F8080 自由提问模式下,没有嵌入模型
+        embedding_model_name = embedding_list[0]
+        embd_mdl = LLMBundle(dialog.tenant_id, LLMType.EMBEDDING, embedding_model_name)
+        if not embd_mdl:
+            raise LookupError("Embedding model(%s) not found" % embedding_model_name)
 
     bind_embedding_ts = timer()
 
+    # 绑定LLM对话模型
     if llm_id2llm_type(dialog.llm_id) == "image2text":
         chat_mdl = LLMBundle(dialog.tenant_id, LLMType.IMAGE2TEXT, dialog.llm_id)
     else:
@@ -193,11 +202,13 @@ def chat(dialog, messages, stream=True, **kwargs):
     bind_llm_ts = timer()
 
     prompt_config = dialog.prompt_config
+    # field_map与 text-sql 有关
     field_map = KnowledgebaseService.get_field_map(dialog.kb_ids)
     tts_mdl = None
     if prompt_config.get("tts"):
         tts_mdl = LLMBundle(dialog.tenant_id, LLMType.TTS)
     # try to use sql if field mapping is good to go
+    # 使用text-sql对话模型
     if field_map:
         logging.debug("Use SQL to retrieval:{}".format(questions[-1]))
         ans = use_sql(questions[-1], field_map, dialog.tenant_id, chat_mdl, prompt_config.get("quote", True))
@@ -205,6 +216,7 @@ def chat(dialog, messages, stream=True, **kwargs):
             yield ans
             return
 
+    # 用传入的变量来填充系统提示中的{key}值,例如系统提示中有 {source_code},那么就将{source_code}替换为kwargs["source_code"],默认{knowledge}代表知识库的内容
     for p in prompt_config["parameters"]:
         if p["key"] == "knowledge":
             continue
@@ -214,6 +226,7 @@ def chat(dialog, messages, stream=True, **kwargs):
             prompt_config["system"] = prompt_config["system"].replace(
                 "{%s}" % p["key"], " ")
 
+    # 如果有设置"多轮对话优化(优化提问内容)"选项，则调用 full_question 函数对用户的问题进行优化,否则，只保留最后一条用户问题。
     if len(questions) > 1 and prompt_config.get("refine_multiturn"):
         questions = [full_question(dialog.tenant_id, dialog.llm_id, messages)]
     else:
@@ -221,6 +234,7 @@ def chat(dialog, messages, stream=True, **kwargs):
 
     refine_question_ts = timer()
 
+    # 绑定重排序模型
     rerank_mdl = None
     if dialog.rerank_id:
         rerank_mdl = LLMBundle(dialog.tenant_id, LLMType.RERANK, dialog.rerank_id)
@@ -228,13 +242,19 @@ def chat(dialog, messages, stream=True, **kwargs):
     bind_reranker_ts = timer()
     generate_keyword_ts = bind_reranker_ts
 
-    if "knowledge" not in [p["key"] for p in prompt_config["parameters"]]:
+    # 如果提示配置中不包含 knowledge，则初始化 kbinfos 为空。
+
+    # F8080: 判断prompt_config["parameters"]没有定义knowledge参数，或者prompt_config["system"] 不包含 {knowledge} 子串
+    if "knowledge" not in [p["key"] for p in prompt_config["parameters"]] or "{knowledge}" not in prompt_config["system"]:
         kbinfos = {"total": 0, "chunks": [], "doc_aggs": []}
     else:
+        # 如果助理设置了"关键词提取"选项，则调用 keyword_extraction 函数提取用户问题的关键词并附加到用户问题的后面。
         if prompt_config.get("keyword", False):
+            # 借助大模型来提取关键词
             questions[-1] += keyword_extraction(chat_mdl, questions[-1])
             generate_keyword_ts = timer()
 
+        # 找到助手的所有知识库的tenant_id，并调用retriever.retrieval函数进行检索相关的chunks，返回结果为kbinfos。
         tenant_ids = list(set([kb.tenant_id for kb in kbs]))
         kbinfos = retriever.retrieval(" ".join(questions), embd_mdl, tenant_ids, dialog.kb_ids, 1, dialog.top_n,
                                       dialog.similarity_threshold,
@@ -244,31 +264,49 @@ def chat(dialog, messages, stream=True, **kwargs):
 
     retrieval_ts = timer()
 
+    # 将kbinfos中的chunks组合成一个字符串 -> knowledges
     knowledges = kb_prompt(kbinfos, max_tokens)
+
     logging.debug(
         "{}->{}".format(" ".join(questions), "\n->".join(knowledges)))
 
+    # 如果knowledge为空，且系统提示中有设置empty_response选项，则返回empty_response选项的值。
     if not knowledges and prompt_config.get("empty_response"):
         empty_res = prompt_config["empty_response"]
         yield {"answer": empty_res, "reference": kbinfos, "audio_binary": tts(tts_mdl, empty_res)}
         return {"answer": prompt_config["empty_response"], "reference": kbinfos}
 
+    # 设置knowledg变量
+    # ic(knowledges)
     kwargs["knowledge"] = "\n\n------\n\n".join(knowledges)
+
     gen_conf = dialog.llm_setting
 
+    # msg[0]存放系统提示信息,在这里将{knowledges}和其它变量替换成实际的值
     msg = [{"role": "system", "content": prompt_config["system"].format(**kwargs)}]
+
+    # msg[1:]存放对话历史信息。
     msg.extend([{"role": m["role"], "content": re.sub(r"##\d+\$\$", "", m["content"])}
                 for m in messages if m["role"] != "system"])
+    
+    # 使用 message_fit_in 函数确保消息列表中的令牌数量不超过限制。
     used_token_count, msg = message_fit_in(msg, int(max_tokens * 0.97))
     assert len(msg) >= 2, f"message_fit_in has bug: {msg}"
+
+    # prompt设置为助手的系统提示,例如"你是一个智能助手，请回答问题"
     prompt = msg[0]["content"]
+
+    # 将用户的问题(可能是经过优化的)添加到提示词中。
     prompt += "\n\n### Query:\n%s" % " ".join(questions)
-    ic(prompt)
+    # ic(questions)
+
+    # 调整生成配置中的最大令牌数，确保不超过剩余可用令牌数。
     if "max_tokens" in gen_conf:
         gen_conf["max_tokens"] = min(
             gen_conf["max_tokens"],
             max_tokens - used_token_count)
 
+    # 处理生成的答案,根据需要插入引用。
     def decorate_answer(answer):
         nonlocal prompt_config, knowledges, kwargs, kbinfos, prompt, retrieval_ts
 
@@ -296,10 +334,12 @@ def chat(dialog, messages, stream=True, **kwargs):
                 if c.get("vector"):
                     del c["vector"]
 
+        # 检查答案中是否包含无效的API密钥提示，并添加设置API密钥的说明。
         if answer.lower().find("invalid key") >= 0 or answer.lower().find("invalid api") >= 0:
             answer += " Please set LLM API-Key in 'User Setting -> Model providers -> API-Key'"
         finish_chat_ts = timer()
 
+        # 记录并格式化各个步骤的时间消耗，添加到prompt属性中。
         total_time_cost = (finish_chat_ts - chat_start_ts) * 1000
         check_llm_time_cost = (check_llm_ts - chat_start_ts) * 1000
         create_retriever_time_cost = (create_retriever_ts - check_llm_ts) * 1000
@@ -317,6 +357,9 @@ def chat(dialog, messages, stream=True, **kwargs):
     if stream:
         last_ans = ""
         answer = ""
+
+        ic(prompt)
+
         for ans in chat_mdl.chat_streamly(prompt, msg[1:], gen_conf):
             answer = ans
             delta_ans = ans[len(last_ans):]

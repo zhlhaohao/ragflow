@@ -43,11 +43,12 @@ def set_dialog():
     vector_similarity_weight = req.get("vector_similarity_weight", 0.3)
     llm_setting = req.get("llm_setting", {})
     default_prompt = {
-        "system": """你是一个智能助手，请总结知识库的内容来回答问题，请列举知识库中的数据详细回答。当所有知识库内容都与问题无关时，你的回答必须包括“知识库中未找到您要的答案！”这句话。回答需要考虑聊天历史。
-以下是知识库：
-{knowledge}
-以上是知识库。""",
-        "prologue": "您好，我是您的助手小樱，长得可爱又善良，can I help you?",
+        "system": "you are a smart assistant, please answer the question",   # F8080 如果用户不设置系统提示词,就用这句,去掉知识库的内容,为的是适配自由提问模式
+#         "system": """你是一个智能助手，请总结知识库的内容来回答问题，请列举知识库中的数据详细回答。当所有知识库内容都与问题无关时，你的回答必须包括“知识库中未找到您要的答案！”这句话。回答需要考虑聊天历史。
+# 以下是知识库：
+# {knowledge}
+# 以上是知识库。""",
+        "prologue": "你好！我是你的问答小助手，有什么可以帮到你的吗？",
         "parameters": [
             {"key": "knowledge", "optional": False}
         ],
@@ -62,22 +63,23 @@ def set_dialog():
     # for p in prompt_config["parameters"]:
     #     if p["key"] == "knowledge":break
     # else: prompt_config["parameters"].append(default_prompt["parameters"][0])
-
+    """   F8080 将提示词与自定义参数进行匹配,如果对不上,就返回错误信息,这里注释掉是因为我的界面暂时没有设置自定义参数的地方,可能会引起校验失败
     for p in prompt_config["parameters"]:
         if p["optional"]:
             continue
         if prompt_config["system"].find("{%s}" % p["key"]) < 0:
             return get_data_error_result(
                 message="Parameter '{}' is not used".format(p["key"]))
-
+    """
     try:
         e, tenant = TenantService.get_by_id(current_user.id)
         if not e:
             return get_data_error_result(message="Tenant not found!")
-        kbs = KnowledgebaseService.get_by_ids(req.get("kb_ids"))
-        embd_count = len(set([kb.embd_id for kb in kbs]))
-        if embd_count != 1:
-            return get_data_error_result(message=f'Datasets use different embedding models: {[kb.embd_id for kb in kbs]}"')
+        if len(req.get("kb_ids")) > 0: # F8080 如果没有选择任何一个知识库,就不校验embedding模型是否一致 - 自由提问模式下,知识库为空
+            kbs = KnowledgebaseService.get_by_ids(req.get("kb_ids"))
+            embd_count = len(set([kb.embd_id for kb in kbs]))
+            if embd_count != 1:
+                return get_data_error_result(message=f'Datasets use different embedding models: {[kb.embd_id for kb in kbs]}"')
 
         llm_id = req.get("llm_id", tenant.llm_id)
         if not dialog_id:
