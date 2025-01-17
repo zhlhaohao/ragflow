@@ -20,7 +20,7 @@
         <img alt="Lencana Daring" src="https://img.shields.io/badge/Online-Demo-4e6b99">
     </a>
     <a href="https://hub.docker.com/r/infiniflow/ragflow" target="_blank">
-        <img src="https://img.shields.io/badge/docker_pull-ragflow:v0.15.0-brightgreen" alt="docker pull infiniflow/ragflow:v0.15.0">
+        <img src="https://img.shields.io/badge/docker_pull-ragflow:v0.15.1-brightgreen" alt="docker pull infiniflow/ragflow:v0.15.1">
     </a>
     <a href="https://github.com/infiniflow/ragflow/releases/latest">
         <img src="https://img.shields.io/github/v/release/infiniflow/ragflow?color=blue&label=Rilis%20Terbaru" alt="Rilis Terbaru">
@@ -32,7 +32,7 @@
 
 <h4 align="center">
   <a href="https://ragflow.io/docs/dev/">Dokumentasi</a> |
-  <a href="https://github.com/infiniflow/ragflow/issues/162">Peta Jalan</a> |
+  <a href="https://github.com/infiniflow/ragflow/issues/4214">Peta Jalan</a> |
   <a href="https://twitter.com/infiniflowai">Twitter</a> |
   <a href="https://discord.gg/4XxujFgUN7">Discord</a> |
   <a href="https://demo.ragflow.io">Demo</a>
@@ -161,7 +161,7 @@ Coba demo kami di [https://demo.ragflow.io](https://demo.ragflow.io).
 
 3. Bangun image Docker pre-built dan jalankan server:
 
-   > Perintah di bawah ini mengunduh edisi v0.15.0-slim dari gambar Docker RAGFlow. Silakan merujuk ke tabel berikut untuk deskripsi berbagai edisi RAGFlow. Untuk mengunduh edisi RAGFlow yang berbeda dari v0.15.0-slim, perbarui variabel RAGFLOW_IMAGE di docker/.env sebelum menggunakan docker compose untuk memulai server. Misalnya, atur RAGFLOW_IMAGE=infiniflow/ragflow:v0.15.0 untuk edisi lengkap v0.15.0.
+   > Perintah di bawah ini mengunduh edisi v0.15.1-slim dari gambar Docker RAGFlow. Silakan merujuk ke tabel berikut untuk deskripsi berbagai edisi RAGFlow. Untuk mengunduh edisi RAGFlow yang berbeda dari v0.15.1-slim, perbarui variabel RAGFLOW_IMAGE di docker/.env sebelum menggunakan docker compose untuk memulai server. Misalnya, atur RAGFLOW_IMAGE=infiniflow/ragflow:v0.15.1 untuk edisi lengkap v0.15.1.
 
    ```bash
    $ cd ragflow
@@ -170,8 +170,8 @@ Coba demo kami di [https://demo.ragflow.io](https://demo.ragflow.io).
 
    | RAGFlow image tag | Image size (GB) | Has embedding models? | Stable?                  |
    | ----------------- | --------------- | --------------------- | ------------------------ |
-   | v0.15.0           | &approx;9       | :heavy_check_mark:    | Stable release           |
-   | v0.15.0-slim      | &approx;2       | ❌                    | Stable release           |
+   | v0.15.1           | &approx;9       | :heavy_check_mark:    | Stable release           |
+   | v0.15.1-slim      | &approx;2       | ❌                    | Stable release           |
    | nightly           | &approx;9       | :heavy_check_mark:    | *Unstable* nightly build |
    | nightly-slim      | &approx;2       | ❌                    | *Unstable* nightly build |
 
@@ -249,17 +249,16 @@ docker build -f Dockerfile -t infiniflow/ragflow:nightly .
 
 ## 🔨 Menjalankan Aplikasi dari untuk Pengembangan
 
-1. Instal Poetry, atau lewati langkah ini jika sudah terinstal:
+1. Instal uv, atau lewati langkah ini jika sudah terinstal:
    ```bash
-   pipx install poetry
-   export POETRY_VIRTUALENVS_CREATE=true POETRY_VIRTUALENVS_IN_PROJECT=true
+   pipx install uv
    ```
 
 2. Clone kode sumber dan instal dependensi Python:
    ```bash
    git clone https://github.com/infiniflow/ragflow.git
    cd ragflow/
-   ~/.local/bin/poetry install --sync --no-root # install modul python RAGFlow
+   uv sync --python 3.10 --all-extras # install RAGFlow dependent python modules
    ```
 
 3. Jalankan aplikasi yang diperlukan (MinIO, Elasticsearch, Redis, dan MySQL) menggunakan Docker Compose:
@@ -288,7 +287,7 @@ docker build -f Dockerfile -t infiniflow/ragflow:nightly .
 6. Instal dependensi frontend:
    ```bash
    cd web
-   npm install --force
+   npm install
    ```
 7. Jalankan aplikasi frontend:
    ```bash
@@ -308,7 +307,7 @@ docker build -f Dockerfile -t infiniflow/ragflow:nightly .
 
 ## 📜 Roadmap
 
-Lihat [Roadmap RAGFlow 2024](https://github.com/infiniflow/ragflow/issues/162)
+Lihat [Roadmap RAGFlow 2025](https://github.com/infiniflow/ragflow/issues/4214)
 
 ## 🏄 Komunitas
 

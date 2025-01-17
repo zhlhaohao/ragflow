@@ -3,7 +3,7 @@ sidebar_position: 1
 slug: /http_api_reference
 ---
 
-# HTTP API Reference
+# HTTP API
 
 A complete reference for RAGFlow's RESTful API. Before proceeding, please ensure you [have your RAGFlow API key ready for authentication](https://ragflow.io/docs/dev/acquire_ragflow_api_key).
 
@@ -883,6 +883,10 @@ Failure:
 
 ---
 
+## CHUNK MANAGEMENT WITHIN DATASET
+
+---
+
 ### Add chunk
 
 **POST** `/api/v1/datasets/{dataset_id}/documents/{document_id}/chunks`
@@ -923,7 +927,8 @@ curl --request POST \
   The text content of the chunk.
 - `"important_keywords`(*Body parameter*), `list[string]`  
   The key terms or phrases to tag with the chunk.
-
+- `"questions"`(*Body parameter*), `list[string]`
+  If there is a given question, the embedded chunks will be based on them
 #### Response
 
 Success:
@@ -933,15 +938,14 @@ Success:
     "code": 0,
     "data": {
         "chunk": {
-            "content": "ragflow content",
-            "create_time": "2024-10-16 08:05:04",
-            "create_timestamp": 1729065904.581025,
-            "dataset_id": [
-                "c7ee74067a2c11efb21c0242ac120006"
-            ],
-            "document_id": "5c5999ec7be811ef9cab0242ac120005",
-            "id": "d78435d142bd5cf6704da62c778795c5",
-            "important_keywords": []
+            "content": "who are you",
+            "create_time": "2024-12-30 16:59:55",
+            "create_timestamp": 1735549195.969164,
+            "dataset_id": "72f36e1ebdf411efb7250242ac120006",
+            "document_id": "61d68474be0111ef98dd0242ac120006",
+            "id": "12ccdc56e59837e5",
+            "important_keywords": [],
+            "questions": []
         }
     }
 }
@@ -1346,7 +1350,7 @@ Creates a chat assistant.
 curl --request POST \
      --url http://{address}/api/v1/chats \
      --header 'Content-Type: application/json' \
-     --header 'Authorization: Bearer <YOUR_API_KEY>'
+     --header 'Authorization: Bearer <YOUR_API_KEY>' \
      --data '{
     "dataset_ids": ["0b2cbc8c877f11ef89070242ac120005"],
     "name":"new_chat_1"
@@ -1385,6 +1389,7 @@ curl --request POST \
     - All the variables in 'System' should be curly bracketed.
     - The default value is `[{"key": "knowledge", "optional": true}]`.
   - `"rerank_model"`: `string` If it is not specified, vector cosine similarity will be used; otherwise, reranking score will be used.
+  -  `top_k`: `int` Refers to the process of reordering or selecting the top-k items from a list or set based on a specific ranking criterion. Default to 1024.
   - `"empty_response"`: `string` If nothing is retrieved in the dataset for the user's question, this will be used as the response. To allow the LLM to improvise when nothing is found, leave this blank.
   - `"opener"`: `string` The opening greeting for the user. Defaults to `"Hi! I am your assistant, can I help you?"`.
   - `"show_quote`: `boolean` Indicates whether the source of text should be displayed. Defaults to `true`.
@@ -1721,6 +1726,7 @@ Creates a session with a chat assistant.
   - `'Authorization: Bearer <YOUR_API_KEY>'`
 - Body:
   - `"name"`: `string`
+  - `"user_id"`: `string` (optional)
 
 ##### Request example
 
@@ -1741,6 +1747,8 @@ curl --request POST \
   The ID of the associated chat assistant.
 - `"name"`: (*Body parameter*), `string`  
   The name of the chat session to create.
+- `"user_id"`: (*Body parameter*), `string`  
+  Optional user-defined ID.
 
 #### Response
 
@@ -1793,6 +1801,7 @@ Updates a session of a specified chat assistant.
   - `'Authorization: Bearer <YOUR_API_KEY>'`
 - Body:
   - `"name`: `string`
+  - `"user_id`: `string` (optional)
 
 ##### Request example
 
@@ -1815,6 +1824,8 @@ curl --request PUT \
   The ID of the session to update.
 - `"name"`: (*Body Parameter*), `string`  
   The revised name of the session.
+- `"user_id"`: (*Body parameter*), `string`  
+  Optional user-defined ID.
 
 #### Response
 
@@ -1846,7 +1857,7 @@ Lists sessions associated with a specified chat assistant.
 #### Request
 
 - Method: GET
-- URL: `/api/v1/chats/{chat_id}/sessions?page={page}&page_size={page_size}&orderby={orderby}&desc={desc}&name={session_name}&id={session_id}`
+- URL: `/api/v1/chats/{chat_id}/sessions?page={page}&page_size={page_size}&orderby={orderby}&desc={desc}&name={session_name}&id={session_id}&user_id={user_id}`
 - Headers:
   - `'Authorization: Bearer <YOUR_API_KEY>'`
 
@@ -1876,6 +1887,8 @@ curl --request GET \
   The name of the chat session to retrieve.
 - `id`: (*Filter parameter*), `string`  
   The ID of the chat session to retrieve.
+- `user_id`: (*Filter parameter*), `string`  
+  The optional user-defined ID passed in when creating session.
 
 #### Response
 
@@ -2000,7 +2013,8 @@ Asks a specified chat assistant a question to start an AI-powered conversation.
 - Body:
   - `"question"`: `string`
   - `"stream"`: `boolean`
-  - `"session_id"`: `string`
+  - `"session_id"`: `string` (optional)
+  - `"user_id`: `string` (optional)
 
 ##### Request example
 
@@ -2038,6 +2052,8 @@ curl --request POST \
   - `false`: Disable streaming.
 - `"session_id"`: (*Body Parameter*)  
   The ID of session. If it is not provided, a new session will be generated.
+- `"user_id"`: (*Body parameter*), `string`  
+  The optional user-defined ID. Valid *only* when no `session_id` is provided.
 
 #### Response
 
@@ -2160,15 +2176,30 @@ Creates a session with an agent.
   - `'content-Type: application/json'`
   - `'Authorization: Bearer <YOUR_API_KEY>'`
 - Body:
+  - the required parameters:`str`
+  - the optional parameters:`str`
+    - `"user_id"`: `string`  
+      The optional user-defined ID.
 
 ##### Request example
-
+If `begin` component in the agent doesn't have required parameters:
 ```bash
 curl --request POST \
      --url http://{address}/api/v1/agents/{agent_id}/sessions \
      --header 'Content-Type: application/json' \
      --header 'Authorization: Bearer <YOUR_API_KEY>' \
      --data '{
+     }'
+```
+If `begin` component in the agent has required parameters:
+```bash
+curl --request POST \
+     --url http://{address}/api/v1/agents/{agent_id}/sessions \
+     --header 'Content-Type: application/json' \
+     --header 'Authorization: Bearer <YOUR_API_KEY>' \
+     --data '{
+            "lang":"Japanese",
+            "file":"Who are you"
      }'
 ```
 
@@ -2324,10 +2355,11 @@ Asks a specified agent a question to start an AI-powered conversation.
   - `"question"`: `string`
   - `"stream"`: `boolean`
   - `"session_id"`: `string`
+  - `"user_id"`: `string`(optional)
   - other parameters: `string`
 ##### Request example
-
-```bash
+If the `begin` component doesn't have parameters, the following code will create a session.
+```bash 
 curl --request POST \
      --url http://{address}/api/v1/agents/{agent_id}/completions \
      --header 'Content-Type: application/json' \
@@ -2336,6 +2368,19 @@ curl --request POST \
      {
      }'
 ```
+If the `begin` component have parameters, the following code will create a session.
+```bash
+curl --request POST \
+     --url http://{address}/api/v1/agents/{agent_id}/completions \
+     --header 'Content-Type: application/json' \
+     --header 'Authorization: Bearer <YOUR_API_KEY>' \
+     --data-binary '
+     {
+          "lang":"English",
+          "file":"How is the weather tomorrow?"
+     }'
+```
+The following code will execute the completion process
 ```bash
 curl --request POST \
      --url http://{address}/api/v1/agents/{agent_id}/completions \
@@ -2346,17 +2391,6 @@ curl --request POST \
           "question": "Hello",
           "stream": true,
           "session_id": "cb2f385cb86211efa36e0242ac120005"
-     }'
-```
-```bash
-curl --request POST \
-     --url http://{address}/api/v1/agents/{agent_id}/completions \
-     --header 'Content-Type: application/json' \
-     --header 'Authorization: Bearer <YOUR_API_KEY>' \
-     --data-binary '
-     {
-          "lang":"English"
-          "file":"How is the weather tomorrow?"
      }'
 ```
 
@@ -2373,6 +2407,8 @@ curl --request POST \
   - `false`: Disable streaming.
 - `"session_id"`: (*Body Parameter*)  
   The ID of the session. If it is not provided, a new session will be generated.
+- `"user_id"`: (*Body parameter*), `string`  
+  The optional user-defined ID. Valid *only* when no `session_id` is provided.
 - Other parameters: (*Body Parameter*)  
   The parameters in the begin component.
 #### Response
@@ -2394,113 +2430,41 @@ data:{
     "data": true
 }
 ```
-Success with `session_id` provided and with no parameters in the `begin` component:
+Success without `session_id` provided and with parameters in the `begin` component:
 
 ```json
 data:{
     "code": 0,
     "message": "",
     "data": {
+        "session_id": "eacb36a0bdff11ef97120242ac120006",
         "answer": "",
         "reference": [],
-        "id": "7ed5c2e4-aa28-4397-bbed-59664a332aa0",
-        "session_id": "ce1b4fa89c1811ef85720242ac120006"
+        "param": [
+            {
+                "key": "lang",
+                "name": "Target Language",
+                "optional": false,
+                "type": "line",
+                "value": "English"
+            },
+            {
+                "key": "file",
+                "name": "Files",
+                "optional": false,
+                "type": "file",
+                "value": "How is the weather tomorrow?"
+            },
+            {
+                "key": "hhyt",
+                "name": "hhty",
+                "optional": true,
+                "type": "line"
+            }
+        ]
     }
 }
-data:{
-    "code": 0,
-    "data": {
-        "answer": "Hello",
-        "reference": [],
-        "id": "7ed5c2e4-aa28-4397-bbed-59664a332aa0",
-        "session_id": "ce1b4fa89c1811ef85720242ac120006"
-    }
-}
-data:{
-    "code": 0,
-    "data": {
-        "answer": "Hello!",
-        "reference": [],
-        "id": "7ed5c2e4-aa28-4397-bbed-59664a332aa0",
-        "session_id": "ce1b4fa89c1811ef85720242ac120006"
-    }
-}
-data:{
-    "code": 0,
-    "data": {
-        "answer": "Hello! How",
-        "reference": [],
-        "id": "7ed5c2e4-aa28-4397-bbed-59664a332aa0",
-        "session_id": "ce1b4fa89c1811ef85720242ac120006"
-    }
-}
-data:{
-    "code": 0,
-    "data": {
-        "answer": "Hello! How can",
-        "reference": [],
-        "id": "7ed5c2e4-aa28-4397-bbed-59664a332aa0",
-        "session_id": "ce1b4fa89c1811ef85720242ac120006"
-    }
-}
-data:{
-    "code": 0,
-    "data": {
-        "answer": "Hello! How can I",
-        "reference": [],
-        "id": "7ed5c2e4-aa28-4397-bbed-59664a332aa0",
-        "session_id": "ce1b4fa89c1811ef85720242ac120006"
-    }
-}
-data:{
-    "code": 0,
-    "data": {
-        "answer": "Hello! How can I assist",
-        "reference": [],
-        "id": "7ed5c2e4-aa28-4397-bbed-59664a332aa0",
-        "session_id": "ce1b4fa89c1811ef85720242ac120006"
-    }
-}
-data:{
-    "code": 0,
-    "data": {
-        "answer": "Hello! How can I assist you",
-        "reference": [],
-        "id": "7ed5c2e4-aa28-4397-bbed-59664a332aa0",
-        "session_id": "ce1b4fa89c1811ef85720242ac120006"
-    }
-}
-data:{
-    "code": 0,
-    "data": {
-        "answer": "Hello! How can I assist you today",
-        "reference": [],
-        "id": "7ed5c2e4-aa28-4397-bbed-59664a332aa0",
-        "session_id": "ce1b4fa89c1811ef85720242ac120006"
-    }
-}
-data:{
-    "code": 0,
-    "data": {
-        "answer": "Hello! How can I assist you today?",
-        "reference": [],
-        "id": "7ed5c2e4-aa28-4397-bbed-59664a332aa0",
-        "session_id": "ce1b4fa89c1811ef85720242ac120006"
-    }
-}
-data:{
-    "code": 0,
-    "data": {
-        "answer": "Hello! How can I assist you today?",
-        "reference": [],
-        "id": "7ed5c2e4-aa28-4397-bbed-59664a332aa0",
-        "session_id": "ce1b4fa89c1811ef85720242ac120006"
-    }
-}
-data:{
-    "code": 0,
-    "data": true
-}
+data:
 ```
 Success with parameters in the `begin` component:
 ```json
@@ -2595,7 +2559,7 @@ Failure:
 
 ### List agent sessions
 
-**GET** `/api/v1/agents/{agent_id}/sessions?page={page}&page_size={page_size}&orderby={orderby}&desc={desc}&id={session_id}`
+**GET** `/api/v1/agents/{agent_id}/sessions?page={page}&page_size={page_size}&orderby={orderby}&desc={desc}&id={session_id}&user_id={user_id}`
 
 Lists sessions associated with a specified agent.
 
@@ -2610,7 +2574,7 @@ Lists sessions associated with a specified agent.
 
 ```bash
 curl --request GET \
-     --url http://{address}/api/v1/agents/{agent_id}/sessions?page={page}&page_size={page_size}&orderby={orderby}&desc={desc}&id={session_id} \
+     --url http://{address}/api/v1/agents/{agent_id}/sessions?page={page}&page_size={page_size}&orderby={orderby}&desc={desc}&id={session_id}&user_id={user_id} \
      --header 'Authorization: Bearer <YOUR_API_KEY>'
 ```
 
@@ -2630,7 +2594,9 @@ curl --request GET \
   Indicates whether the retrieved sessions should be sorted in descending order. Defaults to `true`.
 - `id`: (*Filter parameter*), `string`  
   The ID of the agent session to retrieve.
-
+- `user_id`: (*Filter parameter*), `string`  
+  The optional user-defined ID passed in when creating session.
+  
 #### Response
 
 Success:

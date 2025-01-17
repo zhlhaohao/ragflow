@@ -277,7 +277,8 @@ class RagTokenizer:
 
         Returns:
             _type_: _description_
-        """
+        """        
+        line = re.sub(r"\W+", " ", line)
         line = self._strQ2B(line).lower()
         line = self._tradi2simp(line)
         zh_num = len([1 for c in line if is_chinese(c)])

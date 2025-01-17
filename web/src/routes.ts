@@ -7,6 +7,7 @@ export enum Routes {
   Agent = '/agent',
   Search = '/next-search',
   Chat = '/next-chat',
+  Files = '/files',
   ProfileSetting = '/profile-setting',
   DatasetTesting = '/testing',
   DatasetSetting = '/setting',
@@ -130,11 +131,6 @@ const routes = [
     layout: false,
   },
   {
-    path: 'force',
-    component: '@/pages/force-graph',
-    layout: false,
-  },
-  {
     path: '/*',
     component: '@/pages/404',
     layout: false,
@@ -191,6 +187,17 @@ const routes = [
       {
         path: Routes.Agent,
         component: `@/pages${Routes.Agent}`,
+      },
+    ],
+  },
+  {
+    path: Routes.Files,
+    layout: false,
+    component: '@/layouts/next',
+    routes: [
+      {
+        path: Routes.Files,
+        component: `@/pages${Routes.Files}`,
       },
     ],
   },

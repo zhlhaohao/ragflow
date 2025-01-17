@@ -3,12 +3,14 @@ import os
 import re
 import json
 import time
+import copy
 import infinity
 from infinity.common import ConflictType, InfinityException, SortType
 from infinity.index import IndexInfo, IndexType
 from infinity.connection_pool import ConnectionPool
 from infinity.errors import ErrorCode
 from rag import settings
+from rag.settings import PAGERANK_FLD
 from rag.utils import singleton
 import polars as pl
 from polars.series.series import Series
@@ -25,7 +27,8 @@ from rag.utils.doc_store_conn import (
 
 logger = logging.getLogger('ragflow.infinity_conn')
 
-def equivalent_condition_to_str(condition: dict) -> str|None:
+
+def equivalent_condition_to_str(condition: dict) -> str | None:
     assert "_id" not in condition
     cond = list()
     for k, v in condition.items():
@@ -57,9 +60,13 @@ def concat_dataframes(df_list: list[pl.DataFrame], selectFields: list[str]) -> p
     if df_list:
         return pl.concat(df_list)
     schema = dict()
-    for fieldnm in selectFields:
-        schema[fieldnm] = str
+    for field_name in selectFields:
+        if field_name == 'score()':  # Workaround: fix schema is changed to score()
+            schema['SCORE'] = str
+        else:
+            schema[field_name] = str
     return pl.DataFrame(schema=schema)
+
 
 @singleton
 class InfinityConnection(DocStoreConnection):
@@ -76,7 +83,7 @@ class InfinityConnection(DocStoreConnection):
                 connPool = ConnectionPool(infinity_uri)
                 inf_conn = connPool.get_conn()
                 res = inf_conn.show_current_node()
-                if res.error_code == ErrorCode.OK and res.server_status=="started":
+                if res.error_code == ErrorCode.OK and res.server_status == "started":
                     self._migrate_db(inf_conn)
                     self.connPool = connPool
                     connPool.release_conn(inf_conn)
@@ -88,7 +95,7 @@ class InfinityConnection(DocStoreConnection):
                 logger.warning(f"{str(e)}. Waiting Infinity {infinity_uri} to be healthy.")
                 time.sleep(5)
         if self.connPool is None:
-            msg = f"Infinity {infinity_uri} didn't become healthy in 120s."
+            msg = f"Infinity {infinity_uri} is unhealthy in 120s."
             logger.error(msg)
             raise Exception(msg)
         logger.info(f"Infinity {infinity_uri} is healthy.")
@@ -138,7 +145,6 @@ class InfinityConnection(DocStoreConnection):
     def health(self) -> dict:
         """
         Return the health status of the database.
-        TODO: Infinity-sdk provides health() to wrap `show global variables` and `show tables`
         """
         inf_conn = self.connPool.get_conn()
         res = inf_conn.show_current_node()
@@ -226,8 +232,7 @@ class InfinityConnection(DocStoreConnection):
     """
 
     def search(
-            self,
-            selectFields: list[str],
+            self, selectFields: list[str],
             highlightFields: list[str],
             condition: dict,
             matchExprs: list[MatchExpr],
@@ -236,7 +241,9 @@ class InfinityConnection(DocStoreConnection):
             limit: int,
             indexNames: str | list[str],
             knowledgebaseIds: list[str],
-    ) -> tuple[pl.DataFrame, int]:
+            aggFields: list[str] = [],
+            rank_feature: dict | None = None
+    ) -> list[dict] | pl.DataFrame:
         """
         TODO: Infinity doesn't provide highlight
         """
@@ -251,7 +258,7 @@ class InfinityConnection(DocStoreConnection):
             if essential_field not in selectFields:
                 selectFields.append(essential_field)
         if matchExprs:
-            for essential_field in ["score()", "pagerank_fea"]:
+            for essential_field in ["score()", PAGERANK_FLD]:
                 selectFields.append(essential_field)
 
         # Prepare expressions common to all tables
@@ -341,7 +348,7 @@ class InfinityConnection(DocStoreConnection):
         self.connPool.release_conn(inf_conn)
         res = concat_dataframes(df_list, selectFields)
         if matchExprs:
-            res = res.sort(pl.col("SCORE") + pl.col("pagerank_fea"), descending=True, maintain_order=True)
+            res = res.sort(pl.col("SCORE") + pl.col(PAGERANK_FLD), descending=True, maintain_order=True)
         res = res.limit(limit)
         logger.debug(f"INFINITY search final result: {str(res)}")
         return res, total_hits_count
@@ -357,7 +364,13 @@ class InfinityConnection(DocStoreConnection):
         for knowledgebaseId in knowledgebaseIds:
             table_name = f"{indexName}_{knowledgebaseId}"
             table_list.append(table_name)
-            table_instance = db_instance.get_table(table_name)
+            table_instance = None
+            try:
+                table_instance = db_instance.get_table(table_name)
+            except Exception:
+                logger.warning(
+                    f"Table not found: {table_name}, this knowledge base isn't created in Infinity. Maybe it is created in other document engine.")
+                continue
             kb_res, _ = table_instance.output(["*"]).filter(f"id = '{chunkId}'").to_pl()
             logger.debug(f"INFINITY get table: {str(table_list)}, result: {str(kb_res)}")
             df_list.append(kb_res)
@@ -367,7 +380,7 @@ class InfinityConnection(DocStoreConnection):
         return res_fields.get(chunkId, None)
 
     def insert(
-            self, documents: list[dict], indexName: str, knowledgebaseId: str
+            self, documents: list[dict], indexName: str, knowledgebaseId: str = None
     ) -> list[str]:
         inf_conn = self.connPool.get_conn()
         db_instance = inf_conn.get_database(self.dbName)
@@ -390,7 +403,8 @@ class InfinityConnection(DocStoreConnection):
             self.createIdx(indexName, knowledgebaseId, vector_size)
             table_instance = db_instance.get_table(table_name)
 
-        for d in documents:
+        docs = copy.deepcopy(documents)
+        for d in docs:
             assert "_id" not in d
             assert "id" in d
             for k, v in d.items():
@@ -399,7 +413,7 @@ class InfinityConnection(DocStoreConnection):
                     d[k] = "###".join(v)
                 elif k == 'kb_id':
                     if isinstance(d[k], list):
-                        d[k] = d[k][0] # since d[k] is a list, but we need a str
+                        d[k] = d[k][0]  # since d[k] is a list, but we need a str
                 elif k == "position_int":
                     assert isinstance(v, list)
                     arr = [num for row in v for num in row]
@@ -407,14 +421,14 @@ class InfinityConnection(DocStoreConnection):
                 elif k in ["page_num_int", "top_int"]:
                     assert isinstance(v, list)
                     d[k] = "_".join(f"{num:08x}" for num in v)
-        ids = ["'{}'".format(d["id"]) for d in documents]
+        ids = ["'{}'".format(d["id"]) for d in docs]
         str_ids = ", ".join(ids)
         str_filter = f"id IN ({str_ids})"
         table_instance.delete(str_filter)
         # for doc in documents:
         #     logger.info(f"insert position_int: {doc['position_int']}")
         # logger.info(f"InfinityConnection.insert {json.dumps(documents)}")
-        table_instance.insert(documents)
+        table_instance.insert(docs)
         self.connPool.release_conn(inf_conn)
         logger.debug(f"INFINITY inserted into {table_name} {str_ids}.")
         return []
@@ -436,7 +450,7 @@ class InfinityConnection(DocStoreConnection):
                 newValue[k] = " ".join(v)
             elif k == 'kb_id':
                 if isinstance(newValue[k], list):
-                    newValue[k] = newValue[k][0] # since d[k] is a list, but we need a str
+                    newValue[k] = newValue[k][0]  # since d[k] is a list, but we need a str
             elif k == "position_int":
                 assert isinstance(v, list)
                 arr = [num for row in v for num in row]
@@ -444,7 +458,7 @@ class InfinityConnection(DocStoreConnection):
             elif k in ["page_num_int", "top_int"]:
                 assert isinstance(v, list)
                 newValue[k] = "_".join(f"{num:08x}" for num in v)
-            elif k == "remove" and v in ["pagerank_fea"]:
+            elif k == "remove" and v in [PAGERANK_FLD]:
                 del newValue[k]
                 newValue[v] = 0
         logger.debug(f"INFINITY update table {table_name}, filter {filter}, newValue {newValue}.")

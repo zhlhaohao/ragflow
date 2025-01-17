@@ -35,6 +35,7 @@ from api.utils.api_utils import get_result, token_required
 from api.db.services.llm_service import LLMBundle
 
 
+
 @manager.route('/chats/<chat_id>/sessions', methods=['POST'])  # noqa: F821
 @token_required
 def create(tenant_id, chat_id):
@@ -47,7 +48,8 @@ def create(tenant_id, chat_id):
         "id": get_uuid(),
         "dialog_id": req["dialog_id"],
         "name": req.get("name", "New session"),
-        "message": [{"role": "assistant", "content": dia[0].prompt_config.get("prologue")}]
+        "message": [{"role": "assistant", "content": dia[0].prompt_config.get("prologue")}],
+        "user_id": req.get("user_id", "")
     }
     if not conv.get("name"):
         return get_error_data_result(message="`name` can not be empty.")
@@ -70,22 +72,38 @@ def create_agent_session(tenant_id, agent_id):
     if not e:
         return get_error_data_result("Agent not found.")
 
-    if not UserCanvasService.query(user_id=tenant_id,id=agent_id):
-        return  get_error_data_result("You cannot access the agent.")
+    if not UserCanvasService.query(user_id=tenant_id, id=agent_id):
+        return get_error_data_result("You cannot access the agent.")
 
     if not isinstance(cvs.dsl, str):
         cvs.dsl = json.dumps(cvs.dsl, ensure_ascii=False)
 
     canvas = Canvas(cvs.dsl, tenant_id)
-    if canvas.get_preset_param():
-        return get_error_data_result("The agent cannot create a session directly")
+    canvas.reset()
+    query = canvas.get_preset_param()
+    if query:
+        for ele in query:
+            if not ele["optional"]:
+                if not req.get(ele["key"]):
+                    return get_error_data_result(f"`{ele['key']}` is required")
+                ele["value"] = req[ele["key"]]
+            if ele["optional"]:
+                if req.get(ele["key"]):
+                    ele["value"] = req[ele['key']]
+                else:
+                    if "value" in ele:
+                        ele.pop("value")
+    else:
+        for ans in canvas.run(stream=False):
+            pass
+    cvs.dsl = json.loads(str(canvas))
     conv = {
         "id": get_uuid(),
         "dialog_id": cvs.id,
-        "user_id": req.get("usr_id","") if isinstance(req, dict) else "",
+        "user_id": req.get("user_id", "") if isinstance(req, dict) else "",
         "message": [{"role": "assistant", "content": canvas.get_prologue()}],
         "source": "agent",
-        "dsl": json.loads(cvs.dsl)
+        "dsl": cvs.dsl
     }
     API4ConversationService.save(**conv)
     conv["agent_id"] = conv.pop("dialog_id")
@@ -119,11 +137,11 @@ def update(tenant_id, chat_id, session_id):
 def chat_completion(tenant_id, chat_id):
     req = request.json
     if not req or not req.get("session_id"):
-        req = {"question":""}
-    if not DialogService.query(tenant_id=tenant_id,id=chat_id,status=StatusEnum.VALID.value):
+        req = {"question": ""}
+    if not DialogService.query(tenant_id=tenant_id, id=chat_id, status=StatusEnum.VALID.value):
         return get_error_data_result(f"You don't own the chat {chat_id}")
     if req.get("session_id"):
-        if not ConversationService.query(id=req["session_id"],dialog_id=chat_id):
+        if not ConversationService.query(id=req["session_id"], dialog_id=chat_id):
             return get_error_data_result(f"You don't own the session {req['session_id']}")
     if req.get("stream", True):
         resp = Response(rag_completion(tenant_id, chat_id, **req), mimetype="text/event-stream")
@@ -144,28 +162,34 @@ def chat_completion(tenant_id, chat_id):
 @manager.route('/agents/<agent_id>/completions', methods=['POST'])  # noqa: F821
 @token_required
 def agent_completions(tenant_id, agent_id):
-        req = request.json
-        cvs = UserCanvasService.query(user_id=tenant_id, id=agent_id)
-        if not cvs:
-            return get_error_data_result(f"You don't own the agent {agent_id}")
-        if req.get("session_id"):
-            conv = API4ConversationService.query(id=req["session_id"], dialog_id=agent_id)
-            if not conv:
-                return get_error_data_result(f"You don't own the session {req['session_id']}")
-        else:
-            req["question"]=""
-        if req.get("stream", True):
-            resp = Response(agent_completion(tenant_id, agent_id, **req), mimetype="text/event-stream")
-            resp.headers.add_header("Cache-control", "no-cache")
-            resp.headers.add_header("Connection", "keep-alive")
-            resp.headers.add_header("X-Accel-Buffering", "no")
-            resp.headers.add_header("Content-Type", "text/event-stream; charset=utf-8")
-            return resp
-        try:
-            for answer in agent_completion(tenant_id, agent_id, **req):
-                return get_result(data=answer)
-        except Exception as e:
-            return get_error_data_result(str(e))
+    req = request.json
+    cvs = UserCanvasService.query(user_id=tenant_id, id=agent_id)
+    if not cvs:
+        return get_error_data_result(f"You don't own the agent {agent_id}")
+    if req.get("session_id"):
+        dsl = cvs[0].dsl
+        if not isinstance(dsl, str):
+            dsl = json.dumps(dsl)
+        #canvas = Canvas(dsl, tenant_id)
+        #if canvas.get_preset_param():
+        #    req["question"] = ""
+        conv = API4ConversationService.query(id=req["session_id"], dialog_id=agent_id)
+        if not conv:
+            return get_error_data_result(f"You don't own the session {req['session_id']}")
+    else:
+        req["question"] = ""
+    if req.get("stream", True):
+        resp = Response(agent_completion(tenant_id, agent_id, **req), mimetype="text/event-stream")
+        resp.headers.add_header("Cache-control", "no-cache")
+        resp.headers.add_header("Connection", "keep-alive")
+        resp.headers.add_header("X-Accel-Buffering", "no")
+        resp.headers.add_header("Content-Type", "text/event-stream; charset=utf-8")
+        return resp
+    try:
+        for answer in agent_completion(tenant_id, agent_id, **req):
+            return get_result(data=answer)
+    except Exception as e:
+        return get_error_data_result(str(e))
 
 
 @manager.route('/chats/<chat_id>/sessions', methods=['GET'])  # noqa: F821
@@ -178,11 +202,12 @@ def list_session(tenant_id, chat_id):
     page_number = int(request.args.get("page", 1))
     items_per_page = int(request.args.get("page_size", 30))
     orderby = request.args.get("orderby", "create_time")
+    user_id = request.args.get("user_id")
     if request.args.get("desc") == "False" or request.args.get("desc") == "false":
         desc = False
     else:
         desc = True
-    convs = ConversationService.get_list(chat_id, page_number, items_per_page, orderby, desc, id, name)
+    convs = ConversationService.get_list(chat_id, page_number, items_per_page, orderby, desc, id, name, user_id)
     if not convs:
         return get_result(data=[])
     for conv in convs:
@@ -226,8 +251,7 @@ def list_agent_session(tenant_id, agent_id):
     if not UserCanvasService.query(user_id=tenant_id, id=agent_id):
         return get_error_data_result(message=f"You don't own the agent {agent_id}.")
     id = request.args.get("id")
-    if not API4ConversationService.query(id=id, user_id=tenant_id):
-        return get_error_data_result(f"You don't own the session {id}")
+    user_id = request.args.get("user_id")
     page_number = int(request.args.get("page", 1))
     items_per_page = int(request.args.get("page_size", 30))
     orderby = request.args.get("orderby", "update_time")
@@ -235,7 +259,7 @@ def list_agent_session(tenant_id, agent_id):
         desc = False
     else:
         desc = True
-    convs = API4ConversationService.get_list(agent_id, tenant_id, page_number, items_per_page, orderby, desc, id)
+    convs = API4ConversationService.get_list(agent_id, tenant_id, page_number, items_per_page, orderby, desc, id, user_id)
     if not convs:
         return get_result(data=[])
     for conv in convs:
@@ -386,7 +410,7 @@ def chatbot_completions(dialog_id):
     token = token[1]
     objs = APIToken.query(beta=token)
     if not objs:
-        return get_error_data_result(message='Token is not valid!"')
+        return get_error_data_result(message='Authentication error: API key is invalid!"')
 
     if "quote" not in req:
         req["quote"] = False
@@ -413,7 +437,7 @@ def agent_bot_completions(agent_id):
     token = token[1]
     objs = APIToken.query(beta=token)
     if not objs:
-        return get_error_data_result(message='Token is not valid!"')
+        return get_error_data_result(message='Authentication error: API key is invalid!"')
 
     if "quote" not in req:
         req["quote"] = False
@@ -428,5 +452,3 @@ def agent_bot_completions(agent_id):
 
     for answer in agent_completion(objs[0].tenant_id, agent_id, **req):
         return get_result(data=answer)
-
-

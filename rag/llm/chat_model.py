@@ -24,7 +24,6 @@ import openai
 from ollama import Client
 from rag.nlp import is_chinese, is_english
 from rag.utils import num_tokens_from_string
-from groq import Groq
 import os
 import json
 import requests
@@ -846,6 +845,7 @@ class GeminiChat(Base):
 
 class GroqChat:
     def __init__(self, key, model_name, base_url=''):
+        from groq import Groq
         self.client = Groq(api_key=key)
         self.model_name = model_name
 
@@ -1520,3 +1520,11 @@ class GoogleChat(Base):
                 yield ans + "\n**ERROR**: " + str(e)
 
             yield response._chunks[-1].usage_metadata.total_token_count
+
+class GPUStackChat(Base):
+    def __init__(self, key=None, model_name="", base_url=""):
+        if not base_url:
+            raise ValueError("Local llm url cannot be None")
+        if base_url.split("/")[-1] != "v1-openai":
+            base_url = os.path.join(base_url, "v1-openai")
+        super().__init__(key, model_name, base_url)

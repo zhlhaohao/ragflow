@@ -3,7 +3,7 @@ sidebar_position: 2
 slug: /python_api_reference
 ---
 
-# Python API Reference
+# Python API
 
 A complete reference for RAGFlow's Python APIs. Before proceeding, please ensure you [have your RAGFlow API key ready for authentication](https://ragflow.io/docs/dev/acquire_ragflow_api_key).
 
@@ -28,7 +28,7 @@ RAGFlow.create_dataset(
     name: str,
     avatar: str = "",
     description: str = "",
-    embedding_model: str = "BAAI/bge-zh-v1.5",
+    embedding_model: str = "BAAI/bge-large-zh-v1.5",
     language: str = "English",
     permission: str = "me", 
     chunk_method: str = "naive",
@@ -641,6 +641,10 @@ print("Async bulk parsing cancelled.")
 
 ---
 
+## CHUNK MANAGEMENT WITHIN DATASET
+
+---
+
 ### Add chunk
 
 ```python
@@ -732,8 +736,8 @@ from ragflow_sdk import RAGFlow
 rag_object = RAGFlow(api_key="<YOUR_API_KEY>", base_url="http://<YOUR_BASE_URL>:9380")
 dataset = rag_object.list_datasets("123")
 dataset = dataset[0]
-dataset.async_parse_documents(["wdfxb5t547d"])
-for chunk in doc.list_chunks(keywords="rag", page=0, page_size=12):
+docs = dataset.list_documents(keywords="test", page=1, page_size=12)
+for chunk in docs[0].list_chunks(keywords="rag", page=0, page_size=12):
     print(chunk)
 ```
 
@@ -890,17 +894,12 @@ dataset = rag_object.list_datasets(name="ragflow")
 dataset = dataset[0]
 name = 'ragflow_test.txt'
 path = './test_data/ragflow_test.txt'
-rag_object.create_document(dataset, name=name, blob=open(path, "rb").read())
-doc = dataset.list_documents(name=name)
-doc = doc[0]
-dataset.async_parse_documents([doc.id])
-for c in rag_object.retrieve(question="What's ragflow?", 
-             dataset_ids=[dataset.id], document_ids=[doc.id], 
-             page=1, page_size=30, similarity_threshold=0.2, 
-             vector_similarity_weight=0.3,
-             top_k=1024
-             ):
-    print(c)
+documents =[{"display_name":"test_retrieve_chunks.txt","blob":open(path, "rb").read()}]
+docs = dataset.upload_documents(documents)
+doc = docs[0]
+doc.add_chunk(content="This is a chunk addition test")
+for c in rag_object.retrieve(dataset_ids=[dataset.id],document_ids=[doc.id]):
+  print(c)
 ```
 
 ---
@@ -966,6 +965,7 @@ Instructions for the LLM to follow.  A `Prompt` object contains the following at
   - All the variables in 'System' should be curly bracketed.
   - The default value is `[{"key": "knowledge", "optional": True}]`.
 - `rerank_model`: `str` If it is not specified, vector cosine similarity will be used; otherwise, reranking score will be used. Defaults to `""`.
+- `top_k`: `int` Refers to the process of reordering or selecting the top-k items from a list or set based on a specific ranking criterion. Default to 1024.
 - `empty_response`: `str` If nothing is retrieved in the dataset for the user's question, this will be used as the response. To allow the LLM to improvise when nothing is found, leave this blank. Defaults to `None`.
 - `opener`: `str` The opening greeting for the user. Defaults to `"Hi! I am your assistant, can I help you?"`.
 - `show_quote`: `bool` Indicates whether the source of text should be displayed. Defaults to `True`.
@@ -1312,7 +1312,7 @@ assistant.delete_sessions(ids=["id_1","id_2"])
 ### Converse with chat assistant
 
 ```python
-Session.ask(question: str, stream: bool = False) -> Optional[Message, iter[Message]]
+Session.ask(question: str = "", stream: bool = False, **kwargs) -> Optional[Message, iter[Message]]
 ```
 
 Asks a specified chat assistant a question to start an AI-powered conversation.
@@ -1325,7 +1325,7 @@ In streaming mode, not all responses include a reference, as this depends on the
 
 ##### question: `str`, *Required*
 
-The question to start an AI-powered conversation.
+The question to start an AI-powered conversation. Defalut to `""`
 
 ##### stream: `bool`
 
@@ -1333,6 +1333,10 @@ Indicates whether to output responses in a streaming way:
 
 - `True`: Enable streaming (default).
 - `False`: Disable streaming.
+
+##### **kwargs
+
+The parameters in prompt(system).
 
 #### Returns
 
@@ -1402,10 +1406,24 @@ while True:
 ### Create session with agent
 
 ```python
-Agent.create_session(id,rag) -> Session
+Agent.create_session(id,rag, **kwargs) -> Session
 ```
 
 Creates a session with the current agent.
+
+#### Parameters
+
+##### id: `str`, *Required*
+
+The id of agent
+
+##### rag:`RAGFlow object`
+
+The RAGFlow object
+
+##### **kwargs
+
+The parameters in `begin` component.
 
 #### Returns
 
@@ -1418,11 +1436,11 @@ Creates a session with the current agent.
 #### Examples
 
 ```python
-from ragflow_sdk import RAGFlow
+from ragflow_sdk import RAGFlow, Agent
 
 rag_object = RAGFlow(api_key="<YOUR_API_KEY>", base_url="http://<YOUR_BASE_URL>:9380")
 AGENT_ID = "AGENT_ID"
-session = create_session(AGENT_ID,rag_object)
+session = Agent.create_session(AGENT_ID, rag_object)
 ```
 
 ---
@@ -1430,7 +1448,7 @@ session = create_session(AGENT_ID,rag_object)
 ### Converse with agent
 
 ```python
-Session.ask(question: str, stream: bool = False) -> Optional[Message, iter[Message]]
+Session.ask(question: str="", stream: bool = False) -> Optional[Message, iter[Message]]
 ```
 
 Asks a specified agent a question to start an AI-powered conversation.
@@ -1441,9 +1459,9 @@ In streaming mode, not all responses include a reference, as this depends on the
 
 #### Parameters
 
-##### question: `str`, *Required*
+##### question: `str`
 
-The question to start an AI-powered conversation.
+The question to start an AI-powered conversation. If the `begin` component takes parameters, a question is not required.
 
 ##### stream: `bool`
 
@@ -1495,11 +1513,11 @@ A list of `Chunk` objects representing references to the message, each containin
 #### Examples
 
 ```python
-from ragflow_sdk import RAGFlow,Agent
+from ragflow_sdk import RAGFlow, Agent
 
 rag_object = RAGFlow(api_key="<YOUR_API_KEY>", base_url="http://<YOUR_BASE_URL>:9380")
 AGENT_id = "AGENT_ID"
-session = Agent.create_session(AGENT_id,rag_object)    
+session = Agent.create_session(AGENT_id, rag_object)    
 
 print("\n===== Miss R ====\n")
 print("Hello. What can I do for you?")

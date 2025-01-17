@@ -34,6 +34,8 @@ export default {
       pleaseInput: '請輸入',
       submit: '提交',
       embedIntoSite: '嵌入網站',
+      previousPage: '上一頁',
+      nextPage: '下一頁',
     },
     login: {
       login: '登入',
@@ -163,6 +165,27 @@ export default {
       autoQuestions: '自動問題',
       autoQuestionsTip: `在查詢此類問題時，為每個區塊提取 N 個問題以提高其排名分數。在「系統模型設定」中設定的 LLM 將消耗額外的 token。您可以在區塊清單中查看結果。如果發生錯誤，此功能不會破壞整個分塊過程，除了將空結果新增至原始區塊。 `,
       redo: '是否清空已有 {{chunkNum}}個 chunk？',
+      setMetaData: '設定元數據',
+      pleaseInputJson: '請輸入JSON',
+      documentMetaTips: `<p>元資料為 Json 格式（不可搜尋）。如果提示中包含該文件的任何部分，它將被添加到 LLM 提示中。
+<p>範例：</p>
+<b>元資料是：</b><br>
+<code>
+  {
+      "Author": "Alex Dowson",
+      "Date": "2024-11-12"
+  }
+</code><br>
+<b>提示將是：</b><br>
+<p>文檔：文檔名稱</p>
+<p>作者：Alex Dowson</p>
+<p>日期：2024-11-12</p>
+<p>相關片段如下：</p>
+<ul>
+<li>這是區塊內容....</li>
+<li>這是區塊內容....</li>
+</ul>
+`,
     },
     knowledgeConfiguration: {
       titleDescription: '在這裡更新您的知識庫詳細信息，尤其是解析方法。',
@@ -226,14 +249,14 @@ export default {
       此塊方法支持<b> excel </b>和<b> csv/txt </b>文件格式。
     </p>
     <li>
-      如果文件以<b> excel </b>格式，則應由兩個列組成
+      如果文件是<b> excel </b>格式，則應由兩個列組成
       沒有標題：一個提出問題，另一個用於答案，
       答案列之前的問題列。多張紙是
       只要列正確結構，就可以接受。
     </li>
     <li>
-      如果文件以<b> csv/txt </b>格式為
-      用作分開問題和答案的定界符。
+      如果文件是<b> csv/txt </b>格式
+      以 UTF-8 編碼且用 TAB 作分開問題和答案的定界符。
     </li>
     <p>
       <i>
@@ -269,6 +292,16 @@ export default {
 <p>接下來，區塊將傳送到LLM以提取知識圖譜和思維導圖的節點和關係。
 
 <p>請注意您需要指定的條目類型。</p></p>`,
+      tag: `<p>使用「標籤」作為分塊方法的知識庫應該被其他知識庫用來將標籤加入其區塊中，查詢也將帶有標籤。
+<p>使用「標籤」作為分塊方法的知識庫<b>不</b>應該參與 RAG 過程。
+<p>本知識庫中的區塊是標籤的範例，展示了整個標籤集以及區塊與標籤之間的相關性。
+
+<p>此區塊方法支援<b>EXCEL</b>和<b>CSV/TXT</b>檔案格式。
+<p>如果檔案採用 <b>Excel</b> 格式，則應包含兩列，不含標題：一列用於內容，另一列用於標籤，內容列位於標籤列之前。只要列的結構正確，多張紙也是可以接受的。
+<p>如果檔案為<b>CSV/TXT</b>格式，則必須採用UTF-8編碼，並以TAB作為分隔符號來分隔內容和標籤。
+<p>標籤欄中，標籤之間有英文<b>逗號</b>。
+<i>不符合上述規則的文字行將被忽略，並且每一對將被視為一個不同的區塊。
+`,
       useRaptor: '使用RAPTOR文件增強策略',
       useRaptorTip: '請參考 https://huggingface.co/papers/2401.18059',
       prompt: '提示詞',
@@ -292,6 +325,26 @@ export default {
       pageRank: '頁面排名',
       pageRankTip: `這用來提高相關性分數。所有檢索到的區塊的相關性得分將加上該數字。
 當您想要先搜尋給定的知識庫時，請設定比其他人更高的 pagerank 分數。`,
+      tagName: '標籤',
+      frequency: '頻次',
+      searchTags: '搜尋標籤',
+      tagCloud: '雲端',
+      tagTable: '表',
+      tagSet: '標籤庫',
+      topnTags: 'Top-N 標籤',
+      tagSetTip: `
+ <p> 選擇「標籤」知識庫有助於標記每個區塊。 </p>
+<p>對這些區塊的查詢也將帶有標籤。
+此過程將透過向資料集添加更多資訊來提高檢索精度，特別是當存在大量區塊時。
+<p>標籤和關鍵字的差異：</p>
+<ul>
+ <li>標籤是一個閉集，由使用者定義和操作，而關鍵字是一個開集。
+ <li>您需要在使用前上傳包含範例的標籤集。
+ <li>關鍵字由 LLM 生成，既昂貴又耗時。
+</ul>
+ `,
+      tags: '標籤',
+      addTag: '增加標籤',
     },
     chunk: {
       chunk: '解析塊',
@@ -667,7 +720,7 @@ export default {
       generateDescription: `此元件用於呼叫LLM生成文本，請注意提示的設定。`,
       categorizeDescription: `此組件用於對文字進行分類。請指定類別的名稱、描述和範例。每個類別都指向不同的下游組件。`,
       relevantDescription: `此元件用來判斷upstream的輸出是否與使用者最新的問題相關，『是』代表相關，『否』代表不相關。`,
-      rewriteQuestionDescription: `此元件用於細化使用者的提問。通常，當使用者的原始提問無法從知識庫中檢索相關資訊時，此元件可協助您將問題變更為更符合知識庫表達方式的適當問題。只有「檢索」可作為其下游。`,
+      rewriteQuestionDescription: `此元件用於細化使用者的提問。通常，當使用者的原始提問無法從知識庫中檢索相關資訊時，此元件可協助您將問題變更為更符合知識庫表達方式的適當問題。`,
       messageDescription:
         '此元件用於向使用者發送靜態訊息。您可以準備幾條訊息，這些訊息將隨機選擇。',
       keywordDescription: `該組件用於從用戶的問題中提取關鍵字。 Top N指定需要提取的關鍵字數量。`,
@@ -1016,6 +1069,26 @@ export default {
       templateDescription: '此元件用於排版各種元件的輸出。 ',
       jsonUploadTypeErrorMessage: '請上傳json檔',
       jsonUploadContentErrorMessage: 'json 檔案錯誤',
+      iterationDescription: `此元件首先透過「分隔符號」將輸入拆分為陣列。
+對數組中的元素依序執行相同的操作步驟，直到輸出所有結果，可以理解為任務批次處理器。
+
+例如，在長文本翻譯迭代節點內，如果所有內容都輸入到LLM節點，則可能會達到單次對話限制。上游節點可以先將長文本拆分為多個分片，並配合迭代節點對每個分片進行批次翻譯，避免達到單次對話的LLM訊息限制。`,
+      delimiterTip: `此分隔符號用於將輸入文字分割成多個文字片段，其中的回顯將作為每次迭代的輸入項執行。`,
+      delimiterOptions: {
+        comma: '逗號',
+        lineBreak: '換行',
+        tab: '製表符',
+        underline: '底線',
+        diagonal: '斜線',
+        minus: '減號',
+        semicolon: '分號',
+      },
+      addVariable: '新增變數',
+      variableSettings: '變數設定',
+      systemPrompt: '系統提示詞',
+      addCategory: '新增分類',
+      categoryName: '分類名稱',
+      nextStep: '下一步',
     },
     footer: {
       profile: '“保留所有權利 @ react”',

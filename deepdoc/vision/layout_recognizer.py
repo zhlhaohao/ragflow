@@ -78,7 +78,7 @@ class LayoutRecognizer(Recognizer):
                     "x0": b["bbox"][0] / scale_factor, "x1": b["bbox"][2] / scale_factor,
                     "top": b["bbox"][1] / scale_factor, "bottom": b["bbox"][-1] / scale_factor,
                     "page_number": pn,
-                    } for b in lts if float(b["score"]) >= 0.8 or b["type"] not in self.garbage_layouts]
+                    } for b in lts if float(b["score"]) >= 0.4 or b["type"] not in self.garbage_layouts]
             lts = self.sort_Y_firstly(lts, np.mean(
                 [lt["bottom"] - lt["top"] for lt in lts]) / 2)
             lts = self.layouts_cleanup(bxs, lts)
@@ -153,6 +153,8 @@ class LayoutRecognizer(Recognizer):
         ocr_res = [b for b in ocr_res if b["text"].strip() not in garbag_set]
         return ocr_res, page_layout
 
+    def forward(self, image_list, thr=0.7, batch_size=16):
+        return super().__call__(image_list, thr, batch_size)
 
 class LayoutRecognizer4YOLOv10(LayoutRecognizer):
     labels = [

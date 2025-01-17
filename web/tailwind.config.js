@@ -19,7 +19,7 @@ module.exports = {
     },
     extend: {
       colors: {
-        border: 'hsl(var(--border))',
+        border: 'var(--colors-outline-neutral-strong)',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
         background: 'var(--background)',
@@ -37,6 +37,7 @@ module.exports = {
         'colors-text-neutral-standard': 'var(--colors-text-neutral-standard)',
         'colors-text-functional-danger': 'var(--colors-text-functional-danger)',
         'colors-text-inverse-strong': 'var(--colors-text-inverse-strong)',
+        'colors-text-persist-light': 'var(--colors-text-persist-light)',
 
         primary: {
           DEFAULT: 'hsl(var(--primary))',
@@ -110,7 +111,7 @@ module.exports = {
         },
         'colors-background-functional-solid-danger': {
           DEFAULT: 'var(--colors-background-functional-solid-danger)',
-          foreground: 'var(--background-inverse-standard-foreground)',
+          foreground: 'var(--colors-text-inverse-strong)',
         },
         'colors-background-functional-solid-notice': {
           DEFAULT: 'var(--colors-background-functional-solid-notice)',
@@ -154,6 +155,10 @@ module.exports = {
         },
         'colors-background-neutral-weak': {
           DEFAULT: 'var(--colors-background-neutral-weak)',
+          foreground: 'var(--background-inverse-standard-foreground)',
+        },
+        'colors-background-sentiment-solid-primary': {
+          DEFAULT: 'var(--colors-background-sentiment-solid-primary)',
           foreground: 'var(--background-inverse-standard-foreground)',
         },
       },
