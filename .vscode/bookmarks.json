@@ -24,7 +24,7 @@
 					"label": ""
 				},
 				{
-					"line": 411,
+					"line": 449,
 					"column": 7,
 					"label": ""
 				}
@@ -119,12 +119,12 @@
 					"label": "默认的嵌入模型：BAAI/bge-large-zh-v1.5"
 				},
 				{
-					"line": 71,
+					"line": 72,
 					"column": 18,
 					"label": "线程锁保证模型只初始化一次，只有一个实例"
 				},
 				{
-					"line": 168,
+					"line": 169,
 					"column": 8,
 					"label": "QWenEmbed(Base):   通义千问嵌入模型"
 				}
@@ -294,7 +294,7 @@
 			"path": "api/apps/conversation_app.py",
 			"bookmarks": [
 				{
-					"line": 184,
+					"line": 185,
 					"column": 13,
 					"label": "端点-completion"
 				}
