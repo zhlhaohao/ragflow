@@ -28,6 +28,7 @@ from cn2an import cn2an
 from PIL import Image
 
 import chardet
+from icecream import ic
 
 all_codecs = [
     'utf-8', 'gb2312', 'gbk', 'utf_16', 'ascii', 'big5', 'big5hkscs',
@@ -241,7 +242,9 @@ def is_chinese(text):
 
 def tokenize(d, t, eng):
     """分词处理
-
+    content_with_weight： 原文
+    content_ltks：分词，用空格分开单词
+    content_sm_ltks：细粒度分词
     Args:
         d (_type_): doc
         t (_type_): 文本内容
@@ -535,47 +538,69 @@ def hierarchical_merge(bull, sections, depth):
 
     return res
 
-
+# 合并chunks
 def naive_merge(sections, chunk_token_num=128, delimiter="\n。；！？"):
+    """
+    合并文本段落，保证每个合并后的段落中令牌数量不超过指定值。
+    
+    参数:
+    sections : list of tuples (text: str, pos: str)
+        text: 文本内容。
+        pos: 文本的位置信息，指明文本片段的来源或上下文。原始文本中的段落标记、章节号、页码等，对于理解文本内容或者后续处理可能是有用的。        
+
+    chunk_token_num : int
+        每个合并后文本块的最大令牌数量，默认值为128。
+    delimiter : str
+        用于分割文本的分隔符，默认包括换行符、句号、分号、感叹号和问号。
+        
+    返回:
+    cks : list of str
+        合并后的文本块列表。
+    """
+
+    # 如果输入为空，则直接返回空列表
     if not sections:
         return []
 
-    # 如果 sections 中的元素是字符串，将其转换为元组形式 (text, "")
+    # 如果输入是纯文本列表，将其转换为带有空字符串位置信息的元组列表
     if isinstance(sections[0], type("")):
         sections = [(s, "") for s in sections]
 
+    # 初始化输出文本块列表和对应的令牌数量列表
     cks = [""]
     tk_nums = [0]
 
     def add_chunk(t, pos):
+        """
+        将文本t添加到当前文本块cks或创建新的文本块，
+        并更新对应的令牌数量tk_nums。
+        """
         nonlocal cks, tk_nums, delimiter
-        # 计算段落 t 的 token 数量
+        # 获取文本t的令牌数量
         tnum = num_tokens_from_string(t)
-        # 如果没有位置信息，设置为空字符串
         if not pos: pos = ""
-        # 如果段落的 token 数量小于 8，不使用位置信息
+        # 如果文本t的令牌数量小于8，则不添加位置信息
         if tnum < 8:
             pos = ""
 
-        # 确保合并后的块的长度不超过 chunk_token_num
+        # 如果当前文本块的令牌数量超过了限制，则开启新文本块
         if tk_nums[-1] > chunk_token_num:
+            # 如果文本t中不包含位置信息，则添加位置信息
             if t.find(pos) < 0:
                 t += pos
-            # 新建一个块    
+            # 添加新的文本块
             cks.append(t)
-            # 更新新块的 token 数量
             tk_nums.append(tnum)
         else:
+            # 如果当前位置信息不在最后一个文本块中，则添加位置信息到文本t
             if cks[-1].find(pos) < 0:
                 t += pos
-            cks[-1] += t
+            cks[-1] += '\n\n' + t    # F8080 如果是新合并的文本块，则添加2个换行，确保LLM认为这是新的数据
             tk_nums[-1] += tnum
 
+    # 遍历输入文本段，调用add_chunk函数处理每个文本段
     for sec, pos in sections:
-        # 遍历每个段落及其位置信息，并调用 add_chunk 进行处理
         add_chunk(sec, pos)
-
-    # 返回合并后的块列表
     return cks
 
 def docx_question_level(p, bull = -1):

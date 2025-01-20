@@ -25,7 +25,7 @@ from PIL import Image
 from functools import reduce
 from markdown import markdown
 from docx.image.exceptions import UnrecognizedImageError, UnexpectedEndOfFileError, InvalidImageStreamError
-
+from icecream import ic
 
 class Docx(DocxParser):
     """
@@ -292,12 +292,18 @@ def chunk(filename, binary=None, from_page=0, to_page=100000,
         # 使用 tokenize_table 方法处理表格。
         res = tokenize_table(tables, doc, is_english)
 
+    # 如果是excel文件
     elif re.search(r"\.xlsx?$", filename, re.IGNORECASE):
+        # 调用回调函数，通知解析开始，进度为10%
         callback(0.1, "Start to parse.")
+        # 创建ExcelParser对象，用于解析Excel文件
         excel_parser = ExcelParser()
+        # 检查解析配置中是否启用了"html4excel"选项
         if parser_config.get("html4excel"):
+            # 如果启用，则调用excel_parser的html方法解析文件，并将结果转换为(section, "")格式的列表
             sections = [(_, "") for _ in excel_parser.html(binary, 12) if _]
         else:
+            # 如果未启用，则直接调用excel_parser的方法解析文件，并将结果转换为(section, "")格式的列表
             sections = [(_, "") for _ in excel_parser(binary) if _]
 
     elif re.search(r"\.(txt|py|js|java|c|cpp|h|php|go|ts|sh|cs|kt|sql)$", filename, re.IGNORECASE):
@@ -344,13 +350,18 @@ def chunk(filename, binary=None, from_page=0, to_page=100000,
             "file type not supported yet(pdf, xlsx, doc, docx, txt supported)")
 
     st = timer()
+    # ic(sections)
+    # 合并sections为chunks，原则是将文本合并为长度不超过chunk_token_num（默认128）的块，在这里delimiter没用到
     chunks = naive_merge(
         sections, int(parser_config.get(
             "chunk_token_num", 128)), parser_config.get(
             "delimiter", "\n!?。；！？"))
+    # ic(chunks)
+
     if kwargs.get("section_only", False):
         return chunks
 
+    # 分词，变成了 content_with_weight： 原文 content_ltks：分词，用空格分开单词 content_sm_ltks：细粒度分词
     res.extend(tokenize_chunks(chunks, doc, is_english, pdf_parser))
     logging.info("naive_merge({}): {}".format(filename, timer() - st))
     return res

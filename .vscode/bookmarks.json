@@ -19,12 +19,7 @@
 			"path": "rag/svr/task_executor.py",
 			"bookmarks": [
 				{
-					"line": 180,
-					"column": 7,
-					"label": ""
-				},
-				{
-					"line": 449,
+					"line": 181,
 					"column": 7,
 					"label": ""
 				}
@@ -56,157 +51,12 @@
 			]
 		},
 		{
-			"path": "rag/app/naive.py",
-			"bookmarks": [
-				{
-					"line": 70,
-					"column": 14,
-					"label": ""
-				}
-			]
-		},
-		{
-			"path": "rag/nlp/__init__.py",
-			"bookmarks": [
-				{
-					"line": 260,
-					"column": 8,
-					"label": "DOCX 文件中提取的文本块（chunks），并将每个文本块及其对应的图像信息封装成一个文档对象，最后返回一个包含这些文档对象的列表"
-				}
-			]
-		},
-		{
-			"path": "api/db/db_models.py",
-			"bookmarks": [
-				{
-					"line": 37,
-					"column": 3,
-					"label": "Mysql数据库ORM"
-				},
-				{
-					"line": 483,
-					"column": 9,
-					"label": "生成jwt令牌access_token->Authorization"
-				}
-			]
-		},
-		{
-			"path": "api/db/services/common_service.py",
-			"bookmarks": [
-				{
-					"line": 23,
-					"column": 10,
-					"label": ""
-				}
-			]
-		},
-		{
-			"path": "rag/llm/__init__.py",
-			"bookmarks": [
-				{
-					"line": 22,
-					"column": 16,
-					"label": ""
-				}
-			]
-		},
-		{
-			"path": "rag/llm/embedding_model.py",
-			"bookmarks": [
-				{
-					"line": 49,
-					"column": 4,
-					"label": "默认的嵌入模型：BAAI/bge-large-zh-v1.5"
-				},
-				{
-					"line": 72,
-					"column": 18,
-					"label": "线程锁保证模型只初始化一次，只有一个实例"
-				},
-				{
-					"line": 169,
-					"column": 8,
-					"label": "QWenEmbed(Base):   通义千问嵌入模型"
-				}
-			]
-		},
-		{
-			"path": "api/utils/__init__.py",
-			"bookmarks": [
-				{
-					"line": 42,
-					"column": 9,
-					"label": "get_base_config-读取配置文件"
-				},
-				{
-					"line": 389,
-					"column": 5,
-					"label": ""
-				}
-			]
-		},
-		{
-			"path": "deepdoc/parser/docx_parser.py",
-			"bookmarks": [
-				{
-					"line": 21,
-					"column": 12,
-					"label": ""
-				}
-			]
-		},
-		{
-			"path": "deepdoc/parser/pdf_parser.py",
-			"bookmarks": [
-				{
-					"line": 36,
-					"column": 9,
-					"label": "RAGFlowPdfParser:  解析pdf文件"
-				}
-			]
-		},
-		{
-			"path": "deepdoc/vision/ocr.py",
-			"bookmarks": [
-				{
-					"line": 541,
-					"column": 8,
-					"label": "OCR(object):  OCR识别pdf"
-				}
-			]
-		},
-		{
 			"path": "rag/utils/redis_conn.py",
 			"bookmarks": [
-				{
-					"line": 153,
-					"column": 15,
-					"label": ""
-				},
 				{
 					"line": 200,
 					"column": 14,
 					"label": ""
-				}
-			]
-		},
-		{
-			"path": "api/db/services/task_service.py",
-			"bookmarks": [
-				{
-					"line": 33,
-					"column": 11,
-					"label": ""
-				}
-			]
-		},
-		{
-			"path": "rag/utils/es_conn.py",
-			"bookmarks": [
-				{
-					"line": 109,
-					"column": 7,
-					"label": "bulk 批量更新或插入Elasticsearch索引中的文档。"
 				}
 			]
 		},
@@ -221,52 +71,12 @@
 			]
 		},
 		{
-			"path": "rag/llm/chat_model.py",
-			"bookmarks": [
-				{
-					"line": 30,
-					"column": 4,
-					"label": "统一封装了各类对话模型的调用接口"
-				}
-			]
-		},
-		{
-			"path": "conf/llm_factories.json",
-			"bookmarks": [
-				{
-					"line": 1,
-					"column": 10,
-					"label": "所有模型的基础信息"
-				}
-			]
-		},
-		{
-			"path": "api/db/init_data.py",
-			"bookmarks": [
-				{
-					"line": 97,
-					"column": 8,
-					"label": "初始化llm表"
-				}
-			]
-		},
-		{
 			"path": "api/apps/__init__.py",
 			"bookmarks": [
 				{
 					"line": 72,
 					"column": 8,
 					"label": "为每个api文件，动态注册一个 Blueprint，设置 url prefix"
-				},
-				{
-					"line": 143,
-					"column": 6,
-					"label": "用户验证，加载用户"
-				},
-				{
-					"line": 160,
-					"column": 22,
-					"label": "解码jwt令牌Authorization->access_token"
 				}
 			]
 		},
@@ -282,31 +92,6 @@
 					"line": 47,
 					"column": 10,
 					"label": "后端:登录端点"
-				},
-				{
-					"line": 714,
-					"column": 12,
-					"label": ""
-				}
-			]
-		},
-		{
-			"path": "api/apps/conversation_app.py",
-			"bookmarks": [
-				{
-					"line": 185,
-					"column": 13,
-					"label": "端点-completion"
-				}
-			]
-		},
-		{
-			"path": "api/db/services/dialog_service.py",
-			"bookmarks": [
-				{
-					"line": 137,
-					"column": 3,
-					"label": "后端：chat -- 处理对话生成回复"
 				}
 			]
 		},
@@ -337,16 +122,6 @@
 					"line": 38,
 					"column": 3,
 					"label": "前端聊天消息组件"
-				}
-			]
-		},
-		{
-			"path": "web/src/routes.ts",
-			"bookmarks": [
-				{
-					"line": 0,
-					"column": 8,
-					"label": "前端路由表"
 				}
 			]
 		},

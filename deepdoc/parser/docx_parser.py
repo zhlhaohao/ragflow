@@ -25,13 +25,30 @@ class RAGFlowDocxParser:
     """
 
     def __extract_table_content(self, tb):
+        """
+        提取表格内容并转换为DataFrame格式。
+
+        参数:
+        tb (Table): docx库中的表格对象。
+
+        返回:
+        list: 处理后的表格内容列表。
+        """
         df = []
         for row in tb.rows:
             df.append([c.text for c in row.cells])
         return self.__compose_table_content(pd.DataFrame(df))
 
     def __compose_table_content(self, df):
+        """
+        根据表格内容生成结构化的文本。
 
+        参数:
+        df (DataFrame): 包含表格数据的DataFrame对象。
+
+        返回:
+        list: 结构化的文本列表。
+        """
         def blockType(b):
             patt = [
                 ("^(20|19)[0-9]{2}[年/-][0-9]{1,2}[月/-][0-9]{1,2}日*$", "Dt"),
@@ -69,7 +86,7 @@ class RAGFlowDocxParser:
         max_type = max(max_type.items(), key=lambda x: x[1])[0]
 
         colnm = len(df.iloc[0, :])
-        hdrows = [0]  # header is not nessesarily appear in the first line
+        hdrows = [0]  # header is not necessarily appear in the first line
         if max_type == "Nu":
             for r in range(1, len(df)):
                 tys = Counter([blockType(str(df.iloc[r, j]))
@@ -114,26 +131,45 @@ class RAGFlowDocxParser:
         return ["\n".join(lines)]
 
     def __call__(self, fnm, from_page=0, to_page=100000000):
-        self.doc = Document(fnm) if isinstance(
-            fnm, str) else Document(BytesIO(fnm))
-        pn = 0 # parsed page
-        secs = [] # parsed contents
+        """
+        解析docx文件并提取内容。
+
+        参数:
+        fnm (str or bytes): 文件路径或文件字节流。
+        from_page (int): 开始解析的页码，默认为0。
+        to_page (int): 结束解析的页码，默认为一个很大的数。
+
+        返回:
+        tuple: 包含段落内容和表格内容的元组。
+        """
+        # 根据输入的文件路径或字节流创建Document对象
+        self.doc = Document(fnm) if isinstance(fnm, str) else Document(BytesIO(fnm))
+        pn = 0  # 当前解析的页码
+        secs = []  # 存储解析的内容
+
+        # 遍历文档中的每个段落
         for p in self.doc.paragraphs:
+            # 如果当前页码超过结束页码，则停止解析
             if pn > to_page:
                 break
 
-            runs_within_single_paragraph = [] # save runs within the range of pages
+            runs_within_single_paragraph = []  # 存储当前段落中的run对象
+            # 遍历段落中的每个run对象
             for run in p.runs:
+                # 如果当前页码超过结束页码，则停止解析
                 if pn > to_page:
                     break
+                # 如果当前页码在指定范围内且段落文本不为空，则将run文本添加到列表中
                 if from_page <= pn < to_page and p.text.strip():
-                    runs_within_single_paragraph.append(run.text) # append run.text first
+                    runs_within_single_paragraph.append(run.text)  # 先添加run.text
 
-                # wrap page break checker into a static method
+                # 检查run对象中是否包含分页符，如果包含则页码加1
                 if 'lastRenderedPageBreak' in run._element.xml:
                     pn += 1
 
-            secs.append(("".join(runs_within_single_paragraph), p.style.name if hasattr(p.style, 'name') else '')) # then concat run.text as part of the paragraph
+            # 将当前段落中的所有run文本连接成一个字符串，并添加到解析内容列表中
+            secs.append(("".join(runs_within_single_paragraph), p.style.name if hasattr(p.style, 'name') else ''))  # 然后将run.text连接成段落
 
+        # 提取文档中的所有表格内容
         tbls = [self.__extract_table_content(tb) for tb in self.doc.tables]
         return secs, tbls

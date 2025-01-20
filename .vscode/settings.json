@@ -44,5 +44,6 @@
 	"python.testing.unittestEnabled": false,
 	"python.testing.pytestEnabled": true,
 	"peacock.color": "#e0a61c",
-	"peacock.remoteColor": "#777bd7",
+  "peacock.remoteColor": "#777bd7",
+  "bookmarkX.sort": "manual",
 }

@@ -53,6 +53,15 @@ from api.constants import IMG_BASE64_PREFIX
 @login_required
 @validate_request("kb_id")
 def upload():
+    """
+    上传文件到指定的知识库中。
+
+    参数:
+    kb_id (str): 知识库的ID。
+
+    返回:
+    JSON响应: 成功时返回{"data": true}，失败时返回相应的错误信息。
+    """
     kb_id = request.form.get("kb_id")
     if not kb_id:
         return get_json_result(
@@ -82,23 +91,45 @@ def upload():
 @login_required
 @validate_request("kb_id", "name", "url")
 def web_crawl():
+    """
+    爬取指定URL的网页内容并将其转换为PDF文件，然后上传到指定的知识库中。
+
+    参数:
+    kb_id (str): 知识库的ID。
+    name (str): 文档的名称。
+    url (str): 要爬取的网页URL。
+
+    返回:
+    JSON响应: 成功时返回{"data": true}，失败时返回相应的错误信息。
+    """
+    # 获取请求参数中的知识库ID
     kb_id = request.form.get("kb_id")
     if not kb_id:
         return get_json_result(
             data=False, message='Lack of "KB ID"', code=settings.RetCode.ARGUMENT_ERROR)
+    
+    # 获取请求参数中的文档名称
     name = request.form.get("name")
+    
+    # 获取请求参数中的URL
     url = request.form.get("url")
+    
+    # 验证URL格式是否有效
     if not is_valid_url(url):
         return get_json_result(
             data=False, message='The URL format is invalid', code=settings.RetCode.ARGUMENT_ERROR)
+    
+    # 根据知识库ID获取知识库信息
     e, kb = KnowledgebaseService.get_by_id(kb_id)
     if not e:
         raise LookupError("Can't find this knowledgebase!")
-
+    
+    # 爬取网页内容并转换为PDF
     blob = html2pdf(url)
     if not blob:
         return server_error_response(ValueError("Download failure."))
-
+    
+    # 获取用户根文件夹ID
     root_folder = FileService.get_root_folder(current_user.id)
     pf_id = root_folder["id"]
     FileService.init_knowledgebase_docs(pf_id, current_user.id)
@@ -106,6 +137,7 @@ def web_crawl():
     kb_folder = FileService.new_a_file_from_kb(kb.tenant_id, kb.name, kb_root_folder["id"])
 
     try:
+        # 处理文件名以避免重复
         filename = duplicate_name(
             DocumentService.query,
             name=name + ".pdf",
@@ -114,6 +146,7 @@ def web_crawl():
         if filetype == FileType.OTHER.value:
             raise RuntimeError("This type of file has not been supported yet!")
 
+        # 确定文件存储位置
         location = filename
         while STORAGE_IMPL.obj_exist(kb_id, location):
             location += "_"
@@ -138,6 +171,7 @@ def web_crawl():
             doc["parser_id"] = ParserType.PRESENTATION.value
         if re.search(r"\.(eml)$", filename):
             doc["parser_id"] = ParserType.EMAIL.value
+        # 插入文档记录到数据库
         DocumentService.insert(doc)
         FileService.add_file_from_kb(doc, kb_folder["id"], kb.tenant_id)
     except Exception as e:
@@ -149,6 +183,16 @@ def web_crawl():
 @login_required
 @validate_request("name", "kb_id")
 def create():
+    """
+    在指定的知识库中创建一个新的文档。
+
+    参数:
+    name (str): 文档的名称。
+    kb_id (str): 知识库的ID。
+
+    返回:
+    JSON响应: 成功时返回文档的详细信息，失败时返回相应的错误信息。
+    """
     req = request.json
     kb_id = req["kb_id"]
     if not kb_id:
@@ -184,6 +228,20 @@ def create():
 @manager.route('/list', methods=['GET'])  # noqa: F821
 @login_required
 def list_docs():
+    """
+    列出指定知识库中的文档。
+
+    参数:
+    kb_id (str): 知识库的ID。
+    keywords (str): 可选参数，用于搜索文档。
+    page (int): 可选参数，当前页码。
+    page_size (int): 可选参数，每页显示的文档数量。
+    orderby (str): 可选参数，排序字段。
+    desc (bool): 可选参数，是否降序排序。
+
+    返回:
+    JSON响应: 成功时返回文档列表，失败时返回相应的错误信息。
+    """
     kb_id = request.args.get("kb_id")
     if not kb_id:
         return get_json_result(
@@ -219,6 +277,15 @@ def list_docs():
 @manager.route('/infos', methods=['POST'])  # noqa: F821
 @login_required
 def docinfos():
+    """
+    获取指定文档的详细信息。
+
+    参数:
+    doc_ids (list): 文档ID列表。
+
+    返回:
+    JSON响应: 成功时返回文档的详细信息列表，失败时返回相应的错误信息。
+    """
     req = request.json
     doc_ids = req["doc_ids"]
     for doc_id in doc_ids:
@@ -235,6 +302,15 @@ def docinfos():
 @manager.route('/thumbnails', methods=['GET'])  # noqa: F821
 # @login_required
 def thumbnails():
+    """
+    获取指定文档的缩略图。
+
+    参数:
+    doc_ids (str): 以逗号分隔的文档ID列表。
+
+    返回:
+    JSON响应: 成功时返回文档ID和缩略图URL的映射，失败时返回相应的错误信息。
+    """
     doc_ids = request.args.get("doc_ids").split(",")
     if not doc_ids:
         return get_json_result(
@@ -256,6 +332,16 @@ def thumbnails():
 @login_required
 @validate_request("doc_id", "status")
 def change_status():
+    """
+    更改指定文档的状态。
+
+    参数:
+    doc_id (str): 文档的ID。
+    status (str): 文档的新状态，可以是"0"或"1"。
+
+    返回:
+    JSON响应: 成功时返回{"data": true}，失败时返回相应的错误信息。
+    """
     req = request.json
     if str(req["status"]) not in ["0", "1"]:
         return get_json_result(
@@ -295,6 +381,15 @@ def change_status():
 @login_required
 @validate_request("doc_id")
 def rm():
+    """
+    删除指定的文档。
+
+    参数:
+    doc_id (str): 文档的ID。
+
+    返回:
+    JSON响应: 成功时返回{"data": true}，失败时返回相应的错误信息。
+    """
     req = request.json
     doc_ids = req["doc_id"]
     if isinstance(doc_ids, str):
@@ -347,8 +442,16 @@ def rm():
 @validate_request("doc_ids", "run")
 def run():
     """
-    开始解析文档
-    """    
+    开始解析文档。
+
+    参数:
+    doc_ids (list): 文档ID列表。
+    run (str): 解析操作的状态，可以是"0"或"1"。
+    delete (bool): 可选参数，是否删除现有解析任务。
+
+    返回:
+    JSON响应: 成功时返回{"data": true}，失败时返回相应的错误信息。
+    """
     req = request.json
 
     # 判断文件是否有权访问    
@@ -400,6 +503,16 @@ def run():
 @login_required
 @validate_request("doc_id", "name")
 def rename():
+    """
+    重命名指定的文档。
+
+    参数:
+    doc_id (str): 文档的ID。
+    name (str): 文档的新名称。
+
+    返回:
+    JSON响应: 成功时返回{"data": true}，失败时返回相应的错误信息。
+    """
     req = request.json
     if not DocumentService.accessible(req["doc_id"], current_user.id):
         return get_json_result(
@@ -440,6 +553,15 @@ def rename():
 @manager.route('/get/<doc_id>', methods=['GET'])  # noqa: F821
 # @login_required
 def get(doc_id):
+    """
+    获取指定文档的内容。
+
+    参数:
+    doc_id (str): 文档的ID。
+
+    返回:
+    HTTP响应: 成功时返回文档的内容，失败时返回相应的错误信息。
+    """
     try:
         e, doc = DocumentService.get_by_id(doc_id)
         if not e:
@@ -466,6 +588,17 @@ def get(doc_id):
 @login_required
 @validate_request("doc_id", "parser_id")
 def change_parser():
+    """
+    更改指定文档的解析器。
+
+    参数:
+    doc_id (str): 文档的ID。
+    parser_id (str): 新的解析器ID。
+    parser_config (dict): 可选参数，解析器配置。
+
+    返回:
+    JSON响应: 成功时返回{"data": true}，失败时返回相应的错误信息。
+    """
     req = request.json
 
     if not DocumentService.accessible(req["doc_id"], current_user.id):
@@ -516,6 +649,15 @@ def change_parser():
 @manager.route('/image/<image_id>', methods=['GET'])  # noqa: F821
 # @login_required
 def get_image(image_id):
+    """
+    获取指定的图片。
+
+    参数:
+    image_id (str): 图片的ID。
+
+    返回:
+    HTTP响应: 成功时返回图片的内容，失败时返回相应的错误信息。
+    """
     try:
         arr = image_id.split("-")
         if len(arr) != 2:
@@ -532,6 +674,15 @@ def get_image(image_id):
 @login_required
 @validate_request("conversation_id")
 def upload_and_parse():
+    """
+    上传文件并开始解析。
+
+    参数:
+    conversation_id (str): 会话的ID。
+
+    返回:
+    JSON响应: 成功时返回文档ID列表，失败时返回相应的错误信息。
+    """
     if 'file' not in request.files:
         return get_json_result(
             data=False, message='No file part!', code=settings.RetCode.ARGUMENT_ERROR)
@@ -550,6 +701,16 @@ def upload_and_parse():
 @manager.route('/parse', methods=['POST'])  # noqa: F821
 @login_required
 def parse():
+    """
+    解析URL或上传的文件。
+
+    参数:
+    url (str): 可选参数，要解析的网页URL。
+    file (file): 可选参数，要解析的文件。
+
+    返回:
+    JSON响应: 成功时返回解析结果，失败时返回相应的错误信息。
+    """
     url = request.json.get("url") if request.json else ""
     if url:
         if not is_valid_url(url):
@@ -611,6 +772,16 @@ def parse():
 @login_required
 @validate_request("doc_id", "meta")
 def set_meta():
+    """
+    设置指定文档的元数据。
+
+    参数:
+    doc_id (str): 文档的ID。
+    meta (dict): 元数据字典。
+
+    返回:
+    JSON响应: 成功时返回{"data": true}，失败时返回相应的错误信息。
+    """
     req = request.json
     if not DocumentService.accessible(req["doc_id"], current_user.id):
         return get_json_result(

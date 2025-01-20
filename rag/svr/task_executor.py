@@ -60,6 +60,7 @@ from rag.settings import DOC_MAXIMUM_SIZE, SVR_QUEUE_NAME, print_rag_settings, T
 from rag.utils import num_tokens_from_string
 from rag.utils.redis_conn import REDIS_CONN, Payload
 from rag.utils.storage_factory import STORAGE_IMPL
+from icecream import ic
 
 BATCH_SIZE = 64
 
@@ -200,18 +201,24 @@ def get_storage_binary(bucket, name):
 
 
 def build_chunks(task, progress_callback):
-    """
-    对文件切块，自动生成关键词，自动生成QA，然后把这些信息放到到docs，并返回
+    """对文件切块，自动生成关键词，自动生成QA，然后把这些信息放到到docs，并返回
     row: 任务配置- doc_id \ location\ name \ size \ parser_id切块器id \ parser_config
-    返回 docs: doc_id \ kb_id \
-    """
+
+    Args:
+        task (_type_): 任务对象
+        progress_callback (_type_): 进度回调函数
+
+    Returns:
+        _type_: docs: doc_id \ kb_id \
+    """    
+    
     # 检查文件大小是否超过限制
     if task["size"] > DOC_MAXIMUM_SIZE:
         set_progress(task["id"], prog=-1, msg="File size exceeds( <= %dMb )" %
                                               (int(DOC_MAXIMUM_SIZE / 1024 / 1024)))
         return []
 
-    # 获取对应的切块器
+    # 根据用户设置的解析方法parser_id(例如naive)获取对应的切块器
     chunker = FACTORY[task["parser_id"].lower()]
     try:
         # 获取文件的存储地址
@@ -241,6 +248,7 @@ def build_chunks(task, progress_callback):
         cks = chunker.chunk(task["name"], binary=binary, from_page=task["from_page"],
                             to_page=task["to_page"], lang=task["language"], callback=progress_callback,
                             kb_id=task["kb_id"], parser_config=task["parser_config"], tenant_id=task["tenant_id"])
+        # ic(cks)  # 内容见 0000.md
         logging.info("Chunking({}) {}/{} done".format(timer() - st, task["location"], task["name"]))
     except TaskCanceledException:
         raise
@@ -260,6 +268,7 @@ def build_chunks(task, progress_callback):
     el = 0
     # 遍历切块结果
     for ck in cks:
+        # ic(ck)
         # 深拷贝doc对象，深拷贝意味着新对象完全独立于原对象
         d = copy.deepcopy(doc)
         # 字典 ck 中的所有键值对合并到字典 d 中。如果 ck 中的键已经在 d 中存在，那么 d 中对应的键的值将被 ck 中的值覆盖。
@@ -305,6 +314,7 @@ def build_chunks(task, progress_callback):
         del d["image"]
         docs.append(d)
     logging.info("MINIO PUT({}):{}".format(task["name"], el))
+    # ic(docs)
 
     # 如果配置中有自动关键词生成，则生成关键词
     if task["parser_config"].get("auto_keywords", 0):
@@ -387,7 +397,7 @@ def init_kb(row, vector_size: int):
 
 def embedding(docs, mdl, parser_config=None, callback=None):
     """
-    对文档标题和内容进行编码，并根据一定的权重组合这两个嵌入向量。
+    调用嵌入模型进行文本嵌入。
     docs: 文档列表
     mdl: 模型
     parser_config: 解析器配置
@@ -419,6 +429,7 @@ def embedding(docs, mdl, parser_config=None, callback=None):
         if not c:
             c = "None"
         cnts.append(c)
+    # ic(cnts)     # 被嵌入的文本数组，内容见 0001.md
 
     tk_count = 0
     # 初始化一个空的 NumPy 数组 tts_，用于存放处理后的标题嵌入向量。
@@ -515,6 +526,11 @@ def run_raptor(row, chat_mdl, embd_mdl, callback=None):
 
 
 def do_handle_task(task):
+    """处理解析任务
+
+    Args:
+        task (_type_): 任务对象
+    """    
     task_id = task["id"]
     task_from_page = task["from_page"]
     task_to_page = task["to_page"]
@@ -573,6 +589,7 @@ def do_handle_task(task):
     else:
         # Standard chunking methods
         start_ts = timer()
+        # 文件切块和分词
         chunks = build_chunks(task, progress_callback)
         logging.info("Build document {}: {:.2f}s".format(task_document_name, timer() - start_ts))
         if chunks is None:
@@ -585,6 +602,7 @@ def do_handle_task(task):
         progress_callback(msg="Generate {} chunks".format(len(chunks)))
         start_ts = timer()
         try:
+            # 文本嵌入向量生成
             token_count, vector_size = embedding(chunks, embedding_model, task_parser_config, progress_callback)
         except Exception as e:
             error_message = "Generate embedding error:{}".format(str(e))

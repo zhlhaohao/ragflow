@@ -1,0 +1,343 @@
+{
+  "type": "group",
+  "name": "",
+  "color": "",
+  "uri": "",
+  "children": [
+    {
+      "type": "group",
+      "name": "解析任务",
+      "color": "#066420",
+      "uri": "",
+      "children": [
+        {
+          "type": "group",
+          "name": "naive",
+          "color": "#F66369",
+          "uri": "解析任务",
+          "children": [
+            {
+              "type": "bookmark",
+              "fsPath": "/home/lianghao/github/ragflow/rag/app/naive.py",
+              "line": 239,
+              "col": 8,
+              "name": "naive chunk(解析切块、合并小块、分词）",
+              "lineText": "def chunk(filename, binary=None, from_page=0, to_page=100000,",
+              "uri": "解析任务/naive"
+            },
+            {
+              "type": "bookmark",
+              "fsPath": "/home/lianghao/github/ragflow/rag/app/naive.py",
+              "line": 70,
+              "col": 9,
+              "name": "docx解析切块",
+              "lineText": "def __call__(self, filename, binary=None, from_page=0, to_page=100000):",
+              "uri": "解析任务/naive"
+            },
+            {
+              "type": "bookmark",
+              "fsPath": "/home/lianghao/github/ragflow/deepdoc/parser/docx_parser.py",
+              "line": 21,
+              "col": 13,
+              "name": "docx解析切块基类",
+              "lineText": "class RAGFlowDocxParser:",
+              "uri": "解析任务/naive"
+            },
+            {
+              "type": "bookmark",
+              "fsPath": "/home/lianghao/github/ragflow/deepdoc/parser/excel_parser.py",
+              "line": 61,
+              "col": 9,
+              "name": "xlsx解析切块",
+              "lineText": "def __call__(self, fnm):",
+              "uri": "解析任务/naive"
+            },
+            {
+              "type": "bookmark",
+              "fsPath": "/home/lianghao/github/ragflow/deepdoc/parser/pdf_parser.py",
+              "line": 36,
+              "col": 9,
+              "name": "pdf解析切块",
+              "lineText": "def __init__(self):",
+              "uri": "解析任务/naive"
+            },
+            {
+              "type": "bookmark",
+              "fsPath": "/home/lianghao/github/ragflow/deepdoc/vision/ocr.py",
+              "line": 543,
+              "col": 10,
+              "name": "pdf OCR解析",
+              "lineText": "class OCR(object):",
+              "uri": "解析任务/naive"
+            },
+            {
+              "type": "bookmark",
+              "fsPath": "/home/lianghao/github/ragflow/rag/nlp/__init__.py",
+              "line": 540,
+              "col": 6,
+              "name": "通用合并小块",
+              "lineText": "def naive_merge(sections, chunk_token_num=128, delimiter=\"\\n。；！？\"):",
+              "uri": "解析任务/naive"
+            },
+            {
+              "type": "bookmark",
+              "fsPath": "/home/lianghao/github/ragflow/rag/nlp/__init__.py",
+              "line": 636,
+              "col": 6,
+              "name": "docx合并小块",
+              "lineText": "",
+              "uri": "解析任务/naive"
+            }
+          ]
+        },
+        {
+          "type": "bookmark",
+          "fsPath": "/home/lianghao/github/ragflow/rag/svr/task_executor.py",
+          "line": 527,
+          "col": 9,
+          "name": "处理解析任务",
+          "lineText": "def do_handle_task(task):",
+          "uri": "解析任务"
+        },
+        {
+          "type": "bookmark",
+          "fsPath": "/home/lianghao/github/ragflow/rag/svr/task_executor.py",
+          "line": 202,
+          "col": 9,
+          "name": "对文件切块，自动生成关键词，自动生成QA",
+          "lineText": "def build_chunks(task, progress_callback):",
+          "uri": "解析任务"
+        },
+        {
+          "type": "bookmark",
+          "fsPath": "/home/lianghao/github/ragflow/rag/nlp/__init__.py",
+          "line": 241,
+          "col": 7,
+          "name": "分词",
+          "lineText": "def tokenize(d, t, eng):",
+          "uri": "解析任务"
+        },
+        {
+          "type": "bookmark",
+          "fsPath": "/home/lianghao/github/ragflow/rag/svr/task_executor.py",
+          "line": 397,
+          "col": 8,
+          "name": "文本嵌入",
+          "lineText": "def embedding(docs, mdl, parser_config=None, callback=None):",
+          "uri": "解析任务"
+        }
+      ]
+    },
+    {
+      "type": "group",
+      "name": "问答",
+      "color": "#0987BA",
+      "uri": "",
+      "children": [
+        {
+          "type": "bookmark",
+          "fsPath": "/home/lianghao/github/ragflow/api/apps/conversation_app.py",
+          "line": 183,
+          "col": 7,
+          "name": "completion端点",
+          "lineText": "def completion():",
+          "uri": "问答"
+        },
+        {
+          "type": "bookmark",
+          "fsPath": "/home/lianghao/github/ragflow/api/db/services/dialog_service.py",
+          "line": 168,
+          "col": 15,
+          "name": "对话",
+          "lineText": "def chat(dialog, messages, stream=True, **kwargs):",
+          "uri": "问答"
+        }
+      ]
+    },
+    {
+      "type": "group",
+      "name": "前端",
+      "color": "#7F0BDF",
+      "uri": "",
+      "children": [
+        {
+          "type": "bookmark",
+          "fsPath": "/home/lianghao/github/ragflow/web/src/routes.ts",
+          "line": 15,
+          "col": 4,
+          "name": "前端路由表",
+          "lineText": "const routes = [",
+          "uri": "前端"
+        },
+        {
+          "type": "bookmark",
+          "fsPath": "/home/lianghao/github/ragflow/api/apps/__init__.py",
+          "line": 143,
+          "col": 4,
+          "name": "动态注册所有找到的模块文件，并收集返回的 URL 前缀",
+          "lineText": "client_urls_prefix = [",
+          "uri": "前端"
+        },
+        {
+          "type": "bookmark",
+          "fsPath": "/home/lianghao/github/ragflow/api/apps/__init__.py",
+          "line": 149,
+          "col": 8,
+          "name": "jwt令牌解码为用户access_token",
+          "lineText": "def load_user(web_request):",
+          "uri": "前端"
+        },
+        {
+          "type": "bookmark",
+          "fsPath": "/home/lianghao/github/ragflow/api/db/db_models.py",
+          "line": 484,
+          "col": 9,
+          "name": "生成jwt签名令牌",
+          "lineText": "def get_id(self):",
+          "uri": "前端"
+        },
+        {
+          "type": "bookmark",
+          "fsPath": "/home/lianghao/github/ragflow/api/utils/__init__.py",
+          "line": 389,
+          "col": 7,
+          "name": "密码解密",
+          "lineText": "def decrypt(line):",
+          "uri": "前端"
+        }
+      ]
+    },
+    {
+      "type": "group",
+      "name": "模型服务",
+      "color": "#FCDF42",
+      "uri": "",
+      "children": [
+        {
+          "type": "bookmark",
+          "fsPath": "/home/lianghao/github/ragflow/conf/llm_factories.json",
+          "line": 1,
+          "col": 6,
+          "name": "所有模型信息",
+          "lineText": "\"factory_llm_infos\": [",
+          "uri": "模型服务"
+        },
+        {
+          "type": "bookmark",
+          "fsPath": "/home/lianghao/github/ragflow/rag/llm/chat_model.py",
+          "line": 35,
+          "col": 6,
+          "name": "封装了所有模型的对话接口",
+          "lineText": "class Base(ABC):",
+          "uri": "模型服务"
+        },
+        {
+          "type": "bookmark",
+          "fsPath": "/home/lianghao/github/ragflow/api/db/init_data.py",
+          "line": 97,
+          "col": 5,
+          "name": "初始化 llm_factories、llm、tenant_llm 表",
+          "lineText": "def init_llm_factory():",
+          "uri": "模型服务"
+        },
+        {
+          "type": "bookmark",
+          "fsPath": "/home/lianghao/github/ragflow/rag/llm/embedding_model.py",
+          "line": 178,
+          "col": 8,
+          "name": "千问文本嵌入模型",
+          "lineText": "class QWenEmbed(Base):",
+          "uri": "模型服务"
+        },
+        {
+          "type": "bookmark",
+          "fsPath": "/home/lianghao/github/ragflow/rag/llm/embedding_model.py",
+          "line": 49,
+          "col": 12,
+          "name": "BAAI-bge文本嵌入模型",
+          "lineText": "class DefaultEmbedding(Base):",
+          "uri": "模型服务"
+        }
+      ]
+    },
+    {
+      "type": "group",
+      "name": "数据库服务",
+      "color": "#57AC66",
+      "uri": "",
+      "children": [
+        {
+          "type": "bookmark",
+          "fsPath": "/home/lianghao/github/ragflow/rag/utils/es_conn.py",
+          "line": 25,
+          "col": 10,
+          "name": "ES接口封装",
+          "lineText": "class ESConnection(DocStoreConnection):",
+          "uri": "数据库服务"
+        },
+        {
+          "type": "bookmark",
+          "fsPath": "/home/lianghao/github/ragflow/api/db/services/task_service.py",
+          "line": 48,
+          "col": 10,
+          "name": "task任务表操作",
+          "lineText": "class TaskService(CommonService):",
+          "uri": "数据库服务"
+        },
+        {
+          "type": "bookmark",
+          "fsPath": "/home/lianghao/github/ragflow/api/db/services/common_service.py",
+          "line": 23,
+          "col": 12,
+          "name": "Mysql封装基类",
+          "lineText": "class CommonService:",
+          "uri": "数据库服务"
+        },
+        {
+          "type": "bookmark",
+          "fsPath": "/home/lianghao/github/ragflow/api/db/db_models.py",
+          "line": 152,
+          "col": 11,
+          "name": "Mysql ORM",
+          "lineText": "class BaseModel(Model):",
+          "uri": "数据库服务"
+        }
+      ]
+    },
+    {
+      "type": "group",
+      "name": "其它",
+      "color": "#C4A160",
+      "uri": "",
+      "children": [
+        {
+          "type": "bookmark",
+          "fsPath": "/home/lianghao/github/ragflow/rag/llm/embedding_model.py",
+          "line": 72,
+          "col": 13,
+          "name": "线程锁保证模型只初始化一次，只有一个实例",
+          "lineText": "with DefaultEmbedding._model_lock:",
+          "uri": "其它"
+        },
+        {
+          "type": "bookmark",
+          "fsPath": "/home/lianghao/github/ragflow/api/utils/__init__.py",
+          "line": 42,
+          "col": 12,
+          "name": "读取配置文件service_conf",
+          "lineText": "def read_config(conf_name=SERVICE_CONF):",
+          "uri": "其它"
+        },
+        {
+          "type": "bookmark",
+          "fsPath": "/home/lianghao/github/ragflow/api/apps/user_app.py",
+          "line": 715,
+          "col": 10,
+          "name": "复位任意用户的密码",
+          "lineText": "@manager.route(\"/reset_password\", methods=[\"POST\"])",
+          "uri": "其它"
+        }
+      ]
+    }
+  ]
+}
