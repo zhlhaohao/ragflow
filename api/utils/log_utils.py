@@ -19,6 +19,9 @@ import logging
 from logging.handlers import RotatingFileHandler
 
 def get_project_base_directory():
+    """
+    获取项目的基础目录路径。
+    """
     PROJECT_BASE = os.path.abspath(
         os.path.join(
             os.path.dirname(os.path.realpath(__file__)),
@@ -29,25 +32,35 @@ def get_project_base_directory():
     return PROJECT_BASE
 
 def initRootLogger(logfile_basename: str, log_format: str = "%(asctime)-15s %(levelname)-8s %(process)d %(message)s"):
+    """
+    初始化根日志记录器，设置特定的格式和处理器。
+    该函数为应用程序设置日志配置，确保日志同时输出到控制台和文件，并具有适当的级别。
+    """
     logger = logging.getLogger()
     if logger.hasHandlers():
         return
 
+    # 获取日志文件的绝对路径
     log_path = os.path.abspath(os.path.join(get_project_base_directory(), "logs", f"{logfile_basename}.log"))
 
+    # 创建日志目录（如果不存在）
     os.makedirs(os.path.dirname(log_path), exist_ok=True)
     formatter = logging.Formatter(log_format)
 
+    # 创建一个旋转文件处理器，并设置格式化器
     handler1 = RotatingFileHandler(log_path, maxBytes=10*1024*1024, backupCount=5)
     handler1.setFormatter(formatter)
     logger.addHandler(handler1)
 
+    # 创建一个流处理器，并设置格式化器
     handler2 = logging.StreamHandler()
     handler2.setFormatter(formatter)
     logger.addHandler(handler2)
 
+    # 捕获所有警告
     logging.captureWarnings(True)
 
+    # 从环境变量中获取日志级别配置
     LOG_LEVELS = os.environ.get("LOG_LEVELS", "")
     pkg_levels = {}
     for pkg_name_level in LOG_LEVELS.split(","):
@@ -61,15 +74,19 @@ def initRootLogger(logfile_basename: str, log_format: str = "%(asctime)-15s %(le
             pkg_level = logging.INFO
         pkg_levels[pkg_name] = logging.getLevelName(pkg_level)
 
+    # 设置默认的日志级别为WARNING的包
     for pkg_name in ['peewee', 'pdfminer']:
         if pkg_name not in pkg_levels:
             pkg_levels[pkg_name] = logging.getLevelName(logging.WARNING)
+    # 设置根日志级别的默认值为INFO
     if 'root' not in pkg_levels:
         pkg_levels['root'] = logging.getLevelName(logging.INFO)
 
+    # 设置各个包的日志级别
     for pkg_name, pkg_level in pkg_levels.items():
         pkg_logger = logging.getLogger(pkg_name)
         pkg_logger.setLevel(pkg_level)
 
+    # 记录日志路径和日志级别配置信息
     msg = f"{logfile_basename} log path: {log_path}, log levels: {pkg_levels}"
     logger.info(msg)

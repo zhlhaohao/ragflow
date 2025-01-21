@@ -60,7 +60,7 @@ from rag.settings import DOC_MAXIMUM_SIZE, SVR_QUEUE_NAME, print_rag_settings, T
 from rag.utils import num_tokens_from_string
 from rag.utils.redis_conn import REDIS_CONN, Payload
 from rag.utils.storage_factory import STORAGE_IMPL
-from icecream import ic
+from api.utils import ic
 
 BATCH_SIZE = 64
 
@@ -149,7 +149,7 @@ def collect():
 
     global CONSUMER_NAME, PAYLOAD, DONE_TASKS, FAILED_TASKS
     try:
-        # 尝试从Redis队列中获取未确认的消息（就是尚未完成的任务）,在消息队列系统中，消息通常经过以下几个阶段：发布\获取\处理\确认\重试        
+        # 尝试从Redis队列中获取未确认的消息（就是尚未完成的任务）,在消息队列系统中，消息通常经过以下几个阶段：发布\获取\处理\确认\重试
         PAYLOAD = REDIS_CONN.get_unacked_for(CONSUMER_NAME, SVR_QUEUE_NAME, "rag_flow_svr_task_broker")
         # 如果没有未确认的消息，则作为消费者从队列中获取一条消息
         if not PAYLOAD:
@@ -202,16 +202,16 @@ def get_storage_binary(bucket, name):
 
 def build_chunks(task, progress_callback):
     """对文件切块，自动生成关键词，自动生成QA，然后把这些信息放到到docs，并返回
-    row: 任务配置- doc_id \ location\ name \ size \ parser_id切块器id \ parser_config
+    row: 任务配置- doc_id  location name  size  parser_id切块器id  parser_config
 
     Args:
         task (_type_): 任务对象
         progress_callback (_type_): 进度回调函数
 
     Returns:
-        _type_: docs: doc_id \ kb_id \
-    """    
-    
+        _type_: docs: doc_id  kb_id
+    """
+
     # 检查文件大小是否超过限制
     if task["size"] > DOC_MAXIMUM_SIZE:
         set_progress(task["id"], prog=-1, msg="File size exceeds( <= %dMb )" %
@@ -387,7 +387,7 @@ def build_chunks(task, progress_callback):
     return docs
 
 
-def init_kb(row, vector_size: int):    
+def init_kb(row, vector_size: int):
     """
     Elasticsearch 中为特定租户初始化一个知识库索引，如果索引已经存在则不做任何操作，否则创建索引并应用指定的映射配置。这
     """
@@ -419,7 +419,7 @@ def embedding(docs, mdl, parser_config=None, callback=None):
     # 使用正则表达式 re.sub 来替换文档中的 HTML 表格标签。
     # 正则表达式 r"</?(table|td|caption|tr|th)( [^<>]{0,12})?>" 匹配所有的表格相关标签，包括 <table>, <td>, <caption>, <tr>, <th> 及其关闭标签，并且允许标签内有最多 12 个非尖括号字符的属性。
     # 替换匹配到的标签为单个空格 " "。
-    # 将清理后的文档内容文本加入到 cnts 列表中    
+    # 将清理后的文档内容文本加入到 cnts 列表中
     for d in docs:
         tts.append(d.get("docnm_kwd", "Title"))
         c = "\n".join(d.get("question_kwd", []))
@@ -530,7 +530,7 @@ def do_handle_task(task):
 
     Args:
         task (_type_): 任务对象
-    """    
+    """
     task_id = task["id"]
     task_from_page = task["from_page"]
     task_to_page = task["to_page"]
@@ -740,11 +740,11 @@ def analyze_heap(snapshot1: tracemalloc.Snapshot, snapshot2: tracemalloc.Snapsho
 
 def main():
     logging.info(r"""
-  ______           __      ______                     __            
+  ______           __      ______                     __
  /_  __/___ ______/ /__   / ____/  _____  _______  __/ /_____  _____
   / / / __ `/ ___/ //_/  / __/ | |/_/ _ \/ ___/ / / / __/ __ \/ ___/
- / / / /_/ (__  ) ,<    / /____>  </  __/ /__/ /_/ / /_/ /_/ / /    
-/_/  \__,_/____/_/|_|  /_____/_/|_|\___/\___/\__,_/\__/\____/_/                               
+ / / / /_/ (__  ) ,<    / /____>  </  __/ /__/ /_/ / /_/ /_/ / /
+/_/  \__,_/____/_/|_|  /_____/_/|_|\___/\___/\__,_/\__/\____/_/
     """)
     logging.info(f'TaskExecutor: RAGFlow version: {get_ragflow_version()}')
     settings.init_settings()

@@ -31,9 +31,25 @@ from Cryptodome.PublicKey import RSA
 from Cryptodome.Cipher import PKCS1_v1_5 as Cipher_pkcs1_v1_5
 from filelock import FileLock
 from api.constants import SERVICE_CONF
-
 from . import file_utils
+from icecream import ic
 
+# F8080 : 定制ic输出函数
+def ic_logging(s):
+    # 定义一个预处理器，用于去除字符串的引号
+    def strip_quotes(text):
+        # 替换 (' ') 为双引号
+        text = text.replace("('", "(\"").replace("')", "\")")
+        # 去掉单引号
+        text = text.replace("'", "")
+        return text
+    logging.error(strip_quotes(s))
+
+ic.configureOutput(includeContext=True, outputFunction=ic_logging)
+# 导出 ic 函数，以便其他模块可以直接引用
+__all__ = ['ic']
+
+# ic.disable()
 
 def conf_realpath(conf_name):
     conf_path = f"conf/{conf_name}"

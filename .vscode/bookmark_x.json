@@ -27,6 +27,15 @@
             },
             {
               "type": "bookmark",
+              "fsPath": "/home/lianghao/github/ragflow/deepdoc/parser/excel_parser.py",
+              "line": 20,
+              "col": 7,
+              "name": "xslx解析切块",
+              "lineText": "class RAGFlowExcelParser:",
+              "uri": "解析任务/naive"
+            },
+            {
+              "type": "bookmark",
               "fsPath": "/home/lianghao/github/ragflow/rag/app/naive.py",
               "line": 70,
               "col": 9,
@@ -41,15 +50,6 @@
               "col": 13,
               "name": "docx解析切块基类",
               "lineText": "class RAGFlowDocxParser:",
-              "uri": "解析任务/naive"
-            },
-            {
-              "type": "bookmark",
-              "fsPath": "/home/lianghao/github/ragflow/deepdoc/parser/excel_parser.py",
-              "line": 61,
-              "col": 9,
-              "name": "xlsx解析切块",
-              "lineText": "def __call__(self, fnm):",
               "uri": "解析任务/naive"
             },
             {
@@ -73,7 +73,7 @@
             {
               "type": "bookmark",
               "fsPath": "/home/lianghao/github/ragflow/rag/nlp/__init__.py",
-              "line": 540,
+              "line": 541,
               "col": 6,
               "name": "通用合并小块",
               "lineText": "def naive_merge(sections, chunk_token_num=128, delimiter=\"\\n。；！？\"):",
@@ -111,7 +111,7 @@
         {
           "type": "bookmark",
           "fsPath": "/home/lianghao/github/ragflow/rag/nlp/__init__.py",
-          "line": 241,
+          "line": 242,
           "col": 7,
           "name": "分词",
           "lineText": "def tokenize(d, t, eng):",
@@ -141,15 +141,6 @@
           "col": 7,
           "name": "completion端点",
           "lineText": "def completion():",
-          "uri": "问答"
-        },
-        {
-          "type": "bookmark",
-          "fsPath": "/home/lianghao/github/ragflow/api/db/services/dialog_service.py",
-          "line": 168,
-          "col": 15,
-          "name": "对话",
-          "lineText": "def chat(dialog, messages, stream=True, **kwargs):",
           "uri": "问答"
         }
       ]
@@ -194,15 +185,6 @@
           "col": 9,
           "name": "生成jwt签名令牌",
           "lineText": "def get_id(self):",
-          "uri": "前端"
-        },
-        {
-          "type": "bookmark",
-          "fsPath": "/home/lianghao/github/ragflow/api/utils/__init__.py",
-          "line": 389,
-          "col": 7,
-          "name": "密码解密",
-          "lineText": "def decrypt(line):",
           "uri": "前端"
         }
       ]
@@ -321,15 +303,6 @@
         },
         {
           "type": "bookmark",
-          "fsPath": "/home/lianghao/github/ragflow/api/utils/__init__.py",
-          "line": 42,
-          "col": 12,
-          "name": "读取配置文件service_conf",
-          "lineText": "def read_config(conf_name=SERVICE_CONF):",
-          "uri": "其它"
-        },
-        {
-          "type": "bookmark",
           "fsPath": "/home/lianghao/github/ragflow/api/apps/user_app.py",
           "line": 715,
           "col": 10,
@@ -338,6 +311,15 @@
           "uri": "其它"
         }
       ]
+    },
+    {
+      "type": "bookmark",
+      "fsPath": "/home/lianghao/github/ragflow/api/apps/document_app.py",
+      "line": 51,
+      "col": 2,
+      "name": "端点：上传文件",
+      "lineText": "@manager.route('/upload', methods=['POST'])  # noqa: F821",
+      "uri": ""
     }
   ]
 }

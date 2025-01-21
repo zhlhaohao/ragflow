@@ -15,7 +15,7 @@ from openpyxl import load_workbook
 import sys
 from io import BytesIO
 from rag.nlp import find_codec
-from icecream import ic
+from api.utils import ic
 
 
 class RAGFlowExcelParser:
@@ -120,15 +120,15 @@ class RAGFlowExcelParser:
                     # ic(t)
                     # 将字段添加到列表中
                     fields.append(t)
-                  # 将字段用分号连接成字符串    
+                  # 将字段用分号连接成字符串
                 line = "; ".join(fields)
                 # 如果工作表名不包含"sheet"，则添加工作表名
                 if sheetname.lower().find("sheet") < 0:
                     line += " ——" + sheetname
-                ic(line)    
+                # ic(line)
                 # 将结果字符串添加到列表中
                 res.append(line)
-        # ic(res)        
+        # ic(res)
         return res
 
     @staticmethod

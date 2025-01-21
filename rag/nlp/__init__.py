@@ -28,7 +28,7 @@ from cn2an import cn2an
 from PIL import Image
 
 import chardet
-from icecream import ic
+from api.utils import ic
 
 all_codecs = [
     'utf-8', 'gb2312', 'gbk', 'utf_16', 'ascii', 'big5', 'big5hkscs',

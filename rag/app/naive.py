@@ -25,7 +25,7 @@ from PIL import Image
 from functools import reduce
 from markdown import markdown
 from docx.image.exceptions import UnrecognizedImageError, UnexpectedEndOfFileError, InvalidImageStreamError
-from icecream import ic
+from api.utils import ic
 
 class Docx(DocxParser):
     """

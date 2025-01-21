@@ -36,7 +36,7 @@ from rag.nlp.search import index_name
 from rag.settings import TAG_FLD
 from rag.utils import rmSpace, num_tokens_from_string, encoder
 from api.utils.file_utils import get_project_base_directory
-from icecream import ic
+from api.utils import ic
 
 class DialogService(CommonService):
     model = Dialog
@@ -113,9 +113,21 @@ def llm_id2llm_type(llm_id):
 
 
 def kb_prompt(kbinfos, max_tokens):
+    """
+    根据给定的知识库信息和最大令牌数生成知识库提示。
+
+    参数:
+    kbinfos (dict): 包含知识库信息的字典，其中 "chunks" 键包含知识片段列表。
+    max_tokens (int): 允许的最大令牌数。
+
+    返回:
+    list: 包含格式化后的知识库提示的列表。
+    """
+    # 提取知识片段的内容和权重
     knowledges = [ck["content_with_weight"] for ck in kbinfos["chunks"]]
     used_token_count = 0
     chunks_num = 0
+    # 计算使用的令牌数，直到达到最大令牌数的97%
     for i, c in enumerate(knowledges):
         used_token_count += num_tokens_from_string(c)
         chunks_num += 1
@@ -123,14 +135,17 @@ def kb_prompt(kbinfos, max_tokens):
             knowledges = knowledges[:i]
             break
 
+    # 获取文档元数据
     docs = DocumentService.get_by_ids([ck["doc_id"] for ck in kbinfos["chunks"][:chunks_num]])
     docs = {d.id: d.meta_fields for d in docs}
 
+    # 按文档名称和关键字分组知识片段
     doc2chunks = defaultdict(lambda: {"chunks": [], "meta": []})
     for ck in kbinfos["chunks"][:chunks_num]:
         doc2chunks[ck["docnm_kwd"]]["chunks"].append(ck["content_with_weight"])
         doc2chunks[ck["docnm_kwd"]]["meta"] = docs.get(ck["doc_id"], {})
 
+    # 格式化知识库提示
     knowledges = []
     for nm, cks_meta in doc2chunks.items():
         txt = f"Document: {nm} \n"
@@ -140,6 +155,8 @@ def kb_prompt(kbinfos, max_tokens):
         for i, chunk in enumerate(cks_meta["chunks"], 1):
             txt += f"{i}. {chunk}\n"
         knowledges.append(txt)
+
+    # ic(knowledges)   # 0002.md
     return knowledges
 
 
@@ -329,7 +346,7 @@ def chat(dialog, messages, stream=True, **kwargs):
 
     # 将用户的问题(可能是经过优化的)添加到提示词中。
     prompt += "\n\n### Query:\n%s" % " ".join(questions)
-    # ic(questions)
+    ic(questions)
 
     # 调整生成配置中的最大令牌数，确保不超过剩余可用令牌数。
     if "max_tokens" in gen_conf:
@@ -389,6 +406,7 @@ def chat(dialog, messages, stream=True, **kwargs):
         last_ans = ""
         answer = ""
 
+        # 0003.md
         ic(prompt)
 
         for ans in chat_mdl.chat_streamly(prompt, msg[1:], gen_conf):

@@ -2,7 +2,7 @@ import unittest
 from deepdoc.parser.excel_parser import RAGFlowExcelParser
 import os
 from openpyxl import load_workbook
-from icecream import ic
+from api.utils import ic
 
 class TestRAGFlowExcelParser(unittest.TestCase):
     """Ctrl+Shift+Y 打开 Debug Console,右上角选择Debug Unit Test,然后点击函数左边的调试按钮就可以看到运行结果了

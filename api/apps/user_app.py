@@ -43,7 +43,7 @@ from api.db.services.user_service import UserService, TenantService, UserTenantS
 from api.db.services.file_service import FileService
 from api.utils.api_utils import get_json_result, construct_response
 
-from icecream import ic 
+from api.utils import ic 
 
 @manager.route("/login", methods=["POST", "GET"])  # noqa: F821
 def login():

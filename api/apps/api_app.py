@@ -375,6 +375,21 @@ def get(conversation_id):
 @manager.route('/document/upload', methods=['POST'])  # noqa: F821
 @validate_request("kb_name")
 def upload():
+    """
+    上传文档到指定的知识库。
+
+    参数:
+    - kb_name (str): 知识库的名称。
+    - file (file): 要上传的文件对象。
+
+    返回:
+    - dict: 上传文档的结果信息，包括文档ID、类型、名称、位置等。
+
+    异常:
+    - 如果API密钥无效，返回认证错误。
+    - 如果知识库不存在，返回数据错误。
+    - 如果文件上传失败，返回服务器错误。
+    """
     token = request.headers.get('Authorization').split()[1]
     objs = APIToken.query(token=token)
     if not objs:
@@ -409,6 +424,7 @@ def upload():
     kb_folder = FileService.new_a_file_from_kb(kb.tenant_id, kb.name, kb_root_folder["id"])
 
     try:
+        # 检查用户上传的文档数量是否超过最大限制
         if DocumentService.get_doc_count(kb.tenant_id) >= int(os.environ.get('MAX_FILE_NUM_PER_USER', 8192)):
             return get_data_error_result(
                 message="Exceed the maximum file number of a free user!")
@@ -441,6 +457,7 @@ def upload():
         }
 
         form_data = request.form
+        # 根据表单数据设置文档的解析器ID
         if "parser_id" in form_data.keys():
             if request.form.get("parser_id").strip() in list(vars(ParserType).values())[1:-3]:
                 doc["parser_id"] = request.form.get("parser_id").strip()
@@ -458,6 +475,7 @@ def upload():
     except Exception as e:
         return server_error_response(e)
 
+    # 检查是否需要立即运行文档解析任务
     if "run" in form_data.keys():
         if request.form.get("run").strip() == "1":
             try:
@@ -466,12 +484,10 @@ def upload():
                 info["chunk_num"] = 0
                 info["token_num"] = 0
                 DocumentService.update_by_id(doc["id"], info)
-                # if str(req["run"]) == TaskStatus.CANCEL.value:
                 tenant_id = DocumentService.get_tenant_id(doc["id"])
                 if not tenant_id:
                     return get_data_error_result(message="Tenant not found!")
 
-                # e, doc = DocumentService.get_by_id(doc["id"])
                 TaskService.filter_delete([Task.doc_id == doc["id"]])
                 e, doc = DocumentService.get_by_id(doc["id"])
                 doc = doc.to_dict()
