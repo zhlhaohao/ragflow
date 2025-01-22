@@ -214,7 +214,7 @@ def chat(dialog, messages, stream=True, **kwargs):
         yield {"answer": "**ERROR**: Knowledge bases use different embedding models.", "reference": []}
         return {"answer": "**ERROR**: Knowledge bases use different embedding models.", "reference": []}
 
-    # embedding_model_name = embedding_list[0]  # F8080 移到下方
+    # embedding_model_name = embedding_list[0]  # F8080 移到了下方
 
     is_knowledge_graph = all([kb.parser_id == ParserType.KG for kb in kbs])
     retriever = settings.retrievaler if not is_knowledge_graph else settings.kg_retrievaler

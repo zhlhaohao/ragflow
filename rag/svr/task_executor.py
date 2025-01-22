@@ -526,24 +526,44 @@ def run_raptor(row, chat_mdl, embd_mdl, callback=None):
 
 
 def do_handle_task(task):
-    """处理解析任务
+    """
+    处理文档处理任务的主函数，负责协调文档切块、嵌入、索引等操作。
 
     Args:
-        task (_type_): 任务对象
-    """
-    task_id = task["id"]
-    task_from_page = task["from_page"]
-    task_to_page = task["to_page"]
-    task_tenant_id = task["tenant_id"]
-    task_embedding_id = task["embd_id"]
-    task_language = task["language"]
-    task_llm_id = task["llm_id"]
-    task_dataset_id = task["kb_id"]
-    task_doc_id = task["doc_id"]
-    task_document_name = task["name"]
-    task_parser_config = task["parser_config"]
+        task (dict): 任务配置字典，包含以下关键字段：
+            - id: 任务ID
+            - from_page: 起始页码
+            - to_page: 结束页码
+            - tenant_id: 租户ID
+            - embd_id: 嵌入模型ID
+            - language: 语言
+            - llm_id: 大语言模型ID
+            - kb_id: 知识库ID
+            - doc_id: 文档ID
+            - name: 文档名称
+            - parser_config: 解析器配置
 
-    # prepare the progress callback function
+    Returns:
+        None
+
+    Raises:
+        Exception: 如果任务处理过程中发生错误
+    """
+
+    # 提取任务参数
+    task_id = task["id"]  # 任务ID
+    task_from_page = task["from_page"]  # 起始页码
+    task_to_page = task["to_page"]  # 结束页码
+    task_tenant_id = task["tenant_id"]  # 租户ID
+    task_embedding_id = task["embd_id"]  # 嵌入模型ID
+    task_language = task["language"]  # 语言
+    task_llm_id = task["llm_id"]  # 大语言模型ID
+    task_dataset_id = task["kb_id"]  # 知识库ID
+    task_doc_id = task["doc_id"]  # 文档ID
+    task_document_name = task["name"]  # 文档名称
+    task_parser_config = task["parser_config"]  # 解析器配置
+
+    # 准备进度回调函数，用于更新任务进度
     progress_callback = partial(set_progress, task_id, task_from_page, task_to_page)
 
     # FIXME: workaround, Infinity doesn't support table parsing method, this check is to notify user
@@ -559,7 +579,7 @@ def do_handle_task(task):
         logging.warning(f"task {task_id} is unknown")
         return
     if task_canceled:
-        progress_callback(-1, msg="Task has been canceled.")
+        progress_callback(-1, msg="任务被取消.")
         return
 
     try:
@@ -595,11 +615,11 @@ def do_handle_task(task):
         if chunks is None:
             return
         if not chunks:
-            progress_callback(1., msg=f"No chunk built from {task_document_name}")
+            progress_callback(1., msg=f"无文本块生成 from {task_document_name}")
             return
         # TODO: exception handler
         ## set_progress(task["did"], -1, "ERROR: ")
-        progress_callback(msg="Generate {} chunks".format(len(chunks)))
+        progress_callback(msg="生成 {} 文本块".format(len(chunks)))
         start_ts = timer()
         try:
             # 文本嵌入向量生成
@@ -610,7 +630,7 @@ def do_handle_task(task):
             logging.exception(error_message)
             token_count = 0
             raise
-        progress_message = "Embedding chunks ({:.2f}s)".format(timer() - start_ts)
+        progress_message = "生成文本嵌入向量 ({:.2f}s)".format(timer() - start_ts)
         logging.info(progress_message)
         progress_callback(msg=progress_message)
 
@@ -620,32 +640,44 @@ def do_handle_task(task):
     start_ts = timer()
     doc_store_result = ""
     es_bulk_size = 4
+    # 遍历chunks列表，每次处理es_bulk_size个元素插入到ES, chunks内容见 0004.md
     for b in range(0, len(chunks), es_bulk_size):
+        # 调用insert方法向ES中批量插入数据
         doc_store_result = settings.docStoreConn.insert(chunks[b:b + es_bulk_size], search.index_name(task_tenant_id),
                                                         task_dataset_id)
+        # 每处理128个元素，调用progress_callback函数报告进度
         if b % 128 == 0:
-            progress_callback(prog=0.8 + 0.1 * (b + 1) / len(chunks), msg="")
+            progress_callback(prog=0.8 + 0.1 * (b + 1) / len(chunks), msg="保存到向量数据库")
+        # 如果doc_store_result有值，说明插入操作出错
         if doc_store_result:
+            # 构造错误消息
             error_message = f"Insert chunk error: {doc_store_result}, please check log file and Elasticsearch/Infinity status!"
+            # 调用progress_callback函数报告错误
             progress_callback(-1, msg=error_message)
+            # 抛出异常
             raise Exception(error_message)
+        # 提取当前处理批次的chunk的id
         chunk_ids = [chunk["id"] for chunk in chunks[:b + es_bulk_size]]
+        # 将chunk_ids列表转换为字符串
         chunk_ids_str = " ".join(chunk_ids)
         try:
+            # 调用TaskService的update_chunk_ids方法更新任务的chunk_ids
             TaskService.update_chunk_ids(task["id"], chunk_ids_str)
         except DoesNotExist:
+            # 如果任务不存在，记录警告日志
             logging.warning(f"do_handle_task update_chunk_ids failed since task {task['id']} is unknown.")
+            # 删除已插入的chunk
             doc_store_result = settings.docStoreConn.delete({"id": chunk_ids}, search.index_name(task_tenant_id),
                                                             task_dataset_id)
-            return
-    logging.info("Indexing doc({}), page({}-{}), chunks({}), elapsed: {:.2f}".format(task_document_name, task_from_page,
+            # 结束处理
+            return    logging.info("Indexing doc({}), page({}-{}), chunks({}), elapsed: {:.2f}".format(task_document_name, task_from_page,
                                                                                      task_to_page, len(chunks),
                                                                                      timer() - start_ts))
 
     DocumentService.increment_chunk_num(task_doc_id, task_dataset_id, token_count, chunk_count, 0)
 
     time_cost = timer() - start_ts
-    progress_callback(prog=1.0, msg="Done ({:.2f}s)".format(time_cost))
+    progress_callback(prog=1.0, msg="解析完成 ({:.2f}s)".format(time_cost))
     logging.info(
         "Chunk doc({}), page({}-{}), chunks({}), token({}), elapsed:{:.2f}".format(task_document_name, task_from_page,
                                                                                    task_to_page, len(chunks),

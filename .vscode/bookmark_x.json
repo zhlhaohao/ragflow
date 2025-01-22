@@ -12,6 +12,32 @@
       "children": [
         {
           "type": "group",
+          "name": "task executor",
+          "color": "#DC4767",
+          "uri": "解析任务",
+          "children": [
+            {
+              "type": "bookmark",
+              "fsPath": "/home/lianghao/github/ragflow/rag/svr/task_executor.py",
+              "line": 527,
+              "col": 10,
+              "name": "执行任务",
+              "lineText": "def do_handle_task(task):",
+              "uri": "解析任务/task executor"
+            },
+            {
+              "type": "bookmark",
+              "fsPath": "/home/lianghao/github/ragflow/rag/svr/task_executor.py",
+              "line": 397,
+              "col": 10,
+              "name": "文本嵌入",
+              "lineText": "def embedding(docs, mdl, parser_config=None, callback=None):",
+              "uri": "解析任务/task executor"
+            }
+          ]
+        },
+        {
+          "type": "group",
           "name": "naive",
           "color": "#F66369",
           "uri": "解析任务",
@@ -19,28 +45,19 @@
             {
               "type": "bookmark",
               "fsPath": "/home/lianghao/github/ragflow/rag/app/naive.py",
-              "line": 239,
+              "line": 237,
               "col": 8,
               "name": "naive chunk(解析切块、合并小块、分词）",
-              "lineText": "def chunk(filename, binary=None, from_page=0, to_page=100000,",
-              "uri": "解析任务/naive"
-            },
-            {
-              "type": "bookmark",
-              "fsPath": "/home/lianghao/github/ragflow/deepdoc/parser/excel_parser.py",
-              "line": 20,
-              "col": 7,
-              "name": "xslx解析切块",
-              "lineText": "class RAGFlowExcelParser:",
+              "lineText": "",
               "uri": "解析任务/naive"
             },
             {
               "type": "bookmark",
               "fsPath": "/home/lianghao/github/ragflow/rag/app/naive.py",
-              "line": 70,
+              "line": 68,
               "col": 9,
               "name": "docx解析切块",
-              "lineText": "def __call__(self, filename, binary=None, from_page=0, to_page=100000):",
+              "lineText": "return line",
               "uri": "解析任务/naive"
             },
             {
@@ -73,16 +90,16 @@
             {
               "type": "bookmark",
               "fsPath": "/home/lianghao/github/ragflow/rag/nlp/__init__.py",
-              "line": 541,
+              "line": 539,
               "col": 6,
               "name": "通用合并小块",
-              "lineText": "def naive_merge(sections, chunk_token_num=128, delimiter=\"\\n。；！？\"):",
+              "lineText": "",
               "uri": "解析任务/naive"
             },
             {
               "type": "bookmark",
               "fsPath": "/home/lianghao/github/ragflow/rag/nlp/__init__.py",
-              "line": 636,
+              "line": 634,
               "col": 6,
               "name": "docx合并小块",
               "lineText": "",
@@ -92,38 +109,11 @@
         },
         {
           "type": "bookmark",
-          "fsPath": "/home/lianghao/github/ragflow/rag/svr/task_executor.py",
-          "line": 527,
-          "col": 9,
-          "name": "处理解析任务",
-          "lineText": "def do_handle_task(task):",
-          "uri": "解析任务"
-        },
-        {
-          "type": "bookmark",
-          "fsPath": "/home/lianghao/github/ragflow/rag/svr/task_executor.py",
-          "line": 202,
-          "col": 9,
-          "name": "对文件切块，自动生成关键词，自动生成QA",
-          "lineText": "def build_chunks(task, progress_callback):",
-          "uri": "解析任务"
-        },
-        {
-          "type": "bookmark",
           "fsPath": "/home/lianghao/github/ragflow/rag/nlp/__init__.py",
-          "line": 242,
+          "line": 240,
           "col": 7,
           "name": "分词",
-          "lineText": "def tokenize(d, t, eng):",
-          "uri": "解析任务"
-        },
-        {
-          "type": "bookmark",
-          "fsPath": "/home/lianghao/github/ragflow/rag/svr/task_executor.py",
-          "line": 397,
-          "col": 8,
-          "name": "文本嵌入",
-          "lineText": "def embedding(docs, mdl, parser_config=None, callback=None):",
+          "lineText": "return False",
           "uri": "解析任务"
         }
       ]
@@ -137,10 +127,46 @@
         {
           "type": "bookmark",
           "fsPath": "/home/lianghao/github/ragflow/api/apps/conversation_app.py",
-          "line": 183,
+          "line": 181,
           "col": 7,
           "name": "completion端点",
-          "lineText": "def completion():",
+          "lineText": "@login_required",
+          "uri": "问答"
+        },
+        {
+          "type": "bookmark",
+          "fsPath": "/home/lianghao/github/ragflow/api/db/services/dialog_service.py",
+          "line": 185,
+          "col": 14,
+          "name": "知识库对话",
+          "lineText": "def chat(dialog, messages, stream=True, **kwargs):",
+          "uri": "问答"
+        },
+        {
+          "type": "bookmark",
+          "fsPath": "/home/lianghao/github/ragflow/rag/nlp/search.py",
+          "line": 442,
+          "col": 12,
+          "name": "开始检索",
+          "lineText": "def retrieval(self, question, embd_mdl, tenant_ids, kb_ids, page, page_size, similarity_threshold=0.2,",
+          "uri": "问答"
+        },
+        {
+          "type": "bookmark",
+          "fsPath": "/home/lianghao/github/ragflow/rag/nlp/search.py",
+          "line": 78,
+          "col": 9,
+          "name": "执行搜索操作",
+          "lineText": "def search(self, req, idx_names: str | list[str],",
+          "uri": "问答"
+        },
+        {
+          "type": "bookmark",
+          "fsPath": "/home/lianghao/github/ragflow/rag/nlp/query.py",
+          "line": 69,
+          "col": 11,
+          "name": "处理查询文本，生成全文搜索查询表达式和关键词列表",
+          "lineText": "def question(self, txt, tbl=\"qa\", min_match: float = 0.6):",
           "uri": "问答"
         }
       ]
@@ -304,22 +330,22 @@
         {
           "type": "bookmark",
           "fsPath": "/home/lianghao/github/ragflow/api/apps/user_app.py",
-          "line": 715,
+          "line": 713,
           "col": 10,
           "name": "复位任意用户的密码",
           "lineText": "@manager.route(\"/reset_password\", methods=[\"POST\"])",
           "uri": "其它"
+        },
+        {
+          "type": "bookmark",
+          "fsPath": "/home/lianghao/github/ragflow/api/apps/document_app.py",
+          "line": 51,
+          "col": 2,
+          "name": "端点：上传文件",
+          "lineText": "@manager.route('/upload', methods=['POST'])  # noqa: F821",
+          "uri": "其它"
         }
       ]
-    },
-    {
-      "type": "bookmark",
-      "fsPath": "/home/lianghao/github/ragflow/api/apps/document_app.py",
-      "line": 51,
-      "col": 2,
-      "name": "端点：上传文件",
-      "lineText": "@manager.route('/upload', methods=['POST'])  # noqa: F821",
-      "uri": ""
     }
   ]
 }

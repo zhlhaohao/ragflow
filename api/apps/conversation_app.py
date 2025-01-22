@@ -192,14 +192,14 @@ def completion():
 
         # 只取用户的消息
         msg.append(m)
-    # 获取最后一条历史消息的id    
+    # 获取最后一条历史消息的id
     message_id = msg[-1].get("id")
     try:
         # 获取聊天对象
         e, conv = ConversationService.get_by_id(req["conversation_id"])
         if not e:
             return get_data_error_result(message="Conversation not found!")
-        
+
         # 深拷贝请求中的messages到会话对象中
         conv.message = deepcopy(req["messages"])
         # 获取助理对象

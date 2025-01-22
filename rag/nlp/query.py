@@ -68,6 +68,17 @@ class FulltextQueryer:
         return txt
 
     def question(self, txt, tbl="qa", min_match: float = 0.6):
+        """
+        处理查询文本，生成全文搜索查询表达式和关键词列表。
+
+        参数:
+        txt (str): 输入的查询文本。
+        tbl (str): 表名，默认为"qa"。
+        min_match (float): 最小匹配分数，默认为0.6。
+
+        返回:
+        tuple: 包含MatchTextExpr对象和关键词列表的元组。
+        """
         txt = re.sub(
             r"[ :|\r\n\t,，。？?/`!！&^%%()\[\]{}<>]+",
             " ",
