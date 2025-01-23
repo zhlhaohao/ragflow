@@ -640,6 +640,12 @@ def do_handle_task(task):
     start_ts = timer()
     doc_store_result = ""
     es_bulk_size = 4
+
+    # F8080 : top-int 用于chunk排序
+    for i, chunk in enumerate(chunks):
+        if "top_int" not in chunk:
+            chunk["top_int"] = i
+
     # 遍历chunks列表，每次处理es_bulk_size个元素插入到ES, chunks内容见 0004.md
     for b in range(0, len(chunks), es_bulk_size):
         # 调用insert方法向ES中批量插入数据

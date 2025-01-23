@@ -121,7 +121,7 @@ class Dealer:
         # 初始化问题向量
         q_vec = []
         if not qst:
-            # 如果没有查询问题，则按照排序参数进行搜索
+            # 如果是列出某个文档的所有分块的请求，top_int好像没有值，要设置成分块的位置索引
             if req.get("sort"):
                 orderBy.asc("page_num_int")
                 orderBy.asc("top_int")

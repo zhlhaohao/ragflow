@@ -40,26 +40,55 @@ import re
 @login_required
 @validate_request("doc_id")
 def list_chunk():
+    """
+    获取文档的分块列表。
+
+    请求参数:
+    - doc_id (str): 文档ID。
+    - page (int, optional): 分页页码，默认为1。
+    - size (int, optional): 每页大小，默认为30。
+    - keywords (str, optional): 查询关键词。
+
+    返回:
+    - JSON响应，包含分块列表、文档信息和总数量。
+    """
+    # 获取请求的JSON数据
     req = request.json
+    
+    # 提取文档ID、页码、每页大小和问题关键词
     doc_id = req["doc_id"]
     page = int(req.get("page", 1))
     size = int(req.get("size", 30))
     question = req.get("keywords", "")
+    
     try:
+        # 获取租户ID
         tenant_id = DocumentService.get_tenant_id(req["doc_id"])
         if not tenant_id:
             return get_data_error_result(message="Tenant not found!")
+    
+        # 根据文档ID获取文档
         e, doc = DocumentService.get_by_id(doc_id)
         if not e:
             return get_data_error_result(message="Document not found!")
+    
+        # 获取知识库ID列表
         kb_ids = KnowledgebaseService.get_kb_ids(tenant_id)
+    
+        # 构建查询字典
         query = {
             "doc_ids": [doc_id], "page": page, "size": size, "question": question, "sort": True
         }
         if "available_int" in req:
             query["available_int"] = int(req["available_int"])
+    
+        # 执行搜索
         sres = settings.retrievaler.search(query, search.index_name(tenant_id), kb_ids, highlight=True)
+    
+        # 初始化结果字典
         res = {"total": sres.total, "chunks": [], "doc": doc.to_dict()}
+    
+        # 遍历搜索结果，构建结果块列表
         for id in sres.ids:
             d = {
                 "chunk_id": id,
@@ -74,20 +103,32 @@ def list_chunk():
                 "available_int": int(sres.field[id].get("available_int", 1)),
                 "positions": sres.field[id].get("position_int", []),
             }
+            # 确保positions是列表，并且如果存在，每个位置信息都是五元组
             assert isinstance(d["positions"], list)
             assert len(d["positions"]) == 0 or (isinstance(d["positions"][0], list) and len(d["positions"][0]) == 5)
             res["chunks"].append(d)
+    
+        # 返回搜索结果
         return get_json_result(data=res)
     except Exception as e:
+        # 处理异常情况
         if str(e).find("not_found") > 0:
             return get_json_result(data=False, message='No chunk found!',
                                    code=settings.RetCode.DATA_ERROR)
         return server_error_response(e)
 
-
 @manager.route('/get', methods=['GET'])  # noqa: F821
 @login_required
 def get():
+    """
+    获取单个分块的详细信息。
+
+    请求参数:
+    - chunk_id (str): 分块ID。
+
+    返回:
+    - JSON响应，包含分块的详细信息。
+    """
     chunk_id = request.args["chunk_id"]
     try:
         tenants = UserTenantService.query(user_id=current_user.id)
@@ -118,6 +159,22 @@ def get():
 @login_required
 @validate_request("doc_id", "chunk_id", "content_with_weight")
 def set():
+    """
+    更新分块的内容。
+
+    请求参数:
+    - doc_id (str): 文档ID。
+    - chunk_id (str): 分块ID。
+    - content_with_weight (str): 分块内容。
+    - important_kwd (list, optional): 重要关键词。
+    - question_kwd (list, optional): 问题关键词。
+    - tag_kwd (list, optional): 标签关键词。
+    - tag_feas (list, optional): 标签特征。
+    - available_int (int, optional): 可用状态。
+
+    返回:
+    - JSON响应，表示操作是否成功。
+    """
     req = request.json
     d = {
         "id": req["chunk_id"],
@@ -171,6 +228,17 @@ def set():
 @login_required
 @validate_request("chunk_ids", "available_int", "doc_id")
 def switch():
+    """
+    切换分块的可用状态。
+
+    请求参数:
+    - chunk_ids (list): 分块ID列表。
+    - available_int (int): 可用状态。
+    - doc_id (str): 文档ID。
+
+    返回:
+    - JSON响应，表示操作是否成功。
+    """
     req = request.json
     try:
         e, doc = DocumentService.get_by_id(req["doc_id"])
@@ -191,6 +259,16 @@ def switch():
 @login_required
 @validate_request("chunk_ids", "doc_id")
 def rm():
+    """
+    删除分块。
+
+    请求参数:
+    - chunk_ids (list): 分块ID列表。
+    - doc_id (str): 文档ID。
+
+    返回:
+    - JSON响应，表示操作是否成功。
+    """
     req = request.json
     try:
         e, doc = DocumentService.get_by_id(req["doc_id"])
@@ -210,6 +288,18 @@ def rm():
 @login_required
 @validate_request("doc_id", "content_with_weight")
 def create():
+    """
+    创建新的分块。
+
+    请求参数:
+    - doc_id (str): 文档ID。
+    - content_with_weight (str): 分块内容。
+    - important_kwd (list, optional): 重要关键词。
+    - question_kwd (list, optional): 问题关键词。
+
+    返回:
+    - JSON响应，包含新创建的分块ID。
+    """
     req = request.json
     chunck_id = xxhash.xxh64((req["content_with_weight"] + req["doc_id"]).encode("utf-8")).hexdigest()
     d = {"id": chunck_id, "content_ltks": rag_tokenizer.tokenize(req["content_with_weight"]),
@@ -260,6 +350,23 @@ def create():
 @login_required
 @validate_request("kb_id", "question")
 def retrieval_test():
+    """
+    进行检索测试。
+
+    请求参数:
+    - kb_id (list): 知识库ID列表。
+    - question (str): 查询问题。
+    - doc_ids (list, optional): 文档ID列表。
+    - similarity_threshold (float, optional): 相似度阈值，默认为0.0。
+    - vector_similarity_weight (float, optional): 向量相似度权重，默认为0.3。
+    - top_k (int, optional): 顶部结果数量，默认为1024。
+    - rerank_id (str, optional): 重排序模型ID。
+    - keyword (bool, optional): 是否使用关键词提取，默认为False。
+    - highlight (bool, optional): 是否高亮显示，默认为False。
+
+    返回:
+    - JSON响应，包含检索结果。
+    """
     req = request.json
     page = int(req.get("page", 1))
     size = int(req.get("size", 30))
@@ -322,6 +429,15 @@ def retrieval_test():
 @manager.route('/knowledge_graph', methods=['GET'])  # noqa: F821
 @login_required
 def knowledge_graph():
+    """
+    获取知识图谱信息。
+
+    请求参数:
+    - doc_id (str): 文档ID。
+
+    返回:
+    - JSON响应，包含知识图谱和思维导图信息。
+    """
     doc_id = request.args["doc_id"]
     tenant_id = DocumentService.get_tenant_id(doc_id)
     kb_ids = KnowledgebaseService.get_kb_ids(tenant_id)
