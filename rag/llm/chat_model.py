@@ -307,7 +307,9 @@ class QWenChat(Base):
                 else:
                     yield ans + "\n**ERROR**: " + resp.message if not re.search(r" (key|quota)", str(resp.message).lower()) else "Out of credit. Please set the API key in **settings > Model providers.**"
         except Exception as e:
-            yield ans + "\n**ERROR**: " + str(e)
+            # F8080 - 忽略了千问大模型返回的错误信息，在raptor的情况下，如果token_num设置为256，会返回被零除的错误
+            yield ans
+            # yield ans + "\n**ERROR**: " + str(e)
 
         yield tk_count
 

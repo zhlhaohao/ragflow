@@ -104,8 +104,8 @@ def login():
         response_data = user.to_json()
         # ic(response_data)
 
-        # 如果是内部用户,access_token不需要重新生成
-        if response_data['email'] in ['bob@ragflow.com'] and response_data["access_token"] is not None and len(response_data["access_token"])>0:
+        # F8080 access_token不需要重新生成
+        if response_data["access_token"] is not None and len(response_data["access_token"])>0:
             login_user(user)
         else:
             user.access_token = get_uuid()

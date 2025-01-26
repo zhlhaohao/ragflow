@@ -104,6 +104,8 @@ class RecursiveAbstractiveProcessing4TreeOrganizedRetrieval:
             nonlocal chunks
             try:
                 texts = [chunks[i][0] for i in ck_idx]
+                if len(texts) == 0:   # F8080 防止被零除
+                    return
                 len_per_chunk = int((self._llm_model.max_length - self._max_token)/len(texts))
                 # 截断文本以适应最大长度限制
                 cluster_content = "\n".join([truncate(t, max(1, len_per_chunk)) for t in texts])
