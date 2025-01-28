@@ -450,7 +450,7 @@ def queue_raptor_tasks(doc):
             "doc_id": doc["id"],
             "from_page": 100000000,
             "to_page": 100000000,
-            "progress_msg": "Start to do RAPTOR (Recursive Abstractive Processing for Tree-Organized Retrieval)."
+            "progress_msg": "总结中心思想"
         }
 
     task = new_task()

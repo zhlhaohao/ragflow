@@ -371,7 +371,7 @@ class FileService(CommonService):
                     "id": doc_id,
                     "kb_id": kb.id,
                     "parser_id": self.get_parser(filetype, filename, kb.parser_id),
-                    "parser_config": kb.parser_config,
+                    "parser_config": self.get_parser_config(filename, kb.parser_config),  # F8080 修改parser_config
                     "created_by": user_id,
                     "type": filetype,
                     "name": filename,
@@ -433,4 +433,13 @@ class FileService(CommonService):
             return ParserType.PRESENTATION.value
         if re.search(r"\.(eml)$", filename):
             return ParserType.EMAIL.value
+        return default
+    
+    @staticmethod
+    def get_parser_config(filename, default):
+        "F8080: 如果是xls文件，将分块的长度改为最小值，以避免多行被合并"
+        if re.search(r"\.(xls|xlsx)$", filename):
+            custome_parser_config = default.copy()
+            custome_parser_config["chunk_token_num"] = 8
+            return custome_parser_config
         return default

@@ -48,14 +48,14 @@ def chunk(filename, binary=None, lang="Chinese", callback=None, **kwargs):
         "title_tks": rag_tokenizer.tokenize(re.sub(r"\.[a-zA-Z]+$", "", filename))
     }
     if re.search(r"\.xlsx?$", filename, re.IGNORECASE):
-        callback(0.1, "Start to parse.")
+        callback(0.1, "开始解析.")
         excel_parser = Excel()
         for ii, (q, a) in enumerate(excel_parser(filename, binary, callback)):
             res.append(beAdoc(deepcopy(doc), q, a, eng, ii))
         return res
 
     elif re.search(r"\.(txt)$", filename, re.IGNORECASE):
-        callback(0.1, "Start to parse.")
+        callback(0.1, "开始解析.")
         txt = get_text(filename, binary)
         lines = txt.split("\n")
         comma, tab = 0, 0
@@ -88,7 +88,7 @@ def chunk(filename, binary=None, lang="Chinese", callback=None, **kwargs):
         return res
 
     elif re.search(r"\.(csv)$", filename, re.IGNORECASE):
-        callback(0.1, "Start to parse.")
+        callback(0.1, "开始解析.")
         txt = get_text(filename, binary)
         lines = txt.split("\n")
 

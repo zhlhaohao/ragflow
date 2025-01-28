@@ -21,6 +21,11 @@ PYTHONPATH=/home/lianghao/github/ragflow
 HF_ENDPOINT=https://hf-mirror.com
 ```
 
+### docker-compose-base.yaml
+docker compose编排文件，配置es\mysql\redis\minio 等的docker镜像在本地启动，其配置来源于同目录的 .env
+
+
+
 
 ### 设置默认模型 
 1. local.service_conf.yaml 或者 service_conf.yaml
@@ -38,7 +43,7 @@ user_default_llm:
 default_llm = {
    "Tongyi-Qianwen": {
          "chat_model": "qwen-plus",
-         "embedding_model": "text-embedding-v3",     # F8080 - 自己加上的，不要覆盖
+         "embedding_model": "text-embedding-v3",  # 这个会影响EMBEDDING_MDL的值，继而新建tenant记录的时候的embd_id字段默认值，如果某个用户新建知识库，那么嵌入模型就取自该用户在tenant表的embd_id字段
          # "embedding_model": "text-embedding-v2",
          "image2text_model": "qwen-vl-max",
          "asr_model": "paraformer-realtime-8k-v1",

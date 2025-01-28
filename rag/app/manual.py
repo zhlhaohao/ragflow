@@ -36,7 +36,7 @@ class Pdf(PdfParser):
                  to_page=100000, zoomin=3, callback=None):
         from timeit import default_timer as timer
         start = timer()
-        callback(msg="OCR started")
+        callback(msg="OCR开启")
         self.__images__(
             filename if not binary else binary,
             zoomin,
@@ -44,7 +44,7 @@ class Pdf(PdfParser):
             to_page,
             callback
         )
-        callback(msg="OCR finished ({:.2f}s)".format(timer() - start))
+        callback(msg="OCR结束 ({:.2f}s)".format(timer() - start))
         # for bb in self.boxes:
         #    for b in bb:
         #        print(b)
@@ -52,12 +52,12 @@ class Pdf(PdfParser):
 
         start = timer()
         self._layouts_rec(zoomin)
-        callback(0.65, "Layout analysis ({:.2f}s)".format(timer() - start))
+        callback(0.65, "分析布局 ({:.2f}s)".format(timer() - start))
         logging.debug("layouts: {}".format(timer() - start))
 
         start = timer()
         self._table_transformer_job(zoomin)
-        callback(0.67, "Table analysis ({:.2f}s)".format(timer() - start))
+        callback(0.67, "分析表格 ({:.2f}s)".format(timer() - start))
 
         start = timer()
         self._text_merge()

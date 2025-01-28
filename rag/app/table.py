@@ -140,7 +140,7 @@ def chunk(filename, binary=None, from_page=0, to_page=10000000000,
     """
 
     if re.search(r"\.xlsx?$", filename, re.IGNORECASE):
-        callback(0.1, "Start to parse.")
+        callback(0.1, "开始解析.")
         excel_parser = Excel()
         dfs = excel_parser(
             filename,
@@ -149,7 +149,7 @@ def chunk(filename, binary=None, from_page=0, to_page=10000000000,
             to_page=to_page,
             callback=callback)
     elif re.search(r"\.(txt|csv)$", filename, re.IGNORECASE):
-        callback(0.1, "Start to parse.")
+        callback(0.1, "开始解析.")
         txt = get_text(filename, binary)
         lines = txt.split("\n")
         fails = []

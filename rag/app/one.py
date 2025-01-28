@@ -26,7 +26,7 @@ class Pdf(PdfParser):
                  to_page=100000, zoomin=3, callback=None):
         from timeit import default_timer as timer
         start = timer()
-        callback(msg="OCR started")
+        callback(msg="OCR开启")
         self.__images__(
             filename if not binary else binary,
             zoomin,
@@ -34,16 +34,16 @@ class Pdf(PdfParser):
             to_page,
             callback
         )
-        callback(msg="OCR finished ({:.2f}s)".format(timer() - start))
+        callback(msg="OCR结束 ({:.2f}s)".format(timer() - start))
 
         start = timer()
         self._layouts_rec(zoomin, drop=False)
-        callback(0.63, "Layout analysis ({:.2f}s)".format(timer() - start))
+        callback(0.63, "分析布局 ({:.2f}s)".format(timer() - start))
         logging.debug("layouts cost: {}s".format(timer() - start))
 
         start = timer()
         self._table_transformer_job(zoomin)
-        callback(0.65, "Table analysis ({:.2f}s)".format(timer() - start))
+        callback(0.65, "分析表格 ({:.2f}s)".format(timer() - start))
 
         start = timer()
         self._text_merge()
@@ -72,7 +72,7 @@ def chunk(filename, binary=None, from_page=0, to_page=100000,
     eng = lang.lower() == "english"  # is_english(cks)
 
     if re.search(r"\.docx$", filename, re.IGNORECASE):
-        callback(0.1, "Start to parse.")
+        callback(0.1, "开始解析.")
         sections, tbls = naive.Docx()(filename, binary)
         sections = [s for s, _ in sections if s]
         for (_, html), _ in tbls:
@@ -88,25 +88,25 @@ def chunk(filename, binary=None, from_page=0, to_page=100000,
         sections = [s for s, _ in sections if s]
 
     elif re.search(r"\.xlsx?$", filename, re.IGNORECASE):
-        callback(0.1, "Start to parse.")
+        callback(0.1, "开始解析.")
         excel_parser = ExcelParser()
         sections = excel_parser.html(binary, 1000000000)
 
     elif re.search(r"\.(txt|md|markdown)$", filename, re.IGNORECASE):
-        callback(0.1, "Start to parse.")
+        callback(0.1, "开始解析.")
         txt = get_text(filename, binary)
         sections = txt.split("\n")
         sections = [s for s in sections if s]
         callback(0.8, "Finish parsing.")
 
     elif re.search(r"\.(htm|html)$", filename, re.IGNORECASE):
-        callback(0.1, "Start to parse.")
+        callback(0.1, "开始解析.")
         sections = HtmlParser()(filename, binary)
         sections = [s for s in sections if s]
         callback(0.8, "Finish parsing.")
 
     elif re.search(r"\.doc$", filename, re.IGNORECASE):
-        callback(0.1, "Start to parse.")
+        callback(0.1, "开始解析.")
         binary = BytesIO(binary)
         doc_parsed = parser.from_buffer(binary)
         sections = doc_parsed['content'].split('\n')

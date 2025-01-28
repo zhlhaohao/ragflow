@@ -74,7 +74,7 @@ class Pdf(PdfParser):
     def __call__(self, filename, binary=None, from_page=0,
                  to_page=100000, zoomin=3, callback=None):
         start = timer()
-        callback(msg="OCR started")
+        callback(msg="OCR开启")
         self.__images__(
             filename if not binary else binary,
             zoomin,
@@ -82,15 +82,15 @@ class Pdf(PdfParser):
             to_page,
             callback
         )
-        callback(msg="OCR finished ({:.2f}s)".format(timer() - start))
+        callback(msg="OCR结束 ({:.2f}s)".format(timer() - start))
         logging.debug("OCR({}~{}): {:.2f}s".format(from_page, to_page, timer() - start))
         start = timer()
         self._layouts_rec(zoomin, drop=False)
-        callback(0.63, "Layout analysis ({:.2f}s)".format(timer() - start))
+        callback(0.63, "分析布局 ({:.2f}s)".format(timer() - start))
 
         start = timer()
         self._table_transformer_job(zoomin)
-        callback(0.65, "Table analysis ({:.2f}s)".format(timer() - start))
+        callback(0.65, "分析表格 ({:.2f}s)".format(timer() - start))
 
         start = timer()
         self._text_merge()
@@ -319,14 +319,14 @@ def chunk(filename, binary=None, lang="Chinese", callback=None, **kwargs):
         "title_tks": rag_tokenizer.tokenize(re.sub(r"\.[a-zA-Z]+$", "", filename))
     }
     if re.search(r"\.xlsx?$", filename, re.IGNORECASE):
-        callback(0.1, "Start to parse.")
+        callback(0.1, "开始解析.")
         excel_parser = Excel()
         for ii, (q, a) in enumerate(excel_parser(filename, binary, callback)):
             res.append(beAdoc(deepcopy(doc), q, a, eng, ii))
         return res
 
     elif re.search(r"\.(txt)$", filename, re.IGNORECASE):
-        callback(0.1, "Start to parse.")
+        callback(0.1, "开始解析.")
         txt = get_text(filename, binary)
         lines = txt.split("\n")
         comma, tab = 0, 0
@@ -365,7 +365,7 @@ def chunk(filename, binary=None, lang="Chinese", callback=None, **kwargs):
         return res
 
     elif re.search(r"\.(csv)$", filename, re.IGNORECASE):
-        callback(0.1, "Start to parse.")
+        callback(0.1, "开始解析.")
         txt = get_text(filename, binary)
         lines = txt.split("\n")
         delimiter = "\t" if any("\t" in line for line in lines) else ","
@@ -397,7 +397,7 @@ def chunk(filename, binary=None, lang="Chinese", callback=None, **kwargs):
         return res
 
     elif re.search(r"\.pdf$", filename, re.IGNORECASE):
-        callback(0.1, "Start to parse.")
+        callback(0.1, "开始解析.")
         pdf_parser = Pdf()
         qai_list, tbls = pdf_parser(filename if not binary else binary,
                                     from_page=0, to_page=10000, callback=callback)
@@ -406,7 +406,7 @@ def chunk(filename, binary=None, lang="Chinese", callback=None, **kwargs):
         return res
 
     elif re.search(r"\.(md|markdown)$", filename, re.IGNORECASE):
-        callback(0.1, "Start to parse.")
+        callback(0.1, "开始解析.")
         txt = get_text(filename, binary)
         lines = txt.split("\n")
         _last_question, last_answer = "", ""

@@ -595,7 +595,7 @@ def naive_merge(sections, chunk_token_num=128, delimiter="\n。；！？"):
             # 如果当前位置信息不在最后一个文本块中，则添加位置信息到文本t
             if cks[-1].find(pos) < 0:
                 t += pos
-            cks[-1] += '\n\n' + t    # F8080 如果是新合并的文本块，则添加2个换行，确保LLM认为这是新的数据
+            cks[-1] += '\n' + t    # F8080 如果是新合并的文本块，则添加2个换行，确保LLM认为这是新的数据
             tk_nums[-1] += tnum
 
     # 遍历输入文本段，调用add_chunk函数处理每个文本段

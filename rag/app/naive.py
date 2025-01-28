@@ -176,7 +176,7 @@ class Pdf(PdfParser):
                  to_page=100000, zoomin=3, callback=None):
         start = timer()
         first_start = start
-        callback(msg="OCR started")
+        callback(msg="OCR开启")
         self.__images__(
             filename if not binary else binary,
             zoomin,
@@ -184,16 +184,16 @@ class Pdf(PdfParser):
             to_page,
             callback
         )
-        callback(msg="OCR finished ({:.2f}s)".format(timer() - start))
+        callback(msg="OCR结束 ({:.2f}s)".format(timer() - start))
         logging.info("OCR({}~{}): {:.2f}s".format(from_page, to_page, timer() - start))
 
         start = timer()
         self._layouts_rec(zoomin)
-        callback(0.63, "Layout analysis ({:.2f}s)".format(timer() - start))
+        callback(0.63, "分析布局 ({:.2f}s)".format(timer() - start))
 
         start = timer()
         self._table_transformer_job(zoomin)
-        callback(0.65, "Table analysis ({:.2f}s)".format(timer() - start))
+        callback(0.65, "分析表格 ({:.2f}s)".format(timer() - start))
 
         start = timer()
         self._text_merge()
@@ -260,7 +260,7 @@ def chunk(filename, binary=None, from_page=0, to_page=100000,
 
     # 如果文件类型是docx
     if re.search(r"\.docx$", filename, re.IGNORECASE):
-        callback(0.1, "Start to parse.")
+        callback(0.1, "开始解析.")
         # 解析docx，返回解析后的段落（段落文本+段落内图片）列表和表格列表     
         sections, tables = Docx()(filename, binary)
         # 使用 tokenize_table 方法处理表格。
@@ -295,7 +295,7 @@ def chunk(filename, binary=None, from_page=0, to_page=100000,
     # 如果是excel文件
     elif re.search(r"\.xlsx?$", filename, re.IGNORECASE):
         # 调用回调函数，通知解析开始，进度为10%
-        callback(0.1, "Start to parse.")
+        callback(0.1, "开始解析.")
         # 创建ExcelParser对象，用于解析Excel文件
         excel_parser = ExcelParser()
         # 检查解析配置中是否启用了"html4excel"选项
@@ -307,33 +307,33 @@ def chunk(filename, binary=None, from_page=0, to_page=100000,
             sections = [(_, "") for _ in excel_parser(binary) if _]
 
     elif re.search(r"\.(txt|py|js|java|c|cpp|h|php|go|ts|sh|cs|kt|sql)$", filename, re.IGNORECASE):
-        callback(0.1, "Start to parse.")
+        callback(0.1, "开始解析.")
         sections = TxtParser()(filename, binary,
                                parser_config.get("chunk_token_num", 128),
                                parser_config.get("delimiter", "\n!?;。；！？"))
         callback(0.8, "Finish parsing.")
 
     elif re.search(r"\.(md|markdown)$", filename, re.IGNORECASE):
-        callback(0.1, "Start to parse.")
+        callback(0.1, "开始解析.")
         sections, tables = Markdown(int(parser_config.get("chunk_token_num", 128)))(filename, binary)
         res = tokenize_table(tables, doc, is_english)
         callback(0.8, "Finish parsing.")
 
     elif re.search(r"\.(htm|html)$", filename, re.IGNORECASE):
-        callback(0.1, "Start to parse.")
+        callback(0.1, "开始解析.")
         sections = HtmlParser()(filename, binary)
         sections = [(_, "") for _ in sections if _]
         callback(0.8, "Finish parsing.")
 
     elif re.search(r"\.json$", filename, re.IGNORECASE):
-        callback(0.1, "Start to parse.")
+        callback(0.1, "开始解析.")
         chunk_token_num = int(parser_config.get("chunk_token_num", 128))
         sections = JsonParser(chunk_token_num)(binary)
         sections = [(_, "") for _ in sections if _]
         callback(0.8, "Finish parsing.")
 
     elif re.search(r"\.doc$", filename, re.IGNORECASE):
-        callback(0.1, "Start to parse.")
+        callback(0.1, "开始解析.")
         binary = BytesIO(binary)
         doc_parsed = parser.from_buffer(binary)
         if doc_parsed.get('content', None) is not None:

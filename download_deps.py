@@ -36,17 +36,28 @@ def download_model(repo_id):
 
 
 if __name__ == "__main__":
+    # 遍历URL列表，下载每个URL对应的文件
     for url in urls:
+        # 从URL中提取文件名
         filename = url.split("/")[-1]
+        # 输出下载信息
         print(f"Downloading {url}...")
+        # 如果文件尚未存在，则从URL下载
         if not os.path.exists(filename):
             urllib.request.urlretrieve(url, filename)
-
+    
+    # 获取NLTK数据的本地存储目录
     local_dir = os.path.abspath('nltk_data')
+    # 遍历NLTK数据集列表，下载每个数据集
     for data in ['wordnet', 'punkt', 'punkt_tab']:
+        # 输出下载信息
         print(f"Downloading nltk {data}...")
+        # 下载NLTK数据集到指定目录
         nltk.download(data, download_dir=local_dir)
-
+    
+    # 遍历Hugging Face模型库列表，下载每个模型
     for repo_id in repos:
+        # 输出下载信息
         print(f"Downloading huggingface repo {repo_id}...")
+        # 调用函数下载Hugging Face模型库
         download_model(repo_id)

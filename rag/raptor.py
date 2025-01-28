@@ -56,7 +56,7 @@ class RecursiveAbstractiveProcessing4TreeOrganizedRetrieval:
 
     def _embedding_encode(self, txt):
         response = get_embed_cache(self._embd_model.llm_name, txt)
-        if response:
+        if response is not None:   # F8080 bug fix
             return response
         embds, _ = self._embd_model.encode([txt])
         if len(embds) < 1 or len(embds[0]) < 1:

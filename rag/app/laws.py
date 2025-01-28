@@ -113,7 +113,7 @@ class Pdf(PdfParser):
                  to_page=100000, zoomin=3, callback=None):
         from timeit import default_timer as timer
         start = timer()
-        callback(msg="OCR started")
+        callback(msg="OCR开启")
         self.__images__(
             filename if not binary else binary,
             zoomin,
@@ -121,11 +121,11 @@ class Pdf(PdfParser):
             to_page,
             callback
         )
-        callback(msg="OCR finished ({:.2f}s)".format(timer() - start))
+        callback(msg="OCR结束 ({:.2f}s)".format(timer() - start))
 
         start = timer()
         self._layouts_rec(zoomin)
-        callback(0.67, "Layout analysis ({:.2f}s)".format(timer() - start))
+        callback(0.67, "分析布局 ({:.2f}s)".format(timer() - start))
         logging.debug("layouts:".format(
             ))
         self._naive_vertical_merge()
@@ -152,7 +152,7 @@ def chunk(filename, binary=None, from_page=0, to_page=100000,
     eng = lang.lower() == "english"  # is_english(sections)
 
     if re.search(r"\.docx$", filename, re.IGNORECASE):
-        callback(0.1, "Start to parse.")
+        callback(0.1, "开始解析.")
         chunks = Docx()(filename, binary)
         callback(0.7, "Finish parsing.")
         return tokenize_chunks(chunks, doc, eng, None)
@@ -166,20 +166,20 @@ def chunk(filename, binary=None, from_page=0, to_page=100000,
             sections.append(txt + poss)
 
     elif re.search(r"\.txt$", filename, re.IGNORECASE):
-        callback(0.1, "Start to parse.")
+        callback(0.1, "开始解析.")
         txt = get_text(filename, binary)
         sections = txt.split("\n")
         sections = [s for s in sections if s]
         callback(0.8, "Finish parsing.")
 
     elif re.search(r"\.(htm|html)$", filename, re.IGNORECASE):
-        callback(0.1, "Start to parse.")
+        callback(0.1, "开始解析.")
         sections = HtmlParser()(filename, binary)
         sections = [s for s in sections if s]
         callback(0.8, "Finish parsing.")
 
     elif re.search(r"\.doc$", filename, re.IGNORECASE):
-        callback(0.1, "Start to parse.")
+        callback(0.1, "开始解析.")
         binary = BytesIO(binary)
         doc_parsed = parser.from_buffer(binary)
         sections = doc_parsed['content'].split('\n')
