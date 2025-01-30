@@ -101,7 +101,7 @@
                 {
                     "llm_name": "qwen-long",
                     "tags": "LLM,CHAT,10000K",
-                    "max_tokens": 1000000,
+                    "max_tokens": 10000000,
                     "model_type": "chat"
                 },
                 {
@@ -397,13 +397,13 @@
                 {
                     "llm_name": "deepseek-chat",
                     "tags": "LLM,CHAT,",
-                    "max_tokens": 32768,
+                    "max_tokens": 65536,
                     "model_type": "chat"
                 },
                 {
-                    "llm_name": "deepseek-coder",
+                    "llm_name": "deepseek-reasoner",
                     "tags": "LLM,CHAT,",
-                    "max_tokens": 16385,
+                    "max_tokens": 65536,
                     "model_type": "chat"
                 }
             ]

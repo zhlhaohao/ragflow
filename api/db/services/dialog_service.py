@@ -330,8 +330,11 @@ def chat(dialog, messages, stream=True, **kwargs):
     kwargs["knowledge"] = "\n------\n" + "\n\n------\n\n".join(knowledges)
     gen_conf = dialog.llm_setting
 
-    # msg[0]存放系统提示信息,在这里将{knowledges}和其它变量替换成实际的值
-    msg = [{"role": "system", "content": prompt_config["system"].format(**kwargs)}]
+    # F8080 : 如果系统提示中包含knowledge变量，则将{knowledges}和其它变量替换成实际的值
+    if "{knowledge}" in prompt_config["system"]:
+        msg = [{"role": "system", "content": prompt_config["system"].format(**kwargs)}]
+    else:
+        msg = [{"role": "system", "content": prompt_config["system"]}]
 
     # msg[1:]存放对话历史信息。
     msg.extend([{"role": m["role"], "content": re.sub(r"##\d+\$\$", "", m["content"])}

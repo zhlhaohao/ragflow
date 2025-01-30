@@ -83,10 +83,11 @@ def set_dialog():
 
         llm_id = req.get("llm_id", tenant.llm_id)
         if not dialog_id:
+            """ F8080 不检查是否选择了知识库，这在自由问答情况下是可以的
             if not req.get("kb_ids"):
                 return get_data_error_result(
                     message="Fail! Please select knowledgebase!")
-
+            """
             dia = {
                 "id": get_uuid(),
                 "tenant_id": current_user.id,

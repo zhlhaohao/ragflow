@@ -141,6 +141,15 @@ class DeepSeekChat(Base):
             base_url = "https://api.deepseek.com/v1"
         super().__init__(key, model_name, base_url)
 
+    # F8080 重载是为了更新max_completion_tokens
+    def chat_streamly(self, system, history, gen_conf):
+        # 检查 gen_conf 中是否存在 max_tokens 键
+        if 'max_tokens' in gen_conf:
+            gen_conf['max_completion_tokens'] = gen_conf['max_tokens']
+
+        # 调用父类的 chat_streamly 方法
+        return super().chat_streamly(system, history, gen_conf)
+
 
 class AzureChat(Base):
     def __init__(self, key, model_name, **kwargs):
