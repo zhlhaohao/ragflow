@@ -25,7 +25,7 @@ from flask import request, Response
 from flask_login import login_required, current_user
 
 from api.db import LLMType
-from api.db.services.dialog_service import DialogService, chat, ask, label_question
+from api.db.services.dialog_service import DialogService, chat, chat_nokb, ask, label_question
 from api.db.services.knowledgebase_service import KnowledgebaseService
 from api.db.services.llm_service import LLMBundle, TenantService
 from api import settings
@@ -443,3 +443,85 @@ Keywords: {question}
 Related search terms:
     """}], {"temperature": 0.9})
     return get_json_result(data=[re.sub(r"^[0-9]\. ", "", a) for a in ans.split("\n") if re.match(r"^[0-9]\. ", a)])
+
+@manager.route('/add_messages', methods=['POST'])  # noqa: F821
+@login_required
+@validate_request("conversation_id", "messages")
+def add_messages():
+    """ F8080 往对话添加消息-而不是真正进行对话
+    """
+    req = request.json
+    try:
+        # 获取聊天对象
+        e, conv = ConversationService.get_by_id(req["conversation_id"])
+        if not e:
+            return get_data_error_result(message="Conversation not found!")
+
+        for m in req["messages"]:
+            conv.message.append(m)
+
+        ConversationService.update_by_id(conv.id, conv.to_dict())
+        return get_json_result(data=True)
+
+    except Exception as e:
+        return server_error_response(e)
+
+
+@manager.route('/completion_nokb', methods=['POST'])  # noqa: F821
+@login_required
+@validate_request("conversation_id", "messages")
+def completion_nokb():
+    """F8080 非知识库对话，例如编程助手对话
+    """
+    req = request.json
+    messages = req["messages"]
+
+    try:
+        # 获取聊天对象
+        e, conv = ConversationService.get_by_id(req["conversation_id"])
+        if not e:
+            return get_data_error_result(message="Conversation not found!")
+
+        # 获取助理对象
+        e, dia = DialogService.get_by_id(conv.dialog_id)
+        if not e:
+            return get_data_error_result(message="Dialog not found!")
+
+        def stream():
+            nonlocal dia, messages, conv
+            try:
+                # 调用chat函数生成答案，stream模式为True
+                for ans in chat_nokb(dia, messages, True):
+                    yield "data:" + json.dumps({"code": 0, "message": "", "data": ans}, ensure_ascii=False) + "\n\n"
+
+                # 将最后一条用户提问和助理的回答保存到对话记录中
+                conv.message.append(messages[-1])
+                conv.message.append({"role": "assistant", "content":
+                    ans})
+                ConversationService.update_by_id(conv.id, conv.to_dict())
+            except Exception as e:
+                traceback.print_exc()
+                yield "data:" + json.dumps({"code": 500, "message": str(e),
+                                            "data": {"answer": "**ERROR**: " + str(e), "reference": []}},
+                                           ensure_ascii=False) + "\n\n"
+
+            # 全部回答完成
+            yield "data:" + json.dumps({"code": 0, "message": "", "data": True}, ensure_ascii=False) + "\n\n"
+
+        if req.get("stream", True):
+            resp = Response(stream(), mimetype="text/event-stream")
+            resp.headers.add_header("Cache-control", "no-cache")
+            resp.headers.add_header("Connection", "keep-alive")
+            resp.headers.add_header("X-Accel-Buffering", "no")
+            resp.headers.add_header("Content-Type", "text/event-stream; charset=utf-8")
+            return resp
+
+        else:
+            answer = None
+            for ans in chat_nokb(dia, messages, False):
+                ConversationService.update_by_id(conv.id, conv.to_dict())
+                break
+
+            return get_json_result(data=answer)
+    except Exception as e:
+        return server_error_response(e)

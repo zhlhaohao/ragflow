@@ -851,3 +851,29 @@ Output:
 
     kwd = re.sub(r".*?\{", "{", kwd)
     return json.loads(kwd)
+
+
+def chat_nokb(dialog, messages, stream=True):
+    llm_id, model_provider = TenantLLMService.split_model_name_and_factory(dialog.llm_id)
+
+    llm = LLMService.query(llm_name=llm_id) if not model_provider else LLMService.query(llm_name=llm_id, fid=model_provider)
+
+    if not llm:
+        llm = TenantLLMService.query(tenant_id=dialog.tenant_id, llm_name=llm_id) if not model_provider else \
+            TenantLLMService.query(tenant_id=dialog.tenant_id, llm_name=llm_id, llm_factory=model_provider)
+        if not llm:
+            raise LookupError("LLM(%s) not found" % dialog.llm_id)
+
+    chat_mdl = LLMBundle(dialog.tenant_id, LLMType.CHAT, dialog.llm_id)
+    prompt_config = dialog.prompt_config
+    gen_conf = dialog.llm_setting
+    prompt = prompt_config["system"]
+
+    if stream:
+        answer = ""
+        for ans in chat_mdl.chat_streamly(prompt, messages, gen_conf):
+            answer = ans
+            yield {"answer": answer}
+    else:
+        answer = chat_mdl.chat(prompt_config["system"], messages, gen_conf)
+        yield answer
