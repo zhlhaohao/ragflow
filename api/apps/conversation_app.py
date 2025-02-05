@@ -475,6 +475,7 @@ def completion_nokb():
     """
     req = request.json
     messages = req["messages"]
+    message_id = messages[-1].get("id")
 
     try:
         # 获取聊天对象
@@ -491,13 +492,22 @@ def completion_nokb():
             nonlocal dia, messages, conv
             try:
                 # 调用chat函数生成答案，stream模式为True
+                final_ans = None
                 for ans in chat_nokb(dia, messages, True):
+                    ans["id"] = message_id
+                    ans["session_id"] = conv.id
+                    final_ans = ans
                     yield "data:" + json.dumps({"code": 0, "message": "", "data": ans}, ensure_ascii=False) + "\n\n"
+
+                # parsed_response = json.loads(final_ans['answer'])
+                # if "assistant_reply" not in parsed_response:
+                #     parsed_response["assistant_reply"] = ""
+                # answer = json.dumps(parsed_response)
 
                 # 将最后一条用户提问和助理的回答保存到对话记录中
                 conv.message.append(messages[-1])
                 conv.message.append({"role": "assistant", "content":
-                    ans})
+                    final_ans['answer'], "id": message_id})
                 ConversationService.update_by_id(conv.id, conv.to_dict())
             except Exception as e:
                 traceback.print_exc()
