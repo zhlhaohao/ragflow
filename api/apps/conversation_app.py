@@ -535,3 +535,29 @@ def completion_nokb():
             return get_json_result(data=answer)
     except Exception as e:
         return server_error_response(e)
+
+
+
+@manager.route('/list_lite', methods=['GET'])  # noqa: F821
+@login_required
+def list_convsersation_lite():
+    """F8080 为节省流量，不返回对话内容，只返回对话列表
+
+    Returns:
+        _type_: _description_
+    """
+    dialog_id = request.args["dialog_id"]
+    try:
+        if not DialogService.query(tenant_id=current_user.id, id=dialog_id):
+            return get_json_result(
+                data=False, message='Only owner of dialog authorized for this operation.',
+                code=settings.RetCode.OPERATING_ERROR)
+        convs = ConversationService.query(
+            dialog_id=dialog_id,
+            order_by=ConversationService.model.create_time,
+            reverse=True)
+
+        convs = [{k: v for k, v in d.to_dict().items() if k != 'message' and k != 'reference'} for d in convs]
+        return get_json_result(data=convs)
+    except Exception as e:
+        return server_error_response(e)
