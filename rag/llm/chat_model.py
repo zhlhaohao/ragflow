@@ -28,6 +28,9 @@ import os
 import json
 import requests
 import asyncio
+
+from api.utils import ic
+
 """统一封装了各类对话模型的调用接口
 """
 LENGTH_NOTIFICATION_CN = "······\n由于长度的原因，回答被截断了，要继续吗？"
@@ -66,6 +69,7 @@ class Base(ABC):
         if system:
             history.insert(0, {"role": "system", "content": system})
         ans = ""
+        reasoning_content = ""
         total_tokens = 0
         try:
             response = self.client.chat.completions.create(
@@ -76,6 +80,16 @@ class Base(ABC):
             for resp in response:
                 if not resp.choices:
                     continue
+
+                # F8080 加入Cot内容
+                if resp.choices[0].delta.reasoning_content:
+                    if ans =="":
+                        ans = "<think>"
+                    ans += resp.choices[0].delta.reasoning_content
+                else:
+                    if ans!="" and "</think>" not in ans:
+                        ans += "</think>"
+
                 if not resp.choices[0].delta.content:
                     resp.choices[0].delta.content = ""
                 ans += resp.choices[0].delta.content
