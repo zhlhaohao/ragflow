@@ -326,6 +326,31 @@ def my_llms():
         return server_error_response(e)
 
 
+@manager.route('/avail_llms', methods=['GET'])  # noqa: F821
+@login_required
+def avail_llms():
+    """ F8080 获取可用的模型列表，包括自己的和超级用户的
+
+    Returns:
+        _type_: _description_
+    """
+    try:
+        res = {}
+        for o in TenantLLMService.get_avail_llms(current_user.id):
+            if o["llm_factory"] not in res:
+                res[o["llm_factory"]] = {
+                    "tags": o["tags"],
+                    "llm": []
+                }
+            res[o["llm_factory"]]["llm"].append({
+                "type": o["model_type"],
+                "name": o["llm_name"],
+                "used_token": o["used_tokens"]
+            })
+        return get_json_result(data=res)
+    except Exception as e:
+        return server_error_response(e)
+
 @manager.route('/list', methods=['GET'])  # noqa: F821
 @login_required
 def list_app():

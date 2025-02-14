@@ -17,7 +17,7 @@ import json
 import logging
 import os
 
-from api.db.services.user_service import TenantService
+from api.db.services.user_service import TenantService, UserTenantService
 from api.utils.file_utils import get_project_base_directory
 from rag.llm import EmbeddingModel, CvModel, ChatModel, RerankModel, Seq2txtModel, TTSModel
 from api.db import LLMType
@@ -89,6 +89,43 @@ class TenantLLMService(CommonService):
 
         return list(objs)
 
+    @classmethod
+    @DB.connection_context()
+    def get_avail_llms(cls, tenant_id):
+        """ F8080 获取自己的模型和超级用户的模型。
+
+        Args:
+            tenant_id (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
+        fields = [
+            cls.model.llm_factory,
+            LLMFactories.logo,
+            LLMFactories.tags,
+            cls.model.model_type,
+            cls.model.llm_name,
+            cls.model.used_tokens
+        ]
+
+        super_tenants = UserTenantService.get_tenants_by_is_superuser()
+        if len(super_tenants) > 0:
+            super_tenant_id = super_tenants[0]['tenant_id']
+            objs = cls.model.select(*fields).join(LLMFactories, on=(cls.model.llm_factory == LLMFactories.name)).where(
+                (
+                    (cls.model.tenant_id == tenant_id)
+                    | (cls.model.tenant_id == super_tenant_id)
+                )
+                & ~cls.model.api_key.is_null()
+            ).dicts()
+        else:
+            objs = cls.model.select(*fields).join(LLMFactories, on=(cls.model.llm_factory == LLMFactories.name)).where(
+                cls.model.tenant_id == tenant_id, ~cls.model.api_key.is_null()).dicts()
+
+        return list(objs)
+
+
     @staticmethod
     def split_model_name_and_factory(model_name):
         arr = model_name.split("@")
@@ -151,18 +188,25 @@ class TenantLLMService(CommonService):
         else:
             assert False, "LLM type error"
 
-        # 从数据库获取模型配置
+        # 从 tenant_llm 获取模型配置,不仅仅是api_key
         model_config = cls.get_api_key(tenant_id, mdlnm)
         mdlnm, fid = TenantLLMService.split_model_name_and_factory(mdlnm)
+
+        # 如果找到了配置
         if model_config:
             model_config = model_config.to_dict()
+
+        # 如果 tenant_llm 不存在该模型的配置且为rerank或者embedding,那么从llm表中获取本地的模型（不需要api key）
         if not model_config:
             # 如果是emdedding或者rerank模型
             if llm_type in [LLMType.EMBEDDING, LLMType.RERANK]:
-                # 在llm表中查找模型（刚才在tenant_llm表没找到该模型）,fid是first id，也就是模型名称@后面的字串
+                # 在llm表中查找模型（刚才在tenant_llm表没找到该模型）,fid是大模型厂家名称
                 llm = LLMService.query(llm_name=mdlnm) if not fid else LLMService.query(llm_name=mdlnm, fid=fid)
+                # 这个是不需要api_key的
                 if llm and llm[0].fid in ["Youdao", "FastEmbed", "BAAI"]:
                     model_config = {"llm_factory": llm[0].fid, "api_key": "", "llm_name": mdlnm, "api_base": ""}
+
+            # 如果还没有找到,且模型名称为flag-embedding
             if not model_config:
                 if mdlnm == "flag-embedding":
                     model_config = {"llm_factory": "Tongyi-Qianwen", "api_key": "",
@@ -173,56 +217,56 @@ class TenantLLMService(CommonService):
                     raise LookupError("Model({}) not authorized".format(mdlnm))
 
 
-        # 根据 LLM 类型创建相应的实例
+        # 创建嵌入模型实例
         if llm_type == LLMType.EMBEDDING.value:
             if model_config["llm_factory"] not in EmbeddingModel:
                 return
-            # 创建嵌入模型实例
             return EmbeddingModel[model_config["llm_factory"]](
                 model_config["api_key"], model_config["llm_name"], base_url=model_config["api_base"])
 
+        # 创建 rerank 模型实例
         if llm_type == LLMType.RERANK:
             if model_config["llm_factory"] not in RerankModel:
                 return
-            # 创建 rerank 模型实例
             return RerankModel[model_config["llm_factory"]](
                 model_config["api_key"], model_config["llm_name"], base_url=model_config["api_base"])
 
+        # 创建图像转文本模型实例
         if llm_type == LLMType.IMAGE2TEXT.value:
             if model_config["llm_factory"] not in CvModel:
                 return
-            # 创建图像转文本模型实例
             return CvModel[model_config["llm_factory"]](
                 model_config["api_key"], model_config["llm_name"], lang,
                 base_url=model_config["api_base"]
             )
 
+        # 创建chat模型实例
         if llm_type == LLMType.CHAT.value:
             if model_config["llm_factory"] not in ChatModel:
                 return
-            # 创建对话 LLM 模型实例
             return ChatModel[model_config["llm_factory"]](
                 model_config["api_key"], model_config["llm_name"], base_url=model_config["api_base"])
 
+        # 创建语音转文本模型实例
         if llm_type == LLMType.SPEECH2TEXT:
             if model_config["llm_factory"] not in Seq2txtModel:
                 return
-            # 创建语音转文本模型实例
             return Seq2txtModel[model_config["llm_factory"]](
                 key=model_config["api_key"], model_name=model_config["llm_name"],
                 lang=lang,
                 base_url=model_config["api_base"]
             )
+
+        # 创建文本转语音模型实例
         if llm_type == LLMType.TTS:
             if model_config["llm_factory"] not in TTSModel:
                 return
-            # 创建文本转语音模型实例
             return TTSModel[model_config["llm_factory"]](
                 model_config["api_key"],
                 model_config["llm_name"],
                 base_url=model_config["api_base"],
             )
-        
+
     @classmethod
     @DB.connection_context()
     def increase_usage(cls, tenant_id, llm_type, used_tokens, llm_name=None):
@@ -297,7 +341,7 @@ class TenantLLMService(CommonService):
 
 class LLMBundle(object):
     """
-    对各种LLM模型进行了统一封装
+    从tenant_llm取出模型信息并封装成对象
     """    
     def __init__(self, tenant_id, llm_type, llm_name=None, lang="Chinese"):
         """初始化
@@ -312,8 +356,19 @@ class LLMBundle(object):
         self.tenant_id = tenant_id
         self.llm_type = llm_type
         self.llm_name = llm_name
-        self.mdl = TenantLLMService.model_instance(
-            tenant_id, llm_type, llm_name, lang=lang)
+
+        # F8080 - 如果本人的模型没有找到，就找超级用户的模型
+        try:
+            self.mdl = TenantLLMService.model_instance(
+                tenant_id, llm_type, llm_name, lang=lang)
+        except LookupError as ex:
+            # 如果本人的账号找不到模型，就从super user账号找
+            super_tenants = UserTenantService.get_tenants_by_is_superuser()
+            if len(super_tenants) > 0:
+                super_tenant_id = super_tenants[0]['tenant_id']
+                self.mdl = TenantLLMService.model_instance(
+                    super_tenant_id, llm_type, llm_name, lang=lang)
+
         assert self.mdl, "Can't find model for {}/{}/{}".format(
             tenant_id, llm_type, llm_name)
         self.max_length = 8192

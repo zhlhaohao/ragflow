@@ -855,15 +855,16 @@ Output:
 
 def chat_nokb(dialog, messages, stream=True):
     llm_id, model_provider = TenantLLMService.split_model_name_and_factory(dialog.llm_id)
-
+    # 首先在llm表中找到模型
     llm = LLMService.query(llm_name=llm_id) if not model_provider else LLMService.query(llm_name=llm_id, fid=model_provider)
-
+    # 如果找不到，那么就在tenant_llm表中找
     if not llm:
         llm = TenantLLMService.query(tenant_id=dialog.tenant_id, llm_name=llm_id) if not model_provider else \
             TenantLLMService.query(tenant_id=dialog.tenant_id, llm_name=llm_id, llm_factory=model_provider)
         if not llm:
             raise LookupError("LLM(%s) not found" % dialog.llm_id)
 
+    # 从TenantLLM表取出模型信息（包括api_key）,然后封装成对象返回，也包装了chat_streamly和chat方法
     chat_mdl = LLMBundle(dialog.tenant_id, LLMType.CHAT, dialog.llm_id)
     prompt_config = dialog.prompt_config
     gen_conf = dialog.llm_setting

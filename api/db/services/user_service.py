@@ -192,3 +192,21 @@ class UserTenantService(CommonService):
         return list(cls.model.select(*fields)
                     .join(User, on=((cls.model.tenant_id == User.id) & (UserTenant.user_id == user_id) & (UserTenant.status == StatusEnum.VALID.value)))
                     .where(cls.model.status == StatusEnum.VALID.value).dicts())
+
+
+    # F8080 找到那些是 super user 的 tenant_id
+    @classmethod
+    @DB.connection_context()
+    def get_tenants_by_is_superuser(cls):
+        fields = [
+            cls.model.tenant_id,
+            cls.model.role,
+            User.nickname,
+            User.email,
+            User.avatar,
+            User.update_date
+        ]
+        return list(cls.model.select(*fields)
+                    .join(User, on=((cls.model.tenant_id == User.id) & (User.is_superuser == 1) & (UserTenant.status == StatusEnum.VALID.value)))
+                    .where(cls.model.status == StatusEnum.VALID.value).dicts())
+
