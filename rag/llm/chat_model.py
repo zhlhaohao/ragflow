@@ -82,7 +82,7 @@ class Base(ABC):
                     continue
 
                 # F8080 加入Cot内容
-                if resp.choices[0].delta.reasoning_content:
+                if getattr(resp.choices[0].delta, 'reasoning_content', None) and resp.choices[0].delta.reasoning_content:
                     if ans =="":
                         ans = "<think>"
                     ans += resp.choices[0].delta.reasoning_content

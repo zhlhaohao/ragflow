@@ -518,6 +518,7 @@ def user_register(user_id, user):
         "location": "",
     }
     tenant_llm = []
+    # 新用户注册的时候，给用户添加默认的的LLM 模型，API_KEY、LLM_FACTORY来自于service_conf.yaml的user_default_llm，然后在llm表中把该factory的所有模型都赋给该用户（tenant_llm表）
     for llm in LLMService.query(fid=settings.LLM_FACTORY):
         tenant_llm.append(
             {

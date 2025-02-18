@@ -138,11 +138,11 @@ def init_settings():
             ASR_MDL = default_llm[LLM_FACTORY]["asr_model"] + f"@{LLM_FACTORY}"
             IMAGE2TEXT_MDL = default_llm[LLM_FACTORY]["image2text_model"] + f"@{LLM_FACTORY}"
 
-            # F8080 - 自己优化的，不要覆盖
-            # 嵌入模型采用你选择的模型的自己的嵌入模型，而不是一律用BAAI
             if default_llm[LLM_FACTORY]["embedding_model"] == "":
+                # F8080 - 采用BAAI的本地嵌入模型
                 EMBEDDING_MDL = default_llm["BAAI"]["embedding_model"] + "@BAAI"
             else:
+                # F8080 - 嵌入模型采用你选择的vendor的嵌入模型
                 EMBEDDING_MDL = default_llm[LLM_FACTORY]["embedding_model"] + f"@{LLM_FACTORY}"
 
         RERANK_MDL = default_llm["BAAI"]["rerank_model"] + "@BAAI"

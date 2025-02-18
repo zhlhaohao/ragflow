@@ -40,3 +40,4 @@ huggingface.co/
 nltk_data/
 .venv/
 local.service_conf.yaml
+.env
