@@ -24,7 +24,10 @@ from api import settings
 from api.utils.api_utils import server_error_response, get_data_error_result, validate_request
 from api.utils import get_uuid
 from api.utils.api_utils import get_json_result
+from api.utils import ic 
 
+# F8080
+from api.db.services.llm_service import LLMType,LLMService, TenantLLMService, LLMBundle
 
 @manager.route('/set', methods=['POST'])  # noqa: F821
 @login_required
@@ -186,5 +189,56 @@ def rm():
             dialog_list.append({"id": id,"status":StatusEnum.INVALID.value})
         DialogService.update_many_by_id(dialog_list)
         return get_json_result(data=True)
+    except Exception as e:
+        return server_error_response(e)
+
+
+@manager.route('/get_llm_config', methods=['GET'])  # noqa: F821
+@login_required
+def get_llm_config():
+    """F8080 获取模型的参数，例如api key
+
+    Returns:
+        _type_: _description_
+    """
+    dialog_id = request.args["dialog_id"]
+    try:
+        if not DialogService.query(tenant_id=current_user.id, id=dialog_id):
+            return get_json_result(
+                data=False, message='Only owner of dialog authorized for this operation.',
+                code=settings.RetCode.OPERATING_ERROR)
+
+        # 获取助理对象
+        e, dialog = DialogService.get_by_id(dialog_id)
+        if not e:
+            return get_data_error_result(message="Dialog not found!")
+
+        llm_id, model_provider = TenantLLMService.split_model_name_and_factory(dialog.llm_id)
+
+        # 在llm表中找到模型信息
+        llm = LLMService.query(llm_name=llm_id) if not model_provider else LLMService.query(llm_name=llm_id, fid=model_provider)
+
+        # 如果找不到，那么就在tenant_llm表中找
+        if not llm:
+            llm = TenantLLMService.query(tenant_id=dialog.tenant_id, llm_name=llm_id) if not model_provider else \
+                TenantLLMService.query(tenant_id=dialog.tenant_id, llm_name=llm_id, llm_factory=model_provider)
+            if not llm:
+                raise LookupError("LLM(%s) not found" % dialog.llm_id)
+
+        chat_mdl = LLMBundle(dialog.tenant_id, LLMType.CHAT, dialog.llm_id)
+        if model_provider=="Tongyi-Qianwen":
+            api_key = chat_mdl.mdl.api_key
+            base_url = chat_mdl.mdl.base_url
+        else:
+            api_key = chat_mdl.mdl.client.api_key
+            base_url = str(chat_mdl.mdl.client.base_url)
+
+        return get_json_result(
+            data={
+                    "fid": model_provider,
+                    "llm_name": chat_mdl.mdl.model_name,
+                    "api_key": api_key,
+                    "base_url": base_url,
+                    })
     except Exception as e:
         return server_error_response(e)

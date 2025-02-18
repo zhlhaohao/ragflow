@@ -165,7 +165,7 @@ class TenantLLMService(CommonService):
             LookupError: 模型未授权
 
         Returns:
-            object: 创建的 LLM 实例
+            object: 创建的 LLM 实例,如果是chat model，就返回ChatModel对象
         """
         # 获取租户信息
         e, tenant = TenantService.get_by_id(tenant_id)
@@ -357,8 +357,9 @@ class LLMBundle(object):
         self.llm_type = llm_type
         self.llm_name = llm_name
 
-        # F8080 - 如果本人的模型没有找到，就找超级用户的模型
+        # F8080 - 如果本人的模型没有找到，就找超级用户的模型，
         try:
+            # 返回factory对象，例如 DeepSeekChat, QWenChat（在chat_model.py中定义的)
             self.mdl = TenantLLMService.model_instance(
                 tenant_id, llm_type, llm_name, lang=lang)
         except LookupError as ex:

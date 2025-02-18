@@ -854,9 +854,24 @@ Output:
 
 
 def chat_nokb(dialog, messages, stream=True):
+    """F8080 无知识库对话，例如编程助手对话
+
+    Args:
+        dialog (_type_): _description_
+        messages (_type_): _description_
+        stream (bool, optional): _description_. Defaults to True.
+
+    Raises:
+        LookupError: _description_
+
+    Yields:
+        _type_: _description_
+    """
     llm_id, model_provider = TenantLLMService.split_model_name_and_factory(dialog.llm_id)
-    # 首先在llm表中找到模型
+
+    # 在llm表中找到模型信息
     llm = LLMService.query(llm_name=llm_id) if not model_provider else LLMService.query(llm_name=llm_id, fid=model_provider)
+
     # 如果找不到，那么就在tenant_llm表中找
     if not llm:
         llm = TenantLLMService.query(tenant_id=dialog.tenant_id, llm_name=llm_id) if not model_provider else \

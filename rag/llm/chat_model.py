@@ -266,6 +266,9 @@ class QWenChat(Base):
         import dashscope
         dashscope.api_key = key
         self.model_name = model_name
+        # F8080 - 这两个参数是给浏览器调用api用的
+        self.api_key = key
+        self.base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1/"
 
     def chat(self, system, history, gen_conf):
         stream_flag = str(os.environ.get('QWEN_CHAT_BY_STREAM', 'true')).lower() == 'true'

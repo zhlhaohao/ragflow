@@ -34,6 +34,7 @@ from api.utils.api_utils import server_error_response, get_data_error_result, va
 from graphrag.mind_map_extractor import MindMapExtractor
 from api.utils import ic 
 
+
 @manager.route('/set', methods=['POST'])
 @login_required
 def set_conversation():
@@ -561,3 +562,5 @@ def list_convsersation_lite():
         return get_json_result(data=convs)
     except Exception as e:
         return server_error_response(e)
+
+
