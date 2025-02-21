@@ -100,69 +100,45 @@
             "llm": [
                 {
                     "llm_name": "qwen-long",
-                    "tags": "LLM,CHAT,10000K",
+                    "tags": "LLM,CHAT,10000K,max_out_6000,max_in_10000000",
                     "max_tokens": 10000000,
                     "model_type": "chat"
                 },
                 {
-                    "llm_name": "qwen-turbo",
-                    "tags": "LLM,CHAT,8K",
-                    "max_tokens": 8191,
-                    "model_type": "chat"
-                },
-                {
                     "llm_name": "qwen-max",
-                    "tags": "LLM,CHAT,32K",
+                    "tags": "LLM,CHAT,32K,max_out_8192,max_in_30720",
                     "max_tokens": 32768,
                     "model_type": "chat"
                 },
                 {
                     "llm_name": "qwen-plus",
-                    "tags": "LLM,CHAT,32K",
-                    "max_tokens": 32768,
+                    "tags": "LLM,CHAT,128K,max_out_8192,max_in_129024",
+                    "max_tokens": 131072,
                     "model_type": "chat"
                 },
                 {
-                    "llm_name": "text-embedding-v2",
-                    "tags": "TEXT EMBEDDING,2K",
-                    "max_tokens": 2048,
-                    "model_type": "embedding"
+                    "llm_name": "qwen-coder-plus-latest",
+                    "tags": "LLM,CHAT,128K,max_out_8192,max_in_129024",
+                    "max_tokens": 131072,
+                    "model_type": "chat"
                 },
                 {
-                    "llm_name": "sambert-zhide-v1",
-                    "tags": "TTS",
-                    "max_tokens": 2048,
-                    "model_type": "tts"
+                    "llm_name": "deepseek-r1",
+                    "tags": "LLM,CHAT,64K,max_out_32768,max_in_57344",
+                    "max_tokens": 65792,
+                    "model_type": "chat"
                 },
                 {
-                    "llm_name": "sambert-zhiru-v1",
-                    "tags": "TTS",
-                    "max_tokens": 2048,
-                    "model_type": "tts"
+                    "llm_name": "deepseek-v3",
+                    "tags": "LLM,CHAT,64K,max_out_8192,max_in_57344",
+                    "max_tokens": 65792,
+                    "model_type": "chat"
                 },
                 {
                     "llm_name": "text-embedding-v3",
                     "tags": "TEXT EMBEDDING,8K",
                     "max_tokens": 8192,
                     "model_type": "embedding"
-                },
-                {
-                    "llm_name": "qwen-vl-max",
-                    "tags": "LLM,CHAT,IMAGE2TEXT",
-                    "max_tokens": 765,
-                    "model_type": "image2text"
-                },
-                {
-                    "llm_name": "qwen-vl-plus",
-                    "tags": "LLM,CHAT,IMAGE2TEXT",
-                    "max_tokens": 765,
-                    "model_type": "image2text"
-                },
-                {
-                    "llm_name": "gte-rerank",
-                    "tags": "RE-RANK,4k",
-                    "max_tokens": 4000,
-                    "model_type": "rerank"
                 }
             ]
         },
@@ -396,13 +372,13 @@
             "llm": [
                 {
                     "llm_name": "deepseek-chat",
-                    "tags": "LLM,CHAT,",
+                    "tags": "LLM,CHAT,max_out_8192,max_in_57344",
                     "max_tokens": 65536,
                     "model_type": "chat"
                 },
                 {
                     "llm_name": "deepseek-reasoner",
-                    "tags": "LLM,CHAT,",
+                    "tags": "LLM,CHAT,max_out_8192,max_in_57344",
                     "max_tokens": 65536,
                     "model_type": "chat"
                 }
@@ -1917,7 +1893,13 @@
             "llm": [
                 {
                     "llm_name": "Pro/deepseek-ai/DeepSeek-R1",
-                    "tags": "LLM,CHAT,64k",
+                    "tags": "LLM,CHAT,64k,max_out_8192,max_in_57344",
+                    "max_tokens": 65536,
+                    "model_type": "chat"
+                },
+                {
+                    "llm_name": "Pro/deepseek-ai/DeepSeek-V3",
+                    "tags": "LLM,CHAT,64k,max_out_4096,max_in_57344",
                     "max_tokens": 65536,
                     "model_type": "chat"
                 }

@@ -97,7 +97,7 @@ def init_superuser():
 
 def init_llm_factory():
     """
-    初始化 llm_factories、llm、tenant_llm 表
+    根据llm_factories.json的内容，更新 llm_factories、llm、tenant_llm 表，注意，不会删除factories
     """
     try:
         LLMService.filter_delete([(LLM.fid == "MiniMax" or LLM.fid == "Minimax")])

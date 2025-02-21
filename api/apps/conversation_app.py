@@ -263,13 +263,15 @@ def completion():
             return resp
 
         else:
+            """ F8080: 非流式响应改造成返回提示词和上下文，用于前端发起请求
             answer = None
-            # 调用chat函数生成答案，stream模式为False
             for ans in chat(dia, msg, **req):
                 answer = structure_answer(conv, ans, message_id, req["conversation_id"])
                 ConversationService.update_by_id(conv.id, conv.to_dict())
                 break
-            return get_json_result(data=answer)
+            """
+            for ans in chat(dia, msg, **req):
+                return get_json_result(data=ans)
     except Exception as e:
         return server_error_response(e)
 

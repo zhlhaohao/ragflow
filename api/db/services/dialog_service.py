@@ -405,12 +405,12 @@ def chat(dialog, messages, stream=True, **kwargs):
         prompt = f"{prompt}\n\n - Total: {total_time_cost:.1f}ms\n  - Check LLM: {check_llm_time_cost:.1f}ms\n  - Create retriever: {create_retriever_time_cost:.1f}ms\n  - Bind embedding: {bind_embedding_time_cost:.1f}ms\n  - Bind LLM: {bind_llm_time_cost:.1f}ms\n  - Tune question: {refine_question_time_cost:.1f}ms\n  - Bind reranker: {bind_reranker_time_cost:.1f}ms\n  - Generate keyword: {generate_keyword_time_cost:.1f}ms\n  - Retrieval: {retrieval_time_cost:.1f}ms\n  - Generate answer: {generate_result_time_cost:.1f}ms"
         return {"answer": answer, "reference": refs, "prompt": prompt}
 
+        ic(prompt)
     if stream:
         last_ans = ""
         answer = ""
 
         # 0003.md
-        ic(prompt)
 
         for ans in chat_mdl.chat_streamly(prompt, msg[1:], gen_conf):
             answer = ans
@@ -424,13 +424,20 @@ def chat(dialog, messages, stream=True, **kwargs):
             yield {"answer": answer, "reference": {}, "audio_binary": tts(tts_mdl, delta_ans)}
         yield decorate_answer(answer)
     else:
+        """ F8080: 非流式响应改造成返回提示词和上下文，用于前端发起请求
         answer = chat_mdl.chat(prompt, msg[1:], gen_conf)
         logging.debug("User: {}|Assistant: {}".format(
             msg[-1]["content"], answer))
         res = decorate_answer(answer)
         res["audio_binary"] = tts(tts_mdl, answer)
         yield res
-
+        """
+        answer = {
+            "prompt": prompt,
+            "msg": msg[1:],
+            "gen_conf": gen_conf
+        }
+        yield answer
 
 def use_sql(question, field_map, tenant_id, chat_mdl, quota=True):
     sys_prompt = "You are a Database Administrator. You need to check the fields of the following tables based on the user's list of questions and write the SQL corresponding to the last question."
