@@ -69,7 +69,7 @@ def init_settings():
     # LLM 是从 service.conf 读取的 key=user_default_llm 的配置，是默认llm的配置信息
     LLM = get_base_config("user_default_llm", {})
 
-    LLM_FACTORY = LLM.get("factory", "Tongyi-Qianwen")
+    LLM_FACTORY = LLM.get("factory", "BAAI")
     LLM_BASE_URL = LLM.get("base_url")
 
     global CHAT_MDL, EMBEDDING_MDL, RERANK_MDL, ASR_MDL, IMAGE2TEXT_MDL
@@ -77,8 +77,7 @@ def init_settings():
         default_llm = {
             "Tongyi-Qianwen": {
                 "chat_model": "qwen-plus",
-                "embedding_model": "text-embedding-v3",     # F8080 - 自己加上的，不要覆盖,选择最新的嵌入模型
-                # "embedding_model": "text-embedding-v2",
+                "embedding_model": "text-embedding-v3",
                 "image2text_model": "qwen-vl-max",
                 "asr_model": "paraformer-realtime-8k-v1",
             },
@@ -134,18 +133,16 @@ def init_settings():
         }
 
         if LLM_FACTORY:
-            CHAT_MDL = default_llm[LLM_FACTORY]["chat_model"] + f"@{LLM_FACTORY}"
-            ASR_MDL = default_llm[LLM_FACTORY]["asr_model"] + f"@{LLM_FACTORY}"
-            IMAGE2TEXT_MDL = default_llm[LLM_FACTORY]["image2text_model"] + f"@{LLM_FACTORY}"
+            CHAT_MDL = (default_llm[LLM_FACTORY].get("chat_model") + f"@{LLM_FACTORY}") if default_llm[LLM_FACTORY].get("chat_model") else ""
 
-            if default_llm[LLM_FACTORY]["embedding_model"] == "":
-                # F8080 - 采用BAAI的本地嵌入模型
-                EMBEDDING_MDL = default_llm["BAAI"]["embedding_model"] + "@BAAI"
-            else:
-                # F8080 - 嵌入模型采用你选择的vendor的嵌入模型
-                EMBEDDING_MDL = default_llm[LLM_FACTORY]["embedding_model"] + f"@{LLM_FACTORY}"
+            EMBEDDING_MDL = (default_llm[LLM_FACTORY]["embedding_model"] + f"@{LLM_FACTORY}") if default_llm[LLM_FACTORY].get("embedding_model") else ""
 
-        RERANK_MDL = default_llm["BAAI"]["rerank_model"] + "@BAAI"
+            RERANK_MDL = (default_llm[LLM_FACTORY]["rerank_model"] + f"@{LLM_FACTORY}") if default_llm[LLM_FACTORY].get("rerank_model") else ""
+
+            ASR_MDL = (default_llm[LLM_FACTORY]["asr_model"] + f"@{LLM_FACTORY}") if default_llm[LLM_FACTORY].get("asr_model") else ""
+
+            IMAGE2TEXT_MDL = (default_llm[LLM_FACTORY]["image2text_model"] + f"@{LLM_FACTORY}") if default_llm[LLM_FACTORY].get("image2text_model") else ""
+
 
     global API_KEY, PARSERS, HOST_IP, HOST_PORT, SECRET_KEY
     API_KEY = LLM.get("api_key", "")
