@@ -47,15 +47,378 @@
 2025-02-25 16:11:58 [INFO] 检查/api/v1/user/routers请求的token
 2025-02-25 16:11:58 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
 2025-02-25 16:12:04 [INFO] 127.0.0.1:58518 - "GET /images/avatar/default/assistant.jpg HTTP/1.0" 200
-2025-02-26 08:41:38 [INFO] Will watch for changes in these directories: ['/oo_audit']
-2025-02-26 08:41:38 [INFO] Uvicorn running on http://0.0.0.0:9898 (Press CTRL+C to quit)
-2025-02-26 08:41:38 [INFO] Started reloader process [21] using StatReload
-2025-02-26 08:41:43 [INFO] Started server process [46]
-2025-02-26 08:41:43 [INFO] Waiting for application startup.
-2025-02-26 08:41:43 [INFO] Application startup complete.
-2025-02-27 08:19:23 [INFO] Will watch for changes in these directories: ['/oo_audit']
-2025-02-27 08:19:23 [INFO] Uvicorn running on http://0.0.0.0:9898 (Press CTRL+C to quit)
-2025-02-27 08:19:23 [INFO] Started reloader process [21] using StatReload
-2025-02-27 08:19:27 [INFO] Started server process [46]
-2025-02-27 08:19:27 [INFO] Waiting for application startup.
-2025-02-27 08:19:27 [INFO] Application startup complete.
+2025-02-26 09:50:09 [INFO] Will watch for changes in these directories: ['/oo_audit']
+2025-02-26 09:50:09 [INFO] Uvicorn running on http://0.0.0.0:9898 (Press CTRL+C to quit)
+2025-02-26 09:50:09 [INFO] Started reloader process [17] using StatReload
+2025-02-26 09:50:12 [INFO] Started server process [36]
+2025-02-26 09:50:12 [INFO] Waiting for application startup.
+2025-02-26 09:50:12 [INFO] Application startup complete.
+2025-02-26 09:53:15 [INFO] 172.18.0.1:0 - "GET /api/v1/user/captcha-code HTTP/1.0" 200
+2025-02-26 09:53:26 [INFO] 172.18.0.1:0 - "POST /api/v1/user/login HTTP/1.0" 200
+2025-02-26 09:53:26 [INFO] 检查/api/v1/user/info请求的token
+2025-02-26 09:53:26 [INFO] 172.18.0.1:0 - "GET /api/v1/user/info HTTP/1.0" 200
+2025-02-26 09:53:26 [INFO] 检查/api/v1/user/routers请求的token
+2025-02-26 09:53:26 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
+2025-02-26 09:53:26 [INFO] 127.0.0.1:34226 - "GET /images/avatar/default/avatar.jpg?imageView2/1/w/80/h/80 HTTP/1.0" 200
+2025-02-26 09:53:30 [INFO] 127.0.0.1:55078 - "GET /images/avatar/default/avatar.jpg HTTP/1.0" 200
+2025-02-26 09:53:30 [INFO] 检查/api/v1/user/rag_login请求的token
+2025-02-26 09:53:30 [INFO] 172.18.0.1:0 - "POST /api/v1/user/rag_login HTTP/1.0" 200
+2025-02-26 09:53:34 [INFO] 检查/api/v1/user/info请求的token
+2025-02-26 09:53:34 [INFO] 172.18.0.1:0 - "GET /api/v1/user/info HTTP/1.0" 200
+2025-02-26 09:53:34 [INFO] 检查/api/v1/user/routers请求的token
+2025-02-26 09:53:34 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
+2025-02-26 09:53:34 [INFO] 检查/api/v1/user/rag_login请求的token
+2025-02-26 09:53:34 [INFO] 172.18.0.1:0 - "POST /api/v1/user/rag_login HTTP/1.0" 200
+2025-02-26 09:53:36 [INFO] 检查/api/v1/user/info请求的token
+2025-02-26 09:53:36 [INFO] 172.18.0.1:0 - "GET /api/v1/user/info HTTP/1.0" 200
+2025-02-26 09:53:36 [INFO] 检查/api/v1/user/routers请求的token
+2025-02-26 09:53:36 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
+2025-02-26 09:53:37 [INFO] 检查/api/v1/user/rag_login请求的token
+2025-02-26 09:53:37 [INFO] 172.18.0.1:0 - "POST /api/v1/user/rag_login HTTP/1.0" 200
+2025-02-26 09:53:39 [INFO] 检查/api/v1/user/rag_login请求的token
+2025-02-26 09:53:39 [INFO] 172.18.0.1:0 - "POST /api/v1/user/rag_login HTTP/1.0" 200
+2025-02-26 09:53:42 [INFO] 检查/api/v1/system/dict/type/permission_user_status请求的token
+2025-02-26 09:53:42 [INFO] 检查/api/v1/permission/user请求的token
+2025-02-26 09:53:42 [INFO] 检查/api/v1/system/dict/type/permission_user_sex请求的token
+2025-02-26 09:53:42 [INFO] 检查/api/v1/permission/role/select/list请求的token
+2025-02-26 09:53:42 [INFO] 172.18.0.1:0 - "GET /api/v1/permission/role/select/list HTTP/1.0" 200
+2025-02-26 09:53:42 [INFO] 172.18.0.1:0 - "GET /api/v1/permission/user?page=1&limit=20 HTTP/1.0" 200
+2025-02-26 09:53:42 [INFO] 172.18.0.1:0 - "GET /api/v1/system/dict/type/permission_user_status HTTP/1.0" 200
+2025-02-26 09:53:42 [INFO] 检查/api/v1/system/config-setting/key/user_init_roles请求的token
+2025-02-26 09:53:42 [INFO] 172.18.0.1:0 - "GET /api/v1/system/dict/type/permission_user_sex HTTP/1.0" 200
+2025-02-26 09:53:42 [INFO] 172.18.0.1:0 - "GET /api/v1/system/config-setting/key/user_init_roles HTTP/1.0" 200
+2025-02-26 09:53:44 [INFO] 检查/api/v1/user/rag_login请求的token
+2025-02-26 09:53:45 [INFO] 172.18.0.1:0 - "POST /api/v1/user/rag_login HTTP/1.0" 200
+2025-02-26 09:53:56 [INFO] 检查/api/v1/user/info请求的token
+2025-02-26 09:53:56 [INFO] 172.18.0.1:0 - "GET /api/v1/user/info HTTP/1.0" 200
+2025-02-26 09:53:57 [INFO] 检查/api/v1/user/routers请求的token
+2025-02-26 09:53:57 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
+2025-02-26 09:53:58 [INFO] 检查/api/v1/user/rag_login请求的token
+2025-02-26 09:53:58 [INFO] 172.18.0.1:0 - "POST /api/v1/user/rag_login HTTP/1.0" 200
+2025-02-26 09:54:13 [INFO] 检查/api/v1/user/rag_login请求的token
+2025-02-26 09:54:13 [INFO] 172.18.0.1:0 - "POST /api/v1/user/rag_login HTTP/1.0" 200
+2025-02-26 10:12:21 [INFO] Will watch for changes in these directories: ['/oo_audit']
+2025-02-26 10:12:21 [INFO] Uvicorn running on http://0.0.0.0:9898 (Press CTRL+C to quit)
+2025-02-26 10:12:21 [INFO] Started reloader process [17] using StatReload
+2025-02-26 10:12:24 [INFO] Started server process [36]
+2025-02-26 10:12:24 [INFO] Waiting for application startup.
+2025-02-26 10:12:24 [INFO] Application startup complete.
+2025-02-26 10:12:24 [INFO] 172.18.0.1:0 - "GET /api/v1/user/captcha-code HTTP/1.0" 200
+2025-02-26 10:12:28 [INFO] 172.18.0.1:0 - "GET /api/v1/user/captcha-code HTTP/1.0" 200
+2025-02-26 10:12:38 [INFO] 172.18.0.1:0 - "POST /api/v1/user/login HTTP/1.0" 200
+2025-02-26 10:12:38 [INFO] 172.18.0.1:0 - "GET /api/v1/user/captcha-code HTTP/1.0" 200
+2025-02-26 10:12:45 [INFO] 172.18.0.1:0 - "POST /api/v1/user/login HTTP/1.0" 200
+2025-02-26 10:12:45 [INFO] 检查/api/v1/user/info请求的token
+2025-02-26 10:12:45 [INFO] 172.18.0.1:0 - "GET /api/v1/user/info HTTP/1.0" 200
+2025-02-26 10:12:45 [INFO] 检查/api/v1/user/routers请求的token
+2025-02-26 10:12:45 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
+2025-02-26 10:12:45 [INFO] 127.0.0.1:55750 - "GET /images/avatar/default/avatar.jpg?imageView2/1/w/80/h/80 HTTP/1.0" 200
+2025-02-26 10:12:48 [INFO] 127.0.0.1:55758 - "GET /images/avatar/default/avatar.jpg HTTP/1.0" 200
+2025-02-26 10:12:48 [INFO] 检查/api/v1/user/rag_login请求的token
+2025-02-26 10:12:48 [INFO] 172.18.0.1:0 - "POST /api/v1/user/rag_login HTTP/1.0" 200
+2025-02-26 10:12:52 [INFO] 检查/api/v1/user/info请求的token
+2025-02-26 10:12:52 [INFO] 172.18.0.1:0 - "GET /api/v1/user/info HTTP/1.0" 200
+2025-02-26 10:12:52 [INFO] 检查/api/v1/user/routers请求的token
+2025-02-26 10:12:52 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
+2025-02-26 10:12:53 [INFO] 检查/api/v1/user/rag_login请求的token
+2025-02-26 10:12:53 [INFO] 172.18.0.1:0 - "POST /api/v1/user/rag_login HTTP/1.0" 200
+2025-02-26 10:12:53 [INFO] 127.0.0.1:56028 - "GET /images/avatar/default/assistant.jpg HTTP/1.0" 200
+2025-02-26 10:12:59 [INFO] 检查/api/v1/permission/user请求的token
+2025-02-26 10:12:59 [INFO] 172.18.0.1:0 - "GET /api/v1/permission/user?page=1&limit=1000 HTTP/1.0" 200
+2025-02-26 10:13:02 [INFO] 检查/api/v1/user/info请求的token
+2025-02-26 10:13:02 [INFO] 172.18.0.1:0 - "GET /api/v1/user/info HTTP/1.0" 200
+2025-02-26 10:13:02 [INFO] 检查/api/v1/user/routers请求的token
+2025-02-26 10:13:02 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
+2025-02-26 10:13:08 [INFO] 检查/api/v1/user/info请求的token
+2025-02-26 10:13:08 [INFO] 172.18.0.1:0 - "GET /api/v1/user/info HTTP/1.0" 200
+2025-02-26 10:13:08 [INFO] 检查/api/v1/user/routers请求的token
+2025-02-26 10:13:08 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
+2025-02-26 10:13:18 [INFO] 127.0.0.1:42218 - "GET /images/avatar/default/avatar.jpg HTTP/1.0" 200
+2025-02-26 10:13:19 [INFO] 127.0.0.1:42228 - "GET /images/avatar/default/assistant.jpg HTTP/1.0" 200
+2025-02-26 10:18:57 [INFO] 检查/api/v1/permission/user请求的token
+2025-02-26 10:18:57 [INFO] 172.18.0.1:0 - "GET /api/v1/permission/user?page=1&limit=1000 HTTP/1.0" 200
+2025-02-26 10:18:59 [INFO] 检查/api/v1/permission/user请求的token
+2025-02-26 10:18:59 [INFO] 检查/api/v1/system/dict/type/permission_user_status请求的token
+2025-02-26 10:18:59 [INFO] 172.18.0.1:0 - "GET /api/v1/permission/user?page=1&limit=20 HTTP/1.0" 200
+2025-02-26 10:18:59 [INFO] 检查/api/v1/system/dict/type/permission_user_sex请求的token
+2025-02-26 10:18:59 [INFO] 检查/api/v1/permission/role/select/list请求的token
+2025-02-26 10:18:59 [INFO] 172.18.0.1:0 - "GET /api/v1/system/dict/type/permission_user_status HTTP/1.0" 200
+2025-02-26 10:18:59 [INFO] 172.18.0.1:0 - "GET /api/v1/system/dict/type/permission_user_sex HTTP/1.0" 200
+2025-02-26 10:18:59 [INFO] 172.18.0.1:0 - "GET /api/v1/permission/role/select/list HTTP/1.0" 200
+2025-02-26 10:19:00 [INFO] 检查/api/v1/system/config-setting/key/user_init_roles请求的token
+2025-02-26 10:19:00 [INFO] 172.18.0.1:0 - "GET /api/v1/system/config-setting/key/user_init_roles HTTP/1.0" 200
+2025-02-26 10:54:39 [INFO] 检查/api/v1/permission/menu请求的token
+2025-02-26 10:54:39 [INFO] 172.18.0.1:0 - "GET /api/v1/permission/menu HTTP/1.0" 200
+2025-02-26 10:54:39 [INFO] 检查/api/v1/system/dict/type/com_default_status请求的token
+2025-02-26 10:54:39 [INFO] 172.18.0.1:0 - "GET /api/v1/system/dict/type/com_default_status HTTP/1.0" 200
+2025-02-26 11:01:59 [INFO] 检查/api/v1/user/info请求的token
+2025-02-26 11:01:59 [INFO] 172.18.0.1:0 - "GET /api/v1/user/info HTTP/1.0" 200
+2025-02-26 11:01:59 [INFO] 检查/api/v1/user/routers请求的token
+2025-02-26 11:01:59 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
+2025-02-26 11:02:00 [INFO] 127.0.0.1:50652 - "GET /images/avatar/default/avatar.jpg?imageView2/1/w/80/h/80 HTTP/1.0" 200
+2025-02-26 11:02:05 [INFO] 127.0.0.1:50666 - "GET /images/avatar/default/avatar.jpg HTTP/1.0" 200
+2025-02-26 11:02:05 [INFO] 127.0.0.1:50668 - "GET /images/avatar/default/assistant.jpg HTTP/1.0" 200
+2025-02-26 11:02:58 [INFO] 检查/api/v1/user/info请求的token
+2025-02-26 11:02:58 [INFO] 172.18.0.1:0 - "GET /api/v1/user/info HTTP/1.0" 200
+2025-02-26 11:02:58 [INFO] 检查/api/v1/user/routers请求的token
+2025-02-26 11:02:58 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
+2025-02-26 11:03:04 [INFO] 检查/api/v1/permission/user请求的token
+2025-02-26 11:03:04 [INFO] 172.18.0.1:0 - "GET /api/v1/permission/user?page=1&limit=1000 HTTP/1.0" 200
+2025-02-26 14:10:56 [INFO] Will watch for changes in these directories: ['/oo_audit']
+2025-02-26 14:10:56 [INFO] Uvicorn running on http://0.0.0.0:9898 (Press CTRL+C to quit)
+2025-02-26 14:10:56 [INFO] Started reloader process [17] using StatReload
+2025-02-26 14:11:00 [INFO] Started server process [36]
+2025-02-26 14:11:00 [INFO] Waiting for application startup.
+2025-02-26 14:11:00 [INFO] Application startup complete.
+2025-02-26 14:11:04 [INFO] 检查/api/v1/user/info请求的token
+2025-02-26 14:11:04 [INFO] 172.18.0.1:0 - "GET /api/v1/user/info HTTP/1.0" 200
+2025-02-26 14:11:04 [INFO] 检查/api/v1/user/routers请求的token
+2025-02-26 14:11:04 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
+2025-02-26 14:11:04 [INFO] 127.0.0.1:50198 - "GET /images/avatar/default/avatar.jpg?imageView2/1/w/80/h/80 HTTP/1.0" 200
+2025-02-26 14:11:08 [INFO] 检查/api/v1/user/info请求的token
+2025-02-26 14:11:08 [INFO] 172.18.0.1:0 - "GET /api/v1/user/info HTTP/1.0" 200
+2025-02-26 14:11:08 [INFO] 检查/api/v1/user/routers请求的token
+2025-02-26 14:11:08 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
+2025-02-26 14:11:12 [INFO] 检查/api/v1/user/logout请求的token
+2025-02-26 14:11:12 [INFO] 172.18.0.1:0 - "POST /api/v1/user/logout HTTP/1.0" 200
+2025-02-26 14:11:12 [INFO] 172.18.0.1:0 - "GET /api/v1/user/check HTTP/1.0" 200
+2025-02-26 14:11:47 [INFO] 172.18.0.1:0 - "POST /api/v1/user/sso_login HTTP/1.0" 200
+2025-02-26 14:11:47 [INFO] 检查/api/v1/user/info请求的token
+2025-02-26 14:11:47 [INFO] 172.18.0.1:0 - "GET /api/v1/user/info HTTP/1.0" 200
+2025-02-26 14:11:47 [INFO] 检查/api/v1/user/routers请求的token
+2025-02-26 14:11:47 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
+2025-02-26 14:11:47 [INFO] 127.0.0.1:54846 - "GET /images/avatar/default/avatar.jpg?imageView2/1/w/80/h/80 HTTP/1.0" 200
+2025-02-26 14:11:51 [INFO] 检查/api/v1/user/rag_login请求的token
+2025-02-26 14:11:51 [INFO] 127.0.0.1:33160 - "GET /images/avatar/default/avatar.jpg HTTP/1.0" 200
+2025-02-26 14:11:54 [INFO] 172.18.0.1:0 - "POST /api/v1/user/rag_login HTTP/1.0" 200
+2025-02-26 14:11:54 [INFO] 127.0.0.1:33168 - "GET /images/avatar/default/assistant.jpg HTTP/1.0" 200
+2025-02-26 14:12:00 [INFO] 检查/api/v1/system/celery/list_sse请求的token
+2025-02-26 14:12:00 [INFO] 172.18.0.1:0 - "GET /api/v1/system/celery/list_sse?page=1&page_size=5 HTTP/1.0" 200
+2025-02-26 14:12:05 [INFO] 检查/api/v1/system/dict/type/permission_user_sex请求的token
+2025-02-26 14:12:05 [INFO] 检查/api/v1/permission/role/select/list请求的token
+2025-02-26 14:12:05 [INFO] 检查/api/v1/permission/user请求的token
+2025-02-26 14:12:05 [INFO] 检查/api/v1/system/dict/type/permission_user_status请求的token
+2025-02-26 14:12:05 [INFO] 172.18.0.1:0 - "GET /api/v1/permission/role/select/list HTTP/1.0" 200
+2025-02-26 14:12:05 [INFO] 172.18.0.1:0 - "GET /api/v1/permission/user?page=1&limit=20 HTTP/1.0" 200
+2025-02-26 14:12:05 [INFO] 检查/api/v1/system/config-setting/key/user_init_roles请求的token
+2025-02-26 14:12:05 [INFO] 172.18.0.1:0 - "GET /api/v1/system/dict/type/permission_user_sex HTTP/1.0" 200
+2025-02-26 14:12:05 [INFO] 172.18.0.1:0 - "GET /api/v1/system/dict/type/permission_user_status HTTP/1.0" 200
+2025-02-26 14:12:05 [INFO] 172.18.0.1:0 - "GET /api/v1/system/config-setting/key/user_init_roles HTTP/1.0" 200
+2025-02-26 14:12:15 [INFO] 检查/api/v1/user/logout请求的token
+2025-02-26 14:12:15 [INFO] 172.18.0.1:0 - "POST /api/v1/user/logout HTTP/1.0" 200
+2025-02-26 14:12:15 [INFO] 172.18.0.1:0 - "GET /api/v1/user/check HTTP/1.0" 200
+2025-02-26 14:12:20 [INFO] 172.18.0.1:0 - "GET /api/v1/user/captcha-code HTTP/1.0" 200
+2025-02-26 14:12:27 [INFO] 172.18.0.1:0 - "POST /api/v1/user/login HTTP/1.0" 200
+2025-02-26 14:12:27 [INFO] 检查/api/v1/user/info请求的token
+2025-02-26 14:12:27 [INFO] 172.18.0.1:0 - "GET /api/v1/user/info HTTP/1.0" 200
+2025-02-26 14:12:27 [INFO] 检查/api/v1/user/routers请求的token
+2025-02-26 14:12:27 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
+2025-02-26 14:12:27 [INFO] 127.0.0.1:58762 - "GET /images/avatar/default/avatar.jpg?imageView2/1/w/80/h/80 HTTP/1.0" 200
+2025-02-26 14:12:31 [INFO] 检查/api/v1/user/rag_login请求的token
+2025-02-26 14:12:31 [INFO] 127.0.0.1:54180 - "GET /images/avatar/default/avatar.jpg HTTP/1.0" 200
+2025-02-26 14:12:32 [INFO] 172.18.0.1:0 - "POST /api/v1/user/rag_login HTTP/1.0" 200
+2025-02-26 14:12:36 [INFO] 检查/api/v1/permission/user请求的token
+2025-02-26 14:12:36 [INFO] 172.18.0.1:0 - "GET /api/v1/permission/user?page=1&limit=1000 HTTP/1.0" 200
+2025-02-26 14:13:48 [INFO] 检查/api/v1/permission/user请求的token
+2025-02-26 14:13:48 [INFO] 172.18.0.1:0 - "GET /api/v1/permission/user?page=1&limit=1000 HTTP/1.0" 200
+2025-02-26 14:26:50 [INFO] 127.0.0.1:40704 - "GET /images/avatar/default/assistant.jpg HTTP/1.0" 200
+2025-02-26 14:26:52 [INFO] 127.0.0.1:40716 - "GET /images/avatar/default/avatar.jpg HTTP/1.0" 200
+2025-02-26 14:29:25 [INFO] 127.0.0.1:33926 - "GET /images/avatar/default/avatar.jpg HTTP/1.0" 200
+2025-02-26 14:29:53 [INFO] 检查/api/v1/user/logout请求的token
+2025-02-26 14:29:53 [INFO] 172.18.0.1:0 - "POST /api/v1/user/logout HTTP/1.0" 200
+2025-02-26 14:29:53 [INFO] 172.18.0.1:0 - "GET /api/v1/user/check HTTP/1.0" 200
+2025-02-26 14:29:58 [INFO] 172.18.0.1:0 - "GET /api/v1/user/captcha-code HTTP/1.0" 200
+2025-02-26 14:30:06 [INFO] 172.18.0.1:0 - "POST /api/v1/user/login HTTP/1.0" 200
+2025-02-26 14:30:06 [INFO] 检查/api/v1/user/info请求的token
+2025-02-26 14:30:06 [INFO] 172.18.0.1:0 - "GET /api/v1/user/info HTTP/1.0" 200
+2025-02-26 14:30:06 [INFO] 检查/api/v1/user/routers请求的token
+2025-02-26 14:30:06 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
+2025-02-26 14:30:06 [INFO] 127.0.0.1:45432 - "GET /images/avatar/default/avatar.jpg?imageView2/1/w/80/h/80 HTTP/1.0" 200
+2025-02-26 14:30:10 [INFO] 检查/api/v1/user/rag_login请求的token
+2025-02-26 14:30:10 [INFO] 172.18.0.1:0 - "POST /api/v1/user/rag_login HTTP/1.0" 200
+2025-02-26 14:30:11 [INFO] 检查/api/v1/permission/user请求的token
+2025-02-26 14:30:11 [INFO] 172.18.0.1:0 - "GET /api/v1/permission/user?page=1&limit=1000 HTTP/1.0" 200
+2025-02-26 14:30:11 [INFO] 127.0.0.1:35030 - "GET /images/avatar/default/avatar.jpg HTTP/1.0" 200
+2025-02-26 14:30:11 [INFO] 127.0.0.1:35034 - "GET /images/avatar/default/assistant.jpg HTTP/1.0" 200
+2025-02-26 16:40:48 [INFO] 172.18.0.1:0 - "GET /api/v1/user/captcha-code HTTP/1.0" 200
+2025-02-26 16:40:59 [INFO] 172.18.0.1:0 - "POST /api/v1/user/login HTTP/1.0" 200
+2025-02-26 16:40:59 [INFO] 检查/api/v1/user/info请求的token
+2025-02-26 16:40:59 [INFO] 172.18.0.1:0 - "GET /api/v1/user/info HTTP/1.0" 200
+2025-02-26 16:41:00 [INFO] 检查/api/v1/user/routers请求的token
+2025-02-26 16:41:00 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
+2025-02-26 16:41:00 [INFO] 127.0.0.1:48492 - "GET /images/avatar/default/avatar.jpg?imageView2/1/w/80/h/80 HTTP/1.0" 200
+2025-02-26 16:41:09 [INFO] 127.0.0.1:32918 - "GET /images/avatar/default/avatar.jpg HTTP/1.0" 200
+2025-02-26 16:41:09 [INFO] 检查/api/v1/user/rag_login请求的token
+2025-02-26 16:41:09 [INFO] 172.18.0.1:0 - "POST /api/v1/user/rag_login HTTP/1.0" 200
+2025-02-26 16:41:10 [INFO] 127.0.0.1:32926 - "GET /images/avatar/default/assistant.jpg HTTP/1.0" 200
+2025-02-26 16:41:38 [INFO] 检查/api/v1/user/info请求的token
+2025-02-26 16:41:38 [INFO] 172.18.0.1:0 - "GET /api/v1/user/info HTTP/1.0" 200
+2025-02-26 16:41:38 [INFO] 检查/api/v1/user/routers请求的token
+2025-02-26 16:41:38 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
+2025-02-26 16:41:40 [INFO] 127.0.0.1:52848 - "GET /images/avatar/default/avatar.jpg?imageView2/1/w/80/h/80 HTTP/1.0" 200
+2025-02-26 16:41:40 [INFO] 127.0.0.1:52856 - "GET /images/avatar/default/avatar.jpg HTTP/1.0" 200
+2025-02-26 16:41:41 [INFO] 127.0.0.1:52862 - "GET /images/avatar/default/assistant.jpg HTTP/1.0" 200
+2025-02-26 16:43:21 [INFO] 检查/api/v1/permission/user请求的token
+2025-02-26 16:43:21 [INFO] 172.18.0.1:0 - "GET /api/v1/permission/user?page=1&limit=1000 HTTP/1.0" 200
+2025-02-26 16:43:40 [INFO] 检查/api/v1/permission/user请求的token
+2025-02-26 16:43:40 [INFO] 172.18.0.1:0 - "GET /api/v1/permission/user?page=1&limit=1000 HTTP/1.0" 200
+2025-02-26 16:44:58 [INFO] 127.0.0.1:60756 - "GET /images/avatar/default/avatar.jpg HTTP/1.0" 200
+2025-02-26 16:44:59 [INFO] 127.0.0.1:60758 - "GET /images/avatar/default/assistant.jpg HTTP/1.0" 200
+2025-02-26 16:47:54 [INFO] 127.0.0.1:59598 - "GET /images/avatar/default/avatar.jpg HTTP/1.0" 200
+2025-02-26 16:47:54 [INFO] 127.0.0.1:59602 - "GET /images/avatar/default/assistant.jpg HTTP/1.0" 200
+2025-02-26 17:01:19 [INFO] 检查/api/v1/permission/user请求的token
+2025-02-26 17:01:19 [INFO] 172.18.0.1:0 - "GET /api/v1/permission/user?page=1&limit=1000 HTTP/1.0" 200
+2025-02-26 19:16:39 [INFO] 172.18.0.1:0 - "GET /api/v1/user/check HTTP/1.0" 200
+2025-02-26 19:16:56 [INFO] 172.18.0.1:0 - "GET /api/v1/user/check HTTP/1.0" 200
+2025-02-26 19:17:05 [INFO] 172.18.0.1:0 - "GET /api/v1/user/captcha-code HTTP/1.0" 200
+2025-02-26 19:17:51 [INFO] 172.18.0.1:0 - "POST /api/v1/user/login HTTP/1.0" 200
+2025-02-26 19:17:51 [INFO] 检查/api/v1/user/info请求的token
+2025-02-26 19:17:51 [INFO] 172.18.0.1:0 - "GET /api/v1/user/info HTTP/1.0" 200
+2025-02-26 19:17:51 [INFO] 检查/api/v1/user/routers请求的token
+2025-02-26 19:17:51 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
+2025-02-26 19:17:52 [INFO] 127.0.0.1:35398 - "GET /images/avatar/default/avatar.jpg?imageView2/1/w/80/h/80 HTTP/1.0" 200
+2025-02-26 19:17:55 [INFO] 检查/api/v1/user/rag_login请求的token
+2025-02-26 19:17:55 [INFO] 127.0.0.1:35412 - "GET /images/avatar/default/avatar.jpg HTTP/1.0" 200
+2025-02-26 19:17:55 [INFO] 172.18.0.1:0 - "POST /api/v1/user/rag_login HTTP/1.0" 200
+2025-02-26 19:17:56 [INFO] 127.0.0.1:35440 - "GET /images/avatar/default/assistant.jpg HTTP/1.0" 200
+2025-02-26 19:23:15 [INFO] 检查/api/v1/user/info请求的token
+2025-02-26 19:23:15 [INFO] 172.18.0.1:0 - "GET /api/v1/user/info HTTP/1.0" 200
+2025-02-26 19:23:15 [INFO] 检查/api/v1/user/routers请求的token
+2025-02-26 19:23:15 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
+2025-02-26 20:22:44 [INFO] 检查/api/v1/user/info请求的token
+2025-02-26 20:22:44 [INFO] 172.18.0.1:0 - "GET /api/v1/user/info HTTP/1.0" 200
+2025-02-26 20:22:44 [INFO] 检查/api/v1/user/routers请求的token
+2025-02-26 20:22:44 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
+2025-02-26 20:22:46 [INFO] 127.0.0.1:60852 - "GET /images/avatar/default/assistant.jpg HTTP/1.0" 200
+2025-02-26 20:24:14 [INFO] 127.0.0.1:53986 - "GET /images/avatar/default/assistant.jpg HTTP/1.0" 200
+2025-02-26 20:24:29 [INFO] 127.0.0.1:58196 - "GET /images/avatar/default/assistant.jpg HTTP/1.0" 200
+2025-02-26 20:26:44 [INFO] 检查/api/v1/permission/user请求的token
+2025-02-26 20:26:44 [INFO] 172.18.0.1:0 - "GET /api/v1/permission/user?page=1&limit=1000 HTTP/1.0" 200
+2025-02-26 20:26:56 [INFO] 检查/api/v1/user/info请求的token
+2025-02-26 20:26:56 [INFO] 172.18.0.1:0 - "GET /api/v1/user/info HTTP/1.0" 200
+2025-02-26 20:26:56 [INFO] 检查/api/v1/user/routers请求的token
+2025-02-26 20:26:56 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
+2025-02-26 20:36:18 [INFO] 127.0.0.1:33364 - "GET /images/avatar/default/avatar.jpg HTTP/1.0" 200
+2025-02-26 20:36:19 [INFO] 127.0.0.1:33374 - "GET /images/avatar/default/assistant.jpg HTTP/1.0" 200
+2025-02-26 20:46:30 [INFO] 检查/api/v1/permission/user请求的token
+2025-02-26 20:46:30 [INFO] 172.18.0.1:0 - "GET /api/v1/permission/user?page=1&limit=20 HTTP/1.0" 200
+2025-02-26 20:46:30 [INFO] 检查/api/v1/system/dict/type/permission_user_status请求的token
+2025-02-26 20:46:30 [INFO] 172.18.0.1:0 - "GET /api/v1/system/dict/type/permission_user_status HTTP/1.0" 200
+2025-02-26 20:46:31 [INFO] 检查/api/v1/system/dict/type/permission_user_sex请求的token
+2025-02-26 20:46:31 [INFO] 172.18.0.1:0 - "GET /api/v1/system/dict/type/permission_user_sex HTTP/1.0" 200
+2025-02-26 20:46:31 [INFO] 检查/api/v1/permission/role/select/list请求的token
+2025-02-26 20:46:31 [INFO] 172.18.0.1:0 - "GET /api/v1/permission/role/select/list HTTP/1.0" 200
+2025-02-26 20:46:31 [INFO] 检查/api/v1/system/config-setting/key/user_init_roles请求的token
+2025-02-26 20:46:31 [INFO] 172.18.0.1:0 - "GET /api/v1/system/config-setting/key/user_init_roles HTTP/1.0" 200
+2025-02-26 21:12:09 [INFO] 127.0.0.1:40880 - "GET /images/avatar/default/avatar.jpg HTTP/1.0" 200
+2025-02-26 21:12:10 [INFO] 127.0.0.1:40892 - "GET /images/avatar/default/assistant.jpg HTTP/1.0" 200
+2025-02-27 08:20:44 [INFO] 检查/api/v1/user/info请求的token
+2025-02-27 08:20:44 [INFO] 172.18.0.1:0 - "GET /api/v1/user/info HTTP/1.0" 200
+2025-02-27 08:20:44 [INFO] 检查/api/v1/user/routers请求的token
+2025-02-27 08:20:44 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
+2025-02-27 08:20:49 [INFO] 127.0.0.1:48066 - "GET /images/avatar/default/avatar.jpg HTTP/1.0" 200
+2025-02-27 08:20:49 [INFO] 127.0.0.1:48064 - "GET /images/avatar/default/avatar.jpg?imageView2/1/w/80/h/80 HTTP/1.0" 200
+2025-02-27 08:20:50 [INFO] 127.0.0.1:48080 - "GET /images/avatar/default/assistant.jpg HTTP/1.0" 200
+2025-02-27 08:20:55 [INFO] 检查/api/v1/user/info请求的token
+2025-02-27 08:20:55 [INFO] 172.18.0.1:0 - "GET /api/v1/user/info HTTP/1.0" 200
+2025-02-27 08:20:55 [INFO] 检查/api/v1/user/routers请求的token
+2025-02-27 08:20:55 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
+2025-02-27 08:20:55 [INFO] 127.0.0.1:42722 - "GET /images/avatar/default/avatar.jpg?imageView2/1/w/80/h/80 HTTP/1.0" 200
+2025-02-27 08:20:59 [INFO] 127.0.0.1:42730 - "GET /images/avatar/default/avatar.jpg HTTP/1.0" 200
+2025-02-27 08:20:59 [INFO] 127.0.0.1:42736 - "GET /images/avatar/default/assistant.jpg HTTP/1.0" 200
+2025-02-27 08:46:23 [INFO] 检查/api/v1/user/info请求的token
+2025-02-27 08:46:23 [INFO] 172.18.0.1:0 - "GET /api/v1/user/info HTTP/1.0" 200
+2025-02-27 08:46:23 [INFO] 检查/api/v1/user/routers请求的token
+2025-02-27 08:46:23 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
+2025-02-27 08:46:24 [INFO] 127.0.0.1:41694 - "GET /images/avatar/default/avatar.jpg?imageView2/1/w/80/h/80 HTTP/1.0" 200
+2025-02-27 09:18:17 [INFO] 检查/api/v1/permission/user请求的token
+2025-02-27 09:18:17 [INFO] 172.18.0.1:0 - "GET /api/v1/permission/user?page=1&limit=1000 HTTP/1.0" 200
+2025-02-27 09:18:59 [INFO] 检查/api/v1/user/info请求的token
+2025-02-27 09:18:59 [INFO] 172.18.0.1:0 - "GET /api/v1/user/info HTTP/1.0" 200
+2025-02-27 09:18:59 [INFO] 检查/api/v1/user/routers请求的token
+2025-02-27 09:18:59 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
+2025-02-27 09:19:00 [INFO] 127.0.0.1:44256 - "GET /images/avatar/default/avatar.jpg?imageView2/1/w/80/h/80 HTTP/1.0" 200
+2025-02-27 09:19:00 [INFO] 127.0.0.1:44264 - "GET /images/avatar/default/avatar.jpg HTTP/1.0" 200
+2025-02-27 09:19:00 [INFO] 127.0.0.1:44276 - "GET /images/avatar/default/assistant.jpg HTTP/1.0" 200
+2025-02-27 10:07:13 [INFO] 检查/api/v1/user/info请求的token
+2025-02-27 10:07:13 [INFO] 172.18.0.1:0 - "GET /api/v1/user/info HTTP/1.0" 200
+2025-02-27 10:07:13 [INFO] 检查/api/v1/user/routers请求的token
+2025-02-27 10:07:13 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
+2025-02-27 10:07:14 [INFO] 127.0.0.1:59674 - "GET /images/avatar/default/avatar.jpg HTTP/1.0" 200
+2025-02-27 10:07:14 [INFO] 127.0.0.1:59660 - "GET /images/avatar/default/avatar.jpg?imageView2/1/w/80/h/80 HTTP/1.0" 200
+2025-02-27 10:07:14 [INFO] 127.0.0.1:59690 - "GET /images/avatar/default/assistant.jpg HTTP/1.0" 200
+2025-02-27 10:24:12 [INFO] Will watch for changes in these directories: ['/oo_audit']
+2025-02-27 10:24:12 [INFO] Uvicorn running on http://0.0.0.0:9898 (Press CTRL+C to quit)
+2025-02-27 10:24:12 [INFO] Started reloader process [18] using StatReload
+2025-02-27 10:24:14 [INFO] Started server process [37]
+2025-02-27 10:24:14 [INFO] Waiting for application startup.
+2025-02-27 10:24:14 [INFO] Application startup complete.
+2025-02-27 10:24:16 [INFO] 检查/api/v1/user/info请求的token
+2025-02-27 10:24:16 [INFO] 172.18.0.1:0 - "GET /api/v1/user/info HTTP/1.0" 200
+2025-02-27 10:24:16 [INFO] 检查/api/v1/user/routers请求的token
+2025-02-27 10:24:16 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
+2025-02-27 10:24:20 [INFO] 检查/api/v1/user/info请求的token
+2025-02-27 10:24:20 [INFO] 172.18.0.1:0 - "GET /api/v1/user/info HTTP/1.0" 200
+2025-02-27 10:24:20 [INFO] 检查/api/v1/user/routers请求的token
+2025-02-27 10:24:20 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
+2025-02-27 10:24:23 [INFO] 检查/api/v1/user/info请求的token
+2025-02-27 10:24:23 [INFO] 172.18.0.1:0 - "GET /api/v1/user/info HTTP/1.0" 200
+2025-02-27 10:24:23 [INFO] 检查/api/v1/user/routers请求的token
+2025-02-27 10:24:23 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
+2025-02-27 10:24:42 [INFO] 检查/api/v1/user/info请求的token
+2025-02-27 10:24:42 [INFO] 172.18.0.1:0 - "GET /api/v1/user/info HTTP/1.0" 200
+2025-02-27 10:24:42 [INFO] 检查/api/v1/user/routers请求的token
+2025-02-27 10:24:42 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
+2025-02-27 10:24:43 [INFO] 检查/api/v1/user/rag_login请求的token
+2025-02-27 10:24:44 [INFO] 172.18.0.1:0 - "POST /api/v1/user/rag_login HTTP/1.0" 200
+2025-02-27 10:24:44 [INFO] 127.0.0.1:44128 - "GET /images/avatar/default/assistant.jpg HTTP/1.0" 200
+2025-02-27 10:31:31 [INFO] Will watch for changes in these directories: ['/oo_audit']
+2025-02-27 10:31:31 [INFO] Uvicorn running on http://0.0.0.0:9898 (Press CTRL+C to quit)
+2025-02-27 10:31:31 [INFO] Started reloader process [17] using StatReload
+2025-02-27 10:31:34 [INFO] Started server process [36]
+2025-02-27 10:31:34 [INFO] Waiting for application startup.
+2025-02-27 10:31:34 [INFO] Application startup complete.
+2025-02-27 10:31:38 [INFO] 检查/api/v1/user/info请求的token
+2025-02-27 10:31:38 [INFO] 172.18.0.1:0 - "GET /api/v1/user/info HTTP/1.0" 200
+2025-02-27 10:31:38 [INFO] 检查/api/v1/user/routers请求的token
+2025-02-27 10:31:38 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
+2025-02-27 10:31:43 [INFO] 检查/api/v1/user/info请求的token
+2025-02-27 10:31:43 [INFO] 172.18.0.1:0 - "GET /api/v1/user/info HTTP/1.0" 200
+2025-02-27 10:31:43 [INFO] 检查/api/v1/user/routers请求的token
+2025-02-27 10:31:43 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
+2025-02-27 10:31:48 [INFO] 检查/api/v1/user/info请求的token
+2025-02-27 10:31:48 [INFO] 172.18.0.1:0 - "GET /api/v1/user/info HTTP/1.0" 200
+2025-02-27 10:31:48 [INFO] 检查/api/v1/user/routers请求的token
+2025-02-27 10:31:48 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
+2025-02-27 10:31:51 [INFO] 检查/api/v1/user/info请求的token
+2025-02-27 10:31:51 [INFO] 172.18.0.1:0 - "GET /api/v1/user/info HTTP/1.0" 200
+2025-02-27 10:31:51 [INFO] 检查/api/v1/user/routers请求的token
+2025-02-27 10:31:51 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
+2025-02-27 10:31:55 [INFO] 检查/api/v1/user/info请求的token
+2025-02-27 10:31:55 [INFO] 172.18.0.1:0 - "GET /api/v1/user/info HTTP/1.0" 200
+2025-02-27 10:31:55 [INFO] 检查/api/v1/user/routers请求的token
+2025-02-27 10:31:55 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
+2025-02-27 10:31:59 [INFO] 检查/api/v1/user/info请求的token
+2025-02-27 10:31:59 [INFO] 172.18.0.1:0 - "GET /api/v1/user/info HTTP/1.0" 200
+2025-02-27 10:31:59 [INFO] 检查/api/v1/user/routers请求的token
+2025-02-27 10:31:59 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
+2025-02-27 10:32:03 [INFO] 检查/api/v1/user/info请求的token
+2025-02-27 10:32:03 [INFO] 172.18.0.1:0 - "GET /api/v1/user/info HTTP/1.0" 200
+2025-02-27 10:32:03 [INFO] 检查/api/v1/user/routers请求的token
+2025-02-27 10:32:03 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
+2025-02-27 10:32:04 [INFO] 127.0.0.1:36280 - "GET /images/avatar/default/assistant.jpg HTTP/1.0" 200
+2025-02-27 12:51:10 [INFO] 检查/api/v1/user/info请求的token
+2025-02-27 12:51:11 [INFO] 172.18.0.1:0 - "GET /api/v1/user/info HTTP/1.0" 200
+2025-02-27 12:51:11 [INFO] 检查/api/v1/user/routers请求的token
+2025-02-27 12:51:11 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
+2025-02-27 12:51:11 [INFO] 127.0.0.1:34390 - "GET /images/avatar/default/avatar.jpg?imageView2/1/w/80/h/80 HTTP/1.0" 200
+2025-02-27 12:51:11 [INFO] 127.0.0.1:34398 - "GET /images/avatar/default/avatar.jpg HTTP/1.0" 200
+2025-02-27 12:51:12 [INFO] 127.0.0.1:34408 - "GET /images/avatar/default/assistant.jpg HTTP/1.0" 200
+2025-02-27 13:00:37 [INFO] 检查/api/v1/user/info请求的token
+2025-02-27 13:00:37 [INFO] 172.18.0.1:0 - "GET /api/v1/user/info HTTP/1.0" 200
+2025-02-27 13:00:37 [INFO] 检查/api/v1/user/routers请求的token
+2025-02-27 13:00:37 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
+2025-02-27 13:00:46 [INFO] 127.0.0.1:45132 - "GET /images/avatar/default/avatar.jpg HTTP/1.0" 200
+2025-02-27 13:00:46 [INFO] 127.0.0.1:45146 - "GET /images/avatar/default/assistant.jpg HTTP/1.0" 200
+2025-02-27 14:32:38 [INFO] 127.0.0.1:57366 - "GET /images/avatar/default/assistant.jpg HTTP/1.0" 200
+2025-02-27 14:32:38 [INFO] 127.0.0.1:57372 - "GET /images/avatar/default/avatar.jpg HTTP/1.0" 200
