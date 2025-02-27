@@ -47,3 +47,15 @@
 2025-02-25 16:11:58 [INFO] 检查/api/v1/user/routers请求的token
 2025-02-25 16:11:58 [INFO] 172.18.0.1:0 - "GET /api/v1/user/routers HTTP/1.0" 200
 2025-02-25 16:12:04 [INFO] 127.0.0.1:58518 - "GET /images/avatar/default/assistant.jpg HTTP/1.0" 200
+2025-02-26 08:41:38 [INFO] Will watch for changes in these directories: ['/oo_audit']
+2025-02-26 08:41:38 [INFO] Uvicorn running on http://0.0.0.0:9898 (Press CTRL+C to quit)
+2025-02-26 08:41:38 [INFO] Started reloader process [21] using StatReload
+2025-02-26 08:41:43 [INFO] Started server process [46]
+2025-02-26 08:41:43 [INFO] Waiting for application startup.
+2025-02-26 08:41:43 [INFO] Application startup complete.
+2025-02-27 08:19:23 [INFO] Will watch for changes in these directories: ['/oo_audit']
+2025-02-27 08:19:23 [INFO] Uvicorn running on http://0.0.0.0:9898 (Press CTRL+C to quit)
+2025-02-27 08:19:23 [INFO] Started reloader process [21] using StatReload
+2025-02-27 08:19:27 [INFO] Started server process [46]
+2025-02-27 08:19:27 [INFO] Waiting for application startup.
+2025-02-27 08:19:27 [INFO] Application startup complete.

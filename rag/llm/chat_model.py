@@ -69,7 +69,7 @@ class Base(ABC):
         if system:
             history.insert(0, {"role": "system", "content": system})
         ans = ""
-        reasoning_content = ""
+        reasoning = ""
         total_tokens = 0
         try:
             response = self.client.chat.completions.create(
@@ -81,18 +81,31 @@ class Base(ABC):
                 if not resp.choices:
                     continue
 
-                # F8080 加入Cot内容
-                if getattr(resp.choices[0].delta, 'reasoning_content', None) and resp.choices[0].delta.reasoning_content:
-                    if ans =="":
-                        ans = "<think>"
-                    ans += resp.choices[0].delta.reasoning_content
-                else:
-                    if ans!="" and "</think>" not in ans:
-                        ans += "</think>"
+                # F8080 加入思维链内容提取
+                reasoning = getattr(getattr(getattr(resp, 'choices', [{}])[0], 'delta', {}), 'reasoning_content', '')
+                if reasoning != '':
+                    if '<think>' not in ans:
+                        ans += '<think>'
+                    ans += reasoning
 
-                if not resp.choices[0].delta.content:
-                    resp.choices[0].delta.content = ""
-                ans += resp.choices[0].delta.content
+                content = getattr(getattr(getattr(resp, 'choices', [{}])[0], 'delta', {}), 'content', '')
+                if content != '':
+                    if '<think>' in ans and '</think>' not in ans:
+                        ans += '</think>'
+                    ans += content
+
+
+                # if getattr(resp.choices[0].delta, 'reasoning_content', None) and resp.choices[0].delta.reasoning_content:
+                #     if ans =="":
+                #         ans = "<think>"
+                #     ans += resp.choices[0].delta.reasoning_content
+                # else:
+                #     if ans!="" and "</think>" not in ans:
+                #         ans += "</think>"
+
+                # if not resp.choices[0].delta.content:
+                #     resp.choices[0].delta.content = ""
+                # ans += resp.choices[0].delta.content
 
                 if not hasattr(resp, "usage") or not resp.usage:
                     total_tokens = (
