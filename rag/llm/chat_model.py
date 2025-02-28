@@ -28,6 +28,7 @@ import os
 import json
 import requests
 import asyncio
+import httpx
 
 from api.utils import ic
 
@@ -43,8 +44,16 @@ class Base(ABC):
         ABC (_type_): _description_
     """
     def __init__(self, key, model_name, base_url):
+
+        # F8080 - 代理设置
         timeout = int(os.environ.get('LM_TIMEOUT_SECONDS', 600))
-        self.client = OpenAI(api_key=key, base_url=base_url, timeout=timeout)
+        # 获取环境变量 OPENAI_PROXY
+        if os.environ.get("OPENAI_PROXY"):
+            transport = httpx.HTTPTransport(proxy=os.environ.get("OPENAI_PROXY"))
+            self.client = OpenAI(http_client=httpx.Client(transport=transport),api_key=key, base_url=base_url, timeout=timeout)
+        else:
+            self.client = OpenAI(api_key=key, base_url=base_url, timeout=timeout)
+
         self.model_name = model_name
 
     def chat(self, system, history, gen_conf):
