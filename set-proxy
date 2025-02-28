@@ -1,14 +1,1 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
 git config --global http.proxy 192.168.50.150:7890
-
-=======
-git config --global http.proxy 192.168.50.150:7890
->>>>>>> origin/dev_250107
-=======
-git config --global http.proxy 192.168.50.150:7890
->>>>>>> origin/dev_250107
-=======
-git config --global http.proxy 192.168.50.150:7890
->>>>>>> origin/dev_250107
