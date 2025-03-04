@@ -271,6 +271,7 @@ def completion():
                 break
             """
             for ans in chat(dia, msg, **req):
+                ans = structure_answer(conv, ans, message_id, conv.id)
                 return get_json_result(data=ans)
     except Exception as e:
         return server_error_response(e)

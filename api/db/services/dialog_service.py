@@ -359,35 +359,64 @@ def chat(dialog, messages, stream=True, **kwargs):
 
     # 处理生成的答案,根据需要插入引用。
     def decorate_answer(answer):
+        """
+        装饰最终回答，包含以下功能：
+        1. 添加引用标注
+        2. 处理API密钥错误提示
+        3. 收集响应耗时数据
+        4. 构造返回数据结构
+
+        Args:
+            answer: 原始生成的回答文本
+
+        Returns:
+            dict: 包含处理后的回答、引用信息和调试信息的字典
+        """
         nonlocal prompt_config, knowledges, kwargs, kbinfos, prompt, retrieval_ts
 
+        # 初始化引用信息
         finish_chat_ts = timer()
 
         refs = []
+        # 引用标注处理（当配置开启且存在知识库时）
         if knowledges and (prompt_config.get("quote", True) and kwargs.get("quote", True)):
-            answer, idx = retriever.insert_citations(answer,
-                                                     [ck["content_ltks"]
-                                                      for ck in kbinfos["chunks"]],
-                                                     [ck["vector"]
-                                                      for ck in kbinfos["chunks"]],
-                                                     embd_mdl,
-                                                     tkweight=1 - dialog.vector_similarity_weight,
-                                                     vtweight=dialog.vector_similarity_weight)
-            idx = set([kbinfos["chunks"][int(i)]["doc_id"] for i in idx])
-            recall_docs = [
-                d for d in kbinfos["doc_aggs"] if d["doc_id"] in idx]
+            # 使用检索器插入引用标注，返回修改后的回答和引用索引
+            if answer:  # F8080 answer在前端提问的时候为None
+                # 给答案插入引用标注，返回引用索引
+                answer, idx = retriever.insert_citations(answer,
+                                                        [ck["content_ltks"]
+                                                        for ck in kbinfos["chunks"]],
+                                                        [ck["vector"]
+                                                        for ck in kbinfos["chunks"]],
+                                                        embd_mdl,
+                                                        tkweight=1 - dialog.vector_similarity_weight,
+                                                        vtweight=dialog.vector_similarity_weight)
+
+                # 转换知识块为文档ID集合
+                idx = set([kbinfos["chunks"][int(i)]["doc_id"] for i in idx])
+                # 根据文档ID集合筛选相关文档
+                recall_docs = [
+                    d for d in kbinfos["doc_aggs"] if d["doc_id"] in idx]
+            else:  # F8080 recall_docs在前端提问的时候为None
+                recall_docs = None
+
+
+            # 保底逻辑：如果无匹配文档则保留原始文档集合
             if not recall_docs:
                 recall_docs = kbinfos["doc_aggs"]
             kbinfos["doc_aggs"] = recall_docs
 
+            # 深拷贝知识块信息并删除掉向量数据（减少返回数据量）
             refs = deepcopy(kbinfos)
             for c in refs["chunks"]:
                 if c.get("vector"):
                     del c["vector"]
 
-        # 检查答案中是否包含无效的API密钥提示，并添加设置API密钥的说明。
-        if answer.lower().find("invalid key") >= 0 or answer.lower().find("invalid api") >= 0:
-            answer += " Please set LLM API-Key in 'User Setting -> Model providers -> API-Key'"
+        # 错误处理：检测API密钥错误
+        if answer:
+            if answer.lower().find("invalid key") >= 0 or answer.lower().find("invalid api") >= 0:
+                answer += " Please set LLM API-Key in 'User Setting -> Model providers -> API-Key'"
+
         finish_chat_ts = timer()
 
         # 记录并格式化各个步骤的时间消耗，添加到prompt属性中。
@@ -432,10 +461,13 @@ def chat(dialog, messages, stream=True, **kwargs):
         res["audio_binary"] = tts(tts_mdl, answer)
         yield res
         """
+        res = decorate_answer(None)
         answer = {
             "prompt": prompt,
             "msg": msg[1:],
-            "gen_conf": gen_conf
+            "gen_conf": gen_conf,
+            "answer": "",
+            "reference": res.get("reference"),
         }
         yield answer
 
