@@ -82,6 +82,7 @@ from .chat_model import (
     GoogleChat,
     HuggingFaceChat,
     GPUStackChat,
+    HaoSuanChat,  # F8080 昊算
 )
 
 from .cv_model import (
@@ -228,6 +229,7 @@ ChatModel = {
     "Google Cloud": GoogleChat,
     "HuggingFace": HuggingFaceChat,
     "GPUStack": GPUStackChat,
+    "HaoSuan": HaoSuanChat,
 }
 
 RerankModel = {

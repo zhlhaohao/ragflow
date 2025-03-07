@@ -135,6 +135,12 @@
                     "model_type": "chat"
                 },
                 {
+                    "llm_name": "qwq-plus",
+                    "tags": "LLM,CHAT,128K,max_out_8192,max_in_98304",
+                    "max_tokens": 131072,
+                    "model_type": "chat"
+                },
+                {
                     "llm_name": "text-embedding-v3",
                     "tags": "TEXT EMBEDDING,8K",
                     "max_tokens": 8192,
@@ -2208,6 +2214,26 @@
             "tags": "LLM,TEXT EMBEDDING,TTS,SPEECH2TEXT,TEXT RE-RANK",
             "status": "1",
             "llm": []
+        },
+        {
+            "name": "HaoSuan",
+            "logo": "",
+            "tags": "LLM",
+            "status": "1",
+            "llm": [
+                {
+                    "llm_name": "DeepSeekR1",
+                    "tags": "LLM,CHAT,64K,max_out_8192,max_in_57344",
+                    "max_tokens": 65792,
+                    "model_type": "chat"
+                },
+                {
+                    "llm_name": "DeepSeekV3",
+                    "tags": "LLM,CHAT,64K,max_out_8192,max_in_57344",
+                    "max_tokens": 65792,
+                    "model_type": "chat"
+                }
+            ]
         }
     ]
 }

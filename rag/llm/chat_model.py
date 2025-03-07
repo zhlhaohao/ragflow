@@ -86,6 +86,8 @@ class Base(ABC):
                 messages=history,
                 stream=True,
                 **gen_conf)
+
+            has_reasoning = False
             for resp in response:
                 if not resp.choices:
                     continue
@@ -93,13 +95,14 @@ class Base(ABC):
                 # F8080 加入思维链内容提取
                 reasoning = getattr(getattr(getattr(resp, 'choices', [{}])[0], 'delta', {}), 'reasoning_content', '')
                 if reasoning != '':
+                    has_reasoning = True
                     if '<think>' not in ans:
                         ans += '<think>'
                     ans += reasoning
 
                 content = getattr(getattr(getattr(resp, 'choices', [{}])[0], 'delta', {}), 'content', '')
                 if content != '':
-                    if '<think>' in ans and '</think>' not in ans:
+                    if '<think>' in ans and '</think>' not in ans and has_reasoning:
                         ans += '</think>'
                     ans += content
 
@@ -1578,3 +1581,16 @@ class GPUStackChat(Base):
         if base_url.split("/")[-1] != "v1-openai":
             base_url = os.path.join(base_url, "v1-openai")
         super().__init__(key, model_name, base_url)
+
+class HaoSuanChat(Base):
+    """ F8080 - 昊算接口
+
+    Args:
+        Base (_type_): _description_
+    """    
+    def __init__(self, key, model_name, base_url="https://haosuan.com/api/cnud-llm/v1"):
+        if not base_url:
+            base_url = "https://haosuan.com/api/cnud-llm/v1"
+        super().__init__(key, model_name, base_url)
+
+
