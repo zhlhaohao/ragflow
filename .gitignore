@@ -45,3 +45,5 @@ local.service_conf.yaml
 **/.env
 **/.env.local
 **/.env.*.local
+
+*.log
