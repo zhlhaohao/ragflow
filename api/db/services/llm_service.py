@@ -147,6 +147,25 @@ class TenantLLMService(CommonService):
     @classmethod
     @DB.connection_context()
     def get_model_config(cls, tenant_id, llm_type, llm_name=None):
+        """
+        根据租户 ID、模型类型（如嵌入、语音转文本等）、可选的模型名称和语言创建相应的 LLM 实例。
+        这个方法会先尝试从数据库中获取模型配置，如果找不到，则会尝试使用默认值或抛出错误。
+
+        Args:
+            tenant_id (int): 租户 ID
+            llm_type (str): LLM 类型，例如 EMBEDDING, SPEECH2TEXT 等
+            llm_name (str, optional): 模型名称，默认为 None
+            lang (str, optional): 语言，默认为 "Chinese"
+
+        Raises:
+            LookupError: 租户未找到
+            LookupError: 模型类型未设置
+            LookupError: 模型未授权
+
+        Returns:
+            object: 创建的 LLM 实例,如果是chat model，就返回ChatModel对象
+        """
+        # 获取租户信息
         e, tenant = TenantService.get_by_id(tenant_id)
         if not e:
             raise LookupError("Tenant not found")
@@ -200,6 +219,25 @@ class TenantLLMService(CommonService):
     @DB.connection_context()
     def model_instance(cls, tenant_id, llm_type,
                        llm_name=None, lang="Chinese"):
+        """
+        根据租户 ID、模型类型（如嵌入、语音转文本等）、可选的模型名称和语言创建相应的 LLM 实例。
+        这个方法会先尝试从数据库中获取模型配置，如果找不到，则会尝试使用默认值或抛出错误。
+
+        Args:
+            tenant_id (int): 租户 ID
+            llm_type (str): LLM 类型，例如 EMBEDDING, SPEECH2TEXT 等
+            llm_name (str, optional): 模型名称，默认为 None
+            lang (str, optional): 语言，默认为 "Chinese"
+
+        Raises:
+            LookupError: 租户未找到
+            LookupError: 模型类型未设置
+            LookupError: 模型未授权
+
+        Returns:
+            object: 创建的 LLM 实例,如果是chat model，就返回ChatModel对象
+        """
+
         model_config = TenantLLMService.get_model_config(tenant_id, llm_type, llm_name)
         if llm_type == LLMType.EMBEDDING.value:
             if model_config["llm_factory"] not in EmbeddingModel:
@@ -322,6 +360,9 @@ class TenantLLMService(CommonService):
 
 
 class LLMBundle:
+    """
+    从tenant_llm取出模型信息并封装成对象
+    """
     def __init__(self, tenant_id, llm_type, llm_name=None, lang="Chinese"):
         """初始化
 

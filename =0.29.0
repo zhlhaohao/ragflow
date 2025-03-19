@@ -1,0 +1,7 @@
+Looking in indexes: https://pypi.tuna.tsinghua.edu.cn/simple/
+Requirement already satisfied: trio in ./.venv/lib/python3.11/site-packages (0.27.0)
+Requirement already satisfied: attrs>=23.2.0 in ./.venv/lib/python3.11/site-packages (from trio) (24.2.0)
+Requirement already satisfied: sortedcontainers in ./.venv/lib/python3.11/site-packages (from trio) (2.4.0)
+Requirement already satisfied: idna in ./.venv/lib/python3.11/site-packages (from trio) (3.10)
+Requirement already satisfied: outcome in ./.venv/lib/python3.11/site-packages (from trio) (1.3.0.post0)
+Requirement already satisfied: sniffio>=1.3.0 in ./.venv/lib/python3.11/site-packages (from trio) (1.3.1)

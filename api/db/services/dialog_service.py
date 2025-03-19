@@ -25,7 +25,7 @@ from api.db import LLMType, ParserType, StatusEnum
 from api.db.db_models import Dialog, DB
 from api.db.services.common_service import CommonService
 from api.db.services.knowledgebase_service import KnowledgebaseService
-from api.db.services.llm_service import TenantLLMService, LLMBundle
+from api.db.services.llm_service import LLMService, TenantLLMService, LLMBundle
 from api import settings
 from rag.app.resume import forbidden_select_fields4resume
 from rag.app.tag import label_question
@@ -35,6 +35,8 @@ from rag.prompts import kb_prompt, message_fit_in, llm_id2llm_type, keyword_extr
 from rag.utils import rmSpace, num_tokens_from_string
 from rag.utils.tavily_conn import Tavily
 from api.utils import ic
+import json
+from rag.settings import TAG_FLD
 
 class DialogService(CommonService):
     model = Dialog
@@ -94,6 +96,7 @@ def chat_solo(dialog, messages, stream=True):
 
 def chat(dialog, messages, stream=True, **kwargs):
     assert messages[-1]["role"] == "user", "The last content of this conversation is not from user."
+    # 如果是非知识库对话，直接调用chat_solo函数
     if not dialog.kb_ids:
         for ans in chat_solo(dialog, messages, stream):
             yield ans
@@ -101,13 +104,31 @@ def chat(dialog, messages, stream=True, **kwargs):
 
     chat_start_ts = timer()
 
+    # Get llm model name and model provider name
+    llm_id, model_provider = TenantLLMService.split_model_name_and_factory(dialog.llm_id)
+
+    # 从系统模型表中获取模型信息，Get llm model instance by model and provide name
+    llm = LLMService.query(llm_name=llm_id) if not model_provider else LLMService.query(llm_name=llm_id, fid=model_provider)
+
+    if not llm:
+        # Model name is provided by tenant, but not system built-in
+        # 系统模型表中没有该模型，尝试从租户模型表中获取模型信息
+        llm = TenantLLMService.query(tenant_id=dialog.tenant_id, llm_name=llm_id) if not model_provider else \
+            TenantLLMService.query(tenant_id=dialog.tenant_id, llm_name=llm_id, llm_factory=model_provider)
+        if not llm:
+            raise LookupError("LLM(%s) not found" % dialog.llm_id)
+        max_tokens = 8192
+    else:
+        max_tokens = llm[0].max_tokens
+
+    """
     if llm_id2llm_type(dialog.llm_id) == "image2text":
         llm_model_config = TenantLLMService.get_model_config(dialog.tenant_id, LLMType.IMAGE2TEXT, dialog.llm_id)
     else:
         llm_model_config = TenantLLMService.get_model_config(dialog.tenant_id, LLMType.CHAT, dialog.llm_id)
 
     max_tokens = llm_model_config.get("max_tokens", 8192)
-
+    """
     check_llm_ts = timer()
 
     # 获取知识库信息
@@ -280,26 +301,32 @@ def chat(dialog, messages, stream=True, **kwargs):
             think = ans[0] + "</think>"
             answer = ans[1]
         if knowledges and (prompt_config.get("quote", True) and kwargs.get("quote", True)):
-            answer = re.sub(r"##[ij]\$\$", "", answer, flags=re.DOTALL)
-            if not re.search(r"##[0-9]+\$\$", answer):
-                answer, idx = retriever.insert_citations(answer,
-                                                         [ck["content_ltks"]
-                                                          for ck in kbinfos["chunks"]],
-                                                         [ck["vector"]
-                                                          for ck in kbinfos["chunks"]],
-                                                         embd_mdl,
-                                                         tkweight=1 - dialog.vector_similarity_weight,
-                                                         vtweight=dialog.vector_similarity_weight)
-            else:
-                idx = set([])
-                for r in re.finditer(r"##([0-9]+)\$\$", answer):
-                    i = int(r.group(1))
-                    if i < len(kbinfos["chunks"]):
-                        idx.add(i)
+            if answer:  # F8080 answer在前端提问的时候为None
+                # 给答案插入引用标注，返回引用索引
+                answer = re.sub(r"##[ij]\$\$", "", answer, flags=re.DOTALL)
+                if not re.search(r"##[0-9]+\$\$", answer):
+                    answer, idx = retriever.insert_citations(answer,
+                                                            [ck["content_ltks"]
+                                                            for ck in kbinfos["chunks"]],
+                                                            [ck["vector"]
+                                                            for ck in kbinfos["chunks"]],
+                                                            embd_mdl,
+                                                            tkweight=1 - dialog.vector_similarity_weight,
+                                                            vtweight=dialog.vector_similarity_weight)
+                else:
+                    idx = set([])
+                    for r in re.finditer(r"##([0-9]+)\$\$", answer):
+                        i = int(r.group(1))
+                        if i < len(kbinfos["chunks"]):
+                            idx.add(i)
 
-            idx = set([kbinfos["chunks"][int(i)]["doc_id"] for i in idx])
-            recall_docs = [
-                d for d in kbinfos["doc_aggs"] if d["doc_id"] in idx]
+                idx = set([kbinfos["chunks"][int(i)]["doc_id"] for i in idx])
+                recall_docs = [
+                    d for d in kbinfos["doc_aggs"] if d["doc_id"] in idx]
+            else:  # F8080 recall_docs在前端提问的时候为None
+                recall_docs = None
+
+            # 保底逻辑：如果无匹配文档则保留原始文档集合
             if not recall_docs:
                 recall_docs = kbinfos["doc_aggs"]
             kbinfos["doc_aggs"] = recall_docs
@@ -368,9 +395,10 @@ def chat(dialog, messages, stream=True, **kwargs):
             yield {"answer": thought+answer, "reference": {}, "audio_binary": tts(tts_mdl, delta_ans)}
         yield decorate_answer(thought+answer)
     else:
-        answer = chat_mdl.chat(prompt+prompt4citation, msg[1:], gen_conf)
-        user_content = msg[-1].get("content", "[content not available]")
-        logging.debug("User: {}|Assistant: {}".format(user_content, answer))
+        """ F8080: 非流式响应改造成返回提示词和上下文，用于前端发起请求
+        answer = chat_mdl.chat(prompt, msg[1:], gen_conf)
+        logging.debug("User: {}|Assistant: {}".format(
+            msg[-1]["content"], answer))
         res = decorate_answer(answer)
         res["audio_binary"] = tts(tts_mdl, answer)
         yield res

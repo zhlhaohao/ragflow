@@ -18,7 +18,7 @@ class TestRAGFlowExcelParser(unittest.TestCase):
         # 获取测试文件的绝对路径
         test_file_path = os.path.join(os.path.dirname(__file__), 'test_data', '广东网络研发中心通信录202501.xlsx')
 
-        wb = load_workbook(test_file_path)
+        wb = load_workbook(test_file_path, data_only=True)
         for sheetname in wb.sheetnames:
             ws = wb[sheetname]
             rows = list(ws.rows)

@@ -180,7 +180,9 @@ class TenantService(CommonService):
         return list(cls.model.select(*fields)
                     .join(User, on=((cls.model.id == User.id) & (cls.model.status == StatusEnum.VALID.value)))
                     .where(1==1)
-                    .dicts())    @classmethod
+                    .dicts())
+
+    @classmethod
     @DB.connection_context()
     def user_gateway(cls, tenant_id):
         hashobj = hashlib.sha256(tenant_id.encode("utf-8"))

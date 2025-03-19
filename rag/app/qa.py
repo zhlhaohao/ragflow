@@ -36,9 +36,9 @@ from rag.utils import get_float
 class Excel(ExcelParser):
     def __call__(self, fnm, binary=None, callback=None):
         if not binary:
-            wb = load_workbook(fnm)
+            wb = load_workbook(fnm, data_only=True)
         else:
-            wb = load_workbook(BytesIO(binary))
+            wb = load_workbook(BytesIO(binary), data_only=True)
         total = 0
         for sheetname in wb.sheetnames:
             total += len(list(wb[sheetname].rows))
