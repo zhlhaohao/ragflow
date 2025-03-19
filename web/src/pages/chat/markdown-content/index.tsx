@@ -20,13 +20,14 @@ import { useTranslation } from 'react-i18next';
 
 import 'katex/dist/katex.min.css'; // `rehype-katex` does not import the CSS for you
 
-import { preprocessLaTeX } from '@/utils/chat';
+import { preprocessLaTeX, replaceThinkToSection } from '@/utils/chat';
 import { replaceTextByOldReg } from '../utils';
 
+import { pipe } from 'lodash/fp';
 import styles from './index.less';
 
 const reg = /(~{2}\d+={2})/g;
-const curReg = /(~{2}\d+\${2})/g;
+// const curReg = /(~{2}\d+\${2})/g;
 
 const getChunkIndex = (match: string) => Number(match.slice(2, -2));
 // TODO: The display of the table is inconsistent with the display previously placed in the MessageItem.
@@ -40,7 +41,6 @@ const MarkdownContent = ({
   reference,
   clickDocumentButton,
   content,
-  loading,
 }: {
   content: string;
   loading: boolean;
@@ -59,25 +59,36 @@ const MarkdownContent = ({
       text = t('chat.searching');
     }
     const nextText = replaceTextByOldReg(text);
-    return loading ? nextText?.concat('~~2$$') : preprocessLaTeX(nextText);
-  }, [content, loading, t]);
+    return pipe(replaceThinkToSection, preprocessLaTeX)(nextText);
+  }, [content, t]);
 
   /* 
     这段 useEffect 的主要目的是确保每次 reference 发生变化时，都会根据最新的 reference.doc_aggs 提取所有相关的文档 ID，并通过 setDocumentIds 更新到组件的状态或其他地方。这样做可以保证组件始终拥有最新且正确的文档 ID 列表，以便进一步处理，例如加载文档缩略图等。
     此外，将 setDocumentIds 包含在依赖项数组中是为了防止潜在的闭包问题，确保每次调用时都使用的是最新的 setDocumentIds 函数实例。不过，通常情况下，setDocumentIds 是由 useState 或自定义 hook 返回的 setter 函数，它不会改变，因此将其包含在依赖项中并不是严格必要的。如果你确定 setDocumentIds 不会变化，可以考虑将其从依赖项数组中移除以优化性能。
   */
   useEffect(() => {
-    setDocumentIds(reference?.doc_aggs?.map((x) => x.doc_id) ?? []);
+    const docAggs = reference?.doc_aggs;
+    setDocumentIds(Array.isArray(docAggs) ? docAggs.map((x) => x.doc_id) : []);
   }, [reference, setDocumentIds]);
 
   // 当点击文档按钮时触发的回调函数。它检查文件是否为 PDF，如果是，则调用父组件传递的方法 `clickDocumentButton`。
   const handleDocumentButtonClick = useCallback(
-    (documentId: string, chunk: IReferenceChunk, isPdf: boolean) => () => {
-      if (!isPdf) {
-        return;
-      }
-      clickDocumentButton?.(documentId, chunk);
-    },
+    (
+      documentId: string,
+      chunk: IReferenceChunk,
+      isPdf: boolean,
+      documentUrl?: string,
+    ) =>
+      () => {
+        if (!isPdf) {
+          if (!documentUrl) {
+            return;
+          }
+          window.open(documentUrl, '_blank');
+        } else {
+          clickDocumentButton?.(documentId, chunk);
+        }
+      },
     [clickDocumentButton],
   );
 
@@ -109,6 +120,7 @@ const MarkdownContent = ({
         (x) => x?.doc_id === chunkItem?.document_id,
       );
       const documentId = document?.doc_id;
+      const documentUrl = document?.url;
       const fileThumbnail = documentId ? fileThumbnails[documentId] : '';
       const fileExtension = documentId ? getExtension(document?.doc_name) : '';
       const imageId = chunkItem?.image_id;
@@ -162,6 +174,7 @@ const MarkdownContent = ({
                     documentId,
                     chunkItem,
                     fileExtension === 'pdf',
+                    documentUrl,
                   )}
                 >
                   {document?.doc_name}
@@ -187,9 +200,9 @@ const MarkdownContent = ({
         );
       });
 
-      replacedText = reactStringReplace(replacedText, curReg, (match, i) => (
-        <span className={styles.cursor} key={i}></span>
-      ));
+      // replacedText = reactStringReplace(replacedText, curReg, (match, i) => (
+      //   <span className={styles.cursor} key={i}></span>
+      // ));
 
       return replacedText;
     },
@@ -208,6 +221,7 @@ const MarkdownContent = ({
     <Markdown
       rehypePlugins={[rehypeWrapReference, rehypeKatex, rehypeRaw]}
       remarkPlugins={[remarkGfm, remarkMath]}
+      className={styles.markdownContentWrapper}
       components={
         {
           'custom-typography': ({ children }: { children: string }) =>

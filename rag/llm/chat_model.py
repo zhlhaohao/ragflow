@@ -29,13 +29,11 @@ import json
 import requests
 import asyncio
 import httpx
-
 from api.utils import ic
 
-"""统一封装了各类对话模型的调用接口
-"""
-LENGTH_NOTIFICATION_CN = "······\n由于长度的原因，回答被截断了，要继续吗？"
-LENGTH_NOTIFICATION_EN = "...\nFor the content length reason, it stopped, continue?"
+LENGTH_NOTIFICATION_CN = "······\n由于大模型的上下文窗口大小限制，回答已经被大模型截断。"
+LENGTH_NOTIFICATION_EN = "...\nThe answer is truncated by your chosen LLM due to its limitation on context length."
+
 
 class Base(ABC):
     """所有模型对话接口的基类
@@ -59,24 +57,30 @@ class Base(ABC):
     def chat(self, system, history, gen_conf):
         if system:
             history.insert(0, {"role": "system", "content": system})
+        if "max_tokens" in gen_conf:
+            del gen_conf["max_tokens"]
         try:
             response = self.client.chat.completions.create(
                 model=self.model_name,
                 messages=history,
                 **gen_conf)
+            if any([not response.choices, not response.choices[0].message, not response.choices[0].message.content]):
+                return "", 0
             ans = response.choices[0].message.content.strip()
             if response.choices[0].finish_reason == "length":
                 if is_chinese(ans):
                     ans += LENGTH_NOTIFICATION_CN
                 else:
                     ans += LENGTH_NOTIFICATION_EN
-            return ans, response.usage.total_tokens
+            return ans, self.total_token_count(response)
         except openai.APIError as e:
             return "**ERROR**: " + str(e), 0
 
     def chat_streamly(self, system, history, gen_conf):
         if system:
             history.insert(0, {"role": "system", "content": system})
+        if "max_tokens" in gen_conf:
+            del gen_conf["max_tokens"]
         ans = ""
         reasoning = ""
         total_tokens = 0
@@ -119,15 +123,11 @@ class Base(ABC):
                 #     resp.choices[0].delta.content = ""
                 # ans += resp.choices[0].delta.content
 
-                if not hasattr(resp, "usage") or not resp.usage:
-                    total_tokens = (
-                                total_tokens
-                                + num_tokens_from_string(resp.choices[0].delta.content)
-                        )
-                elif isinstance(resp.usage, dict):
-                    total_tokens = resp.usage.get("total_tokens", total_tokens)
+                tol = self.total_token_count(resp)
+                if not tol:
+                    total_tokens += num_tokens_from_string(resp.choices[0].delta.content)
                 else:
-                    total_tokens = resp.usage.total_tokens
+                    total_tokens = tol
 
                 if resp.choices[0].finish_reason == "length":
                     if is_chinese(ans):
@@ -140,6 +140,17 @@ class Base(ABC):
             yield ans + "\n**ERROR**: " + str(e)
 
         yield total_tokens
+
+    def total_token_count(self, resp):
+        try:
+            return resp.usage.total_tokens
+        except Exception:
+            pass
+        try:
+            return resp["usage"]["total_tokens"]
+        except Exception:
+            pass
+        return 0
 
 
 class GptTurbo(Base):
@@ -169,6 +180,16 @@ class HuggingFaceChat(Base):
     def __init__(self, key=None, model_name="", base_url=""):
         if not base_url:
             raise ValueError("Local llm url cannot be None")
+        if base_url.split("/")[-1] != "v1":
+            base_url = os.path.join(base_url, "v1")
+        super().__init__(key, model_name.split("___")[0], base_url)
+
+
+class ModelScopeChat(Base):
+    def __init__(self, key=None, model_name="", base_url=""):
+        if not base_url:
+            raise ValueError("Local llm url cannot be None")
+        base_url = base_url.rstrip('/')
         if base_url.split("/")[-1] != "v1":
             base_url = os.path.join(base_url, "v1")
         super().__init__(key, model_name.split("___")[0], base_url)
@@ -208,13 +229,14 @@ class BaiChuanChat(Base):
     def _format_params(params):
         return {
             "temperature": params.get("temperature", 0.3),
-            "max_tokens": params.get("max_tokens", 2048),
             "top_p": params.get("top_p", 0.85),
         }
 
     def chat(self, system, history, gen_conf):
         if system:
             history.insert(0, {"role": "system", "content": system})
+        if "max_tokens" in gen_conf:
+            del gen_conf["max_tokens"]
         try:
             response = self.client.chat.completions.create(
                 model=self.model_name,
@@ -235,13 +257,15 @@ class BaiChuanChat(Base):
                     ans += LENGTH_NOTIFICATION_CN
                 else:
                     ans += LENGTH_NOTIFICATION_EN
-            return ans, response.usage.total_tokens
+            return ans, self.total_token_count(response)
         except openai.APIError as e:
             return "**ERROR**: " + str(e), 0
 
     def chat_streamly(self, system, history, gen_conf):
         if system:
             history.insert(0, {"role": "system", "content": system})
+        if "max_tokens" in gen_conf:
+            del gen_conf["max_tokens"]
         ans = ""
         total_tokens = 0
         try:
@@ -265,14 +289,11 @@ class BaiChuanChat(Base):
                 if not resp.choices[0].delta.content:
                     resp.choices[0].delta.content = ""
                 ans += resp.choices[0].delta.content
-                total_tokens = (
-                    (
-                            total_tokens
-                            + num_tokens_from_string(resp.choices[0].delta.content)
-                    )
-                    if not hasattr(resp, "usage")
-                    else resp.usage["total_tokens"]
-                )
+                tol = self.total_token_count(resp)
+                if not tol:
+                    total_tokens += num_tokens_from_string(resp.choices[0].delta.content)
+                else:
+                    total_tokens = tol
                 if resp.choices[0].finish_reason == "length":
                     if is_chinese([ans]):
                         ans += LENGTH_NOTIFICATION_CN
@@ -291,11 +312,15 @@ class QWenChat(Base):
         import dashscope
         dashscope.api_key = key
         self.model_name = model_name
-        # F8080 - 这两个参数是给浏览器调用api用的
-        self.api_key = key
-        self.base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1/"
+        if self.is_reasoning_model(self.model_name):
+            super().__init__(key, model_name, "https://dashscope.aliyuncs.com/compatible-mode/v1")
 
     def chat(self, system, history, gen_conf):
+        if "max_tokens" in gen_conf:
+            del gen_conf["max_tokens"]
+        if self.is_reasoning_model(self.model_name):
+            return super().chat(system, history, gen_conf)
+
         stream_flag = str(os.environ.get('QWEN_CHAT_BY_STREAM', 'true')).lower() == 'true'
         if not stream_flag:
             from http import HTTPStatus
@@ -312,7 +337,7 @@ class QWenChat(Base):
             tk_count = 0
             if response.status_code == HTTPStatus.OK:
                 ans += response.output.choices[0]['message']['content']
-                tk_count += response.usage.total_tokens
+                tk_count += self.total_token_count(response)
                 if response.output.choices[0].get("finish_reason", "") == "length":
                     if is_chinese([ans]):
                         ans += LENGTH_NOTIFICATION_CN
@@ -326,7 +351,7 @@ class QWenChat(Base):
             result_list = list(g)
             error_msg_list = [item for item in result_list if str(item).find("**ERROR**") >= 0]
             if len(error_msg_list) > 0:
-                return "**ERROR**: " + "".join(error_msg_list) , 0
+                return "**ERROR**: " + "".join(error_msg_list), 0
             else:
                 return "".join(result_list[:-1]), result_list[-1]
 
@@ -334,6 +359,8 @@ class QWenChat(Base):
         from http import HTTPStatus
         if system:
             history.insert(0, {"role": "system", "content": system})
+        if "max_tokens" in gen_conf:
+            del gen_conf["max_tokens"]
         ans = ""
         tk_count = 0
         try:
@@ -348,7 +375,7 @@ class QWenChat(Base):
             for resp in response:
                 if resp.status_code == HTTPStatus.OK:
                     ans = resp.output.choices[0]['message']['content']
-                    tk_count = resp.usage.total_tokens
+                    tk_count = self.total_token_count(resp)
                     if resp.output.choices[0].get("finish_reason", "") == "length":
                         if is_chinese(ans):
                             ans += LENGTH_NOTIFICATION_CN
@@ -356,7 +383,8 @@ class QWenChat(Base):
                             ans += LENGTH_NOTIFICATION_EN
                     yield ans
                 else:
-                    yield ans + "\n**ERROR**: " + resp.message if not re.search(r" (key|quota)", str(resp.message).lower()) else "Out of credit. Please set the API key in **settings > Model providers.**"
+                    yield ans + "\n**ERROR**: " + resp.message if not re.search(r" (key|quota)",
+                                                                                str(resp.message).lower()) else "Out of credit. Please set the API key in **settings > Model providers.**"
         except Exception as e:
             # F8080 - 忽略了千问大模型返回的错误信息，在raptor的情况下，如果token_num设置为256，会返回被零除的错误
             yield ans
@@ -365,7 +393,19 @@ class QWenChat(Base):
         yield tk_count
 
     def chat_streamly(self, system, history, gen_conf):
+        if "max_tokens" in gen_conf:
+            del gen_conf["max_tokens"]
+        if self.is_reasoning_model(self.model_name):
+            return super().chat_streamly(system, history, gen_conf)
+
         return self._chat_streamly(system, history, gen_conf)
+
+    @staticmethod
+    def is_reasoning_model(model_name: str) -> bool:
+        return any([
+            model_name.lower().find("deepseek") >= 0,
+            model_name.lower().find("qwq") >= 0 and model_name.lower() != 'qwq-32b-preview',
+        ])
 
 
 class ZhipuChat(Base):
@@ -376,6 +416,8 @@ class ZhipuChat(Base):
     def chat(self, system, history, gen_conf):
         if system:
             history.insert(0, {"role": "system", "content": system})
+        if "max_tokens" in gen_conf:
+            del gen_conf["max_tokens"]
         try:
             if "presence_penalty" in gen_conf:
                 del gen_conf["presence_penalty"]
@@ -392,13 +434,15 @@ class ZhipuChat(Base):
                     ans += LENGTH_NOTIFICATION_CN
                 else:
                     ans += LENGTH_NOTIFICATION_EN
-            return ans, response.usage.total_tokens
+            return ans, self.total_token_count(response)
         except Exception as e:
             return "**ERROR**: " + str(e), 0
 
     def chat_streamly(self, system, history, gen_conf):
         if system:
             history.insert(0, {"role": "system", "content": system})
+        if "max_tokens" in gen_conf:
+            del gen_conf["max_tokens"]
         if "presence_penalty" in gen_conf:
             del gen_conf["presence_penalty"]
         if "frequency_penalty" in gen_conf:
@@ -422,9 +466,9 @@ class ZhipuChat(Base):
                         ans += LENGTH_NOTIFICATION_CN
                     else:
                         ans += LENGTH_NOTIFICATION_EN
-                    tk_count = resp.usage.total_tokens
+                    tk_count = self.total_token_count(resp)
                 if resp.choices[0].finish_reason == "stop":
-                    tk_count = resp.usage.total_tokens
+                    tk_count = self.total_token_count(resp)
                 yield ans
         except Exception as e:
             yield ans + "\n**ERROR**: " + str(e)
@@ -434,12 +478,15 @@ class ZhipuChat(Base):
 
 class OllamaChat(Base):
     def __init__(self, key, model_name, **kwargs):
-        self.client = Client(host=kwargs["base_url"])
+        self.client = Client(host=kwargs["base_url"]) if not key or key == "x" else \
+            Client(host=kwargs["base_url"], headers={"Authorization": f"Bear {key}"})
         self.model_name = model_name
 
     def chat(self, system, history, gen_conf):
         if system:
             history.insert(0, {"role": "system", "content": system})
+        if "max_tokens" in gen_conf:
+            del gen_conf["max_tokens"]
         try:
             options = {}
             if "temperature" in gen_conf:
@@ -466,6 +513,8 @@ class OllamaChat(Base):
     def chat_streamly(self, system, history, gen_conf):
         if system:
             history.insert(0, {"role": "system", "content": system})
+        if "max_tokens" in gen_conf:
+            del gen_conf["max_tokens"]
         options = {}
         if "temperature" in gen_conf:
             options["temperature"] = gen_conf["temperature"]
@@ -543,8 +592,6 @@ class LocalLLM(Base):
         from rag.svr.jina_server import Prompt
         if system:
             history.insert(0, {"role": "system", "content": system})
-        if "max_tokens" in gen_conf:
-            gen_conf["max_new_tokens"] = gen_conf.pop("max_tokens")
         return Prompt(message=history, gen_conf=gen_conf)
 
     def _stream_response(self, endpoint, prompt):
@@ -566,6 +613,8 @@ class LocalLLM(Base):
         yield num_tokens_from_string(answer)
 
     def chat(self, system, history, gen_conf):
+        if "max_tokens" in gen_conf:
+            del gen_conf["max_tokens"]
         prompt = self._prepare_prompt(system, history, gen_conf)
         chat_gen = self._stream_response("/chat", prompt)
         ans = next(chat_gen)
@@ -573,6 +622,8 @@ class LocalLLM(Base):
         return ans, total_tokens
 
     def chat_streamly(self, system, history, gen_conf):
+        if "max_tokens" in gen_conf:
+            del gen_conf["max_tokens"]
         prompt = self._prepare_prompt(system, history, gen_conf)
         return self._stream_response("/stream", prompt)
 
@@ -627,13 +678,16 @@ class MiniMaxChat(Base):
                     ans += LENGTH_NOTIFICATION_CN
                 else:
                     ans += LENGTH_NOTIFICATION_EN
-            return ans, response["usage"]["total_tokens"]
+            return ans, self.total_token_count(response)
         except Exception as e:
             return "**ERROR**: " + str(e), 0
 
     def chat_streamly(self, system, history, gen_conf):
         if system:
             history.insert(0, {"role": "system", "content": system})
+        for k in list(gen_conf.keys()):
+            if k not in ["temperature", "top_p", "max_tokens"]:
+                del gen_conf[k]
         ans = ""
         total_tokens = 0
         try:
@@ -661,11 +715,11 @@ class MiniMaxChat(Base):
                 if "choices" in resp and "delta" in resp["choices"][0]:
                     text = resp["choices"][0]["delta"]["content"]
                 ans += text
-                total_tokens = (
-                    total_tokens + num_tokens_from_string(text)
-                    if "usage" not in resp
-                    else resp["usage"]["total_tokens"]
-                )
+                tol = self.total_token_count(resp)
+                if not tol:
+                    total_tokens += num_tokens_from_string(text)
+                else:
+                    total_tokens = tol
                 yield ans
 
         except Exception as e:
@@ -698,7 +752,7 @@ class MistralChat(Base):
                     ans += LENGTH_NOTIFICATION_CN
                 else:
                     ans += LENGTH_NOTIFICATION_EN
-            return ans, response.usage.total_tokens
+            return ans, self.total_token_count(response)
         except openai.APIError as e:
             return "**ERROR**: " + str(e), 0
 
@@ -741,20 +795,19 @@ class BedrockChat(Base):
         self.bedrock_sk = json.loads(key).get('bedrock_sk', '')
         self.bedrock_region = json.loads(key).get('bedrock_region', '')
         self.model_name = model_name
-        self.client = boto3.client(service_name='bedrock-runtime', region_name=self.bedrock_region,
-                                   aws_access_key_id=self.bedrock_ak, aws_secret_access_key=self.bedrock_sk)
+
+        if self.bedrock_ak == '' or self.bedrock_sk == '' or self.bedrock_region == '':
+            # Try to create a client using the default credentials (AWS_PROFILE, AWS_DEFAULT_REGION, etc.)
+            self.client = boto3.client('bedrock-runtime')
+        else:
+            self.client = boto3.client(service_name='bedrock-runtime', region_name=self.bedrock_region,
+                                       aws_access_key_id=self.bedrock_ak, aws_secret_access_key=self.bedrock_sk)
 
     def chat(self, system, history, gen_conf):
         from botocore.exceptions import ClientError
         for k in list(gen_conf.keys()):
-            if k not in ["temperature", "top_p", "max_tokens"]:
+            if k not in ["top_p", "max_tokens"]:
                 del gen_conf[k]
-        if "max_tokens" in gen_conf:
-            gen_conf["maxTokens"] = gen_conf["max_tokens"]
-            _ = gen_conf.pop("max_tokens")
-        if "top_p" in gen_conf:
-            gen_conf["topP"] = gen_conf["top_p"]
-            _ = gen_conf.pop("top_p")
         for item in history:
             if not isinstance(item["content"], list) and not isinstance(item["content"], tuple):
                 item["content"] = [{"text": item["content"]}]
@@ -778,14 +831,8 @@ class BedrockChat(Base):
     def chat_streamly(self, system, history, gen_conf):
         from botocore.exceptions import ClientError
         for k in list(gen_conf.keys()):
-            if k not in ["temperature", "top_p", "max_tokens"]:
+            if k not in ["top_p", "max_tokens"]:
                 del gen_conf[k]
-        if "max_tokens" in gen_conf:
-            gen_conf["maxTokens"] = gen_conf["max_tokens"]
-            _ = gen_conf.pop("max_tokens")
-        if "top_p" in gen_conf:
-            gen_conf["topP"] = gen_conf["top_p"]
-            _ = gen_conf.pop("top_p")
         for item in history:
             if not isinstance(item["content"], list) and not isinstance(item["content"], tuple):
                 item["content"] = [{"text": item["content"]}]
@@ -842,11 +889,8 @@ class GeminiChat(Base):
 
         if system:
             self.model._system_instruction = content_types.to_content(system)
-
-        if 'max_tokens' in gen_conf:
-            gen_conf['max_output_tokens'] = gen_conf['max_tokens']
         for k in list(gen_conf.keys()):
-            if k not in ["temperature", "top_p", "max_output_tokens"]:
+            if k not in ["temperature", "top_p", "max_tokens"]:
                 del gen_conf[k]
         for item in history:
             if 'role' in item and item['role'] == 'assistant':
@@ -870,10 +914,8 @@ class GeminiChat(Base):
 
         if system:
             self.model._system_instruction = content_types.to_content(system)
-        if 'max_tokens' in gen_conf:
-            gen_conf['max_output_tokens'] = gen_conf['max_tokens']
         for k in list(gen_conf.keys()):
-            if k not in ["temperature", "top_p", "max_output_tokens"]:
+            if k not in ["temperature", "top_p", "max_tokens"]:
                 del gen_conf[k]
         for item in history:
             if 'role' in item and item['role'] == 'assistant':
@@ -896,7 +938,7 @@ class GeminiChat(Base):
         yield 0
 
 
-class GroqChat:
+class GroqChat(Base):
     def __init__(self, key, model_name, base_url=''):
         from groq import Groq
         self.client = Groq(api_key=key)
@@ -921,7 +963,7 @@ class GroqChat:
                     ans += LENGTH_NOTIFICATION_CN
                 else:
                     ans += LENGTH_NOTIFICATION_EN
-            return ans, response.usage.total_tokens
+            return ans, self.total_token_count(response)
         except Exception as e:
             return ans + "\n**ERROR**: " + str(e), 0
 
@@ -994,9 +1036,14 @@ class OpenAI_APIChat(Base):
     def __init__(self, key, model_name, base_url):
         if not base_url:
             raise ValueError("url cannot be None")
-        if base_url.split("/")[-1] != "v1":
-            base_url = os.path.join(base_url, "v1")
         model_name = model_name.split("___")[0]
+        super().__init__(key, model_name, base_url)
+
+
+class PPIOChat(Base):
+    def __init__(self, key, model_name, base_url="https://api.ppinfra.com/v3/openai"):
+        if not base_url:
+            base_url = "https://api.ppinfra.com/v3/openai"
         super().__init__(key, model_name, base_url)
 
 
@@ -1010,6 +1057,8 @@ class CoHereChat(Base):
     def chat(self, system, history, gen_conf):
         if system:
             history.insert(0, {"role": "system", "content": system})
+        if "max_tokens" in gen_conf:
+            del gen_conf["max_tokens"]
         if "top_p" in gen_conf:
             gen_conf["p"] = gen_conf.pop("top_p")
         if "frequency_penalty" in gen_conf and "presence_penalty" in gen_conf:
@@ -1044,6 +1093,8 @@ class CoHereChat(Base):
     def chat_streamly(self, system, history, gen_conf):
         if system:
             history.insert(0, {"role": "system", "content": system})
+        if "max_tokens" in gen_conf:
+            del gen_conf["max_tokens"]
         if "top_p" in gen_conf:
             gen_conf["p"] = gen_conf.pop("top_p")
         if "frequency_penalty" in gen_conf and "presence_penalty" in gen_conf:
@@ -1140,7 +1191,7 @@ class ReplicateChat(Base):
 
     def chat(self, system, history, gen_conf):
         if "max_tokens" in gen_conf:
-            gen_conf["max_new_tokens"] = gen_conf.pop("max_tokens")
+            del gen_conf["max_tokens"]
         if system:
             self.system = system
         prompt = "\n".join(
@@ -1159,7 +1210,7 @@ class ReplicateChat(Base):
 
     def chat_streamly(self, system, history, gen_conf):
         if "max_tokens" in gen_conf:
-            gen_conf["max_new_tokens"] = gen_conf.pop("max_tokens")
+            del gen_conf["max_tokens"]
         if system:
             self.system = system
         prompt = "\n".join(
@@ -1203,6 +1254,8 @@ class HunyuanChat(Base):
         _history = [{k.capitalize(): v for k, v in item.items()} for item in history]
         if system:
             _history.insert(0, {"Role": "system", "Content": system})
+        if "max_tokens" in gen_conf:
+            del gen_conf["max_tokens"]
         if "temperature" in gen_conf:
             _gen_conf["Temperature"] = gen_conf["temperature"]
         if "top_p" in gen_conf:
@@ -1229,7 +1282,8 @@ class HunyuanChat(Base):
         _history = [{k.capitalize(): v for k, v in item.items()} for item in history]
         if system:
             _history.insert(0, {"Role": "system", "Content": system})
-
+        if "max_tokens" in gen_conf:
+            del gen_conf["max_tokens"]
         if "temperature" in gen_conf:
             _gen_conf["Temperature"] = gen_conf["temperature"]
         if "top_p" in gen_conf:
@@ -1302,7 +1356,7 @@ class BaiduYiyanChat(Base):
                                                                                                 0)) / 2
                                     ) + 1
         if "max_tokens" in gen_conf:
-            gen_conf["max_output_tokens"] = gen_conf["max_tokens"]
+            del gen_conf["max_tokens"]
         ans = ""
 
         try:
@@ -1313,7 +1367,7 @@ class BaiduYiyanChat(Base):
                 **gen_conf
             ).body
             ans = response['result']
-            return ans, response["usage"]["total_tokens"]
+            return ans, self.total_token_count(response)
 
         except Exception as e:
             return ans + "\n**ERROR**: " + str(e), 0
@@ -1326,7 +1380,7 @@ class BaiduYiyanChat(Base):
                                                                                                 0)) / 2
                                     ) + 1
         if "max_tokens" in gen_conf:
-            gen_conf["max_output_tokens"] = gen_conf["max_tokens"]
+            del gen_conf["max_tokens"]
         ans = ""
         total_tokens = 0
 
@@ -1341,7 +1395,7 @@ class BaiduYiyanChat(Base):
             for resp in response:
                 resp = resp.body
                 ans += resp['result']
-                total_tokens = resp["usage"]["total_tokens"]
+                total_tokens = self.total_token_count(resp)
 
                 yield ans
 
@@ -1362,8 +1416,6 @@ class AnthropicChat(Base):
     def chat(self, system, history, gen_conf):
         if system:
             self.system = system
-        if "max_tokens" not in gen_conf:
-            gen_conf["max_tokens"] = 4096
         if "presence_penalty" in gen_conf:
             del gen_conf["presence_penalty"]
         if "frequency_penalty" in gen_conf:
@@ -1395,8 +1447,6 @@ class AnthropicChat(Base):
     def chat_streamly(self, system, history, gen_conf):
         if system:
             self.system = system
-        if "max_tokens" not in gen_conf:
-            gen_conf["max_tokens"] = 4096
         if "presence_penalty" in gen_conf:
             del gen_conf["presence_penalty"]
         if "frequency_penalty" in gen_conf:
@@ -1412,7 +1462,7 @@ class AnthropicChat(Base):
                 stream=True,
                 **gen_conf,
             )
-            for res in response.iter_lines():
+            for res in response:
                 if res.type == 'content_block_delta':
                     text = res.delta.text
                     ans += text
@@ -1429,7 +1479,7 @@ class GoogleChat(Base):
         from google.oauth2 import service_account
         import base64
 
-        key = json.load(key)
+        key = json.loads(key)
         access_token = json.loads(
             base64.b64decode(key.get("google_service_account_key", ""))
         )
@@ -1476,8 +1526,8 @@ class GoogleChat(Base):
             self.system = system
 
         if "claude" in self.model_name:
-            if "max_tokens" not in gen_conf:
-                gen_conf["max_tokens"] = 4096
+            if "max_tokens" in gen_conf:
+                del gen_conf["max_tokens"]
             try:
                 response = self.client.messages.create(
                     model=self.model_name,
@@ -1526,8 +1576,8 @@ class GoogleChat(Base):
             self.system = system
 
         if "claude" in self.model_name:
-            if "max_tokens" not in gen_conf:
-                gen_conf["max_tokens"] = 4096
+            if "max_tokens" in gen_conf:
+                del gen_conf["max_tokens"]
             ans = ""
             total_tokens = 0
             try:
@@ -1573,6 +1623,7 @@ class GoogleChat(Base):
                 yield ans + "\n**ERROR**: " + str(e)
 
             yield response._chunks[-1].usage_metadata.total_token_count
+
 
 class GPUStackChat(Base):
     def __init__(self, key=None, model_name="", base_url=""):

@@ -13,17 +13,16 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-import json
 import logging
-import os
-
+from api import settings
 from api.db.services.user_service import TenantService, UserTenantService
 from api.utils.file_utils import get_project_base_directory
 from rag.llm import EmbeddingModel, CvModel, ChatModel, RerankModel, Seq2txtModel, TTSModel
 from api.db import LLMType
-from api.db.db_models import DB
-from api.db.db_models import LLMFactories, LLM, TenantLLM
+from api.db.db_models import DB, LLM, LLMFactories, TenantLLM
 from api.db.services.common_service import CommonService
+from api.db.services.user_service import TenantService
+from rag.llm import ChatModel, CvModel, EmbeddingModel, RerankModel, Seq2txtModel, TTSModel
 
 
 class LLMFactoriesService(CommonService):
@@ -136,7 +135,7 @@ class TenantLLMService(CommonService):
 
         # model name must be xxx@yyy
         try:
-            model_factories = json.load(open(os.path.join(get_project_base_directory(), "conf/llm_factories.json"), "r"))["factory_llm_infos"]
+            model_factories = settings.FACTORY_LLM_INFOS
             model_providers = set([f["name"] for f in model_factories])
             if arr[-1] not in model_providers:
                 return model_name, None
@@ -147,27 +146,7 @@ class TenantLLMService(CommonService):
 
     @classmethod
     @DB.connection_context()
-    def model_instance(cls, tenant_id, llm_type,
-                       llm_name=None, lang="Chinese"):
-        """
-        根据租户 ID、模型类型（如嵌入、语音转文本等）、可选的模型名称和语言创建相应的 LLM 实例。
-        这个方法会先尝试从数据库中获取模型配置，如果找不到，则会尝试使用默认值或抛出错误。
-
-        Args:
-            tenant_id (int): 租户 ID
-            llm_type (str): LLM 类型，例如 EMBEDDING, SPEECH2TEXT 等
-            llm_name (str, optional): 模型名称，默认为 None
-            lang (str, optional): 语言，默认为 "Chinese"
-
-        Raises:
-            LookupError: 租户未找到
-            LookupError: 模型类型未设置
-            LookupError: 模型未授权
-
-        Returns:
-            object: 创建的 LLM 实例,如果是chat model，就返回ChatModel对象
-        """
-        # 获取租户信息
+    def get_model_config(cls, tenant_id, llm_type, llm_name=None):
         e, tenant = TenantService.get_by_id(tenant_id)
         if not e:
             raise LookupError("Tenant not found")
@@ -215,9 +194,13 @@ class TenantLLMService(CommonService):
                     if not mdlnm:
                         raise LookupError(f"Type of {llm_type} model is not set.")
                     raise LookupError("Model({}) not authorized".format(mdlnm))
+        return model_config
 
-
-        # 创建嵌入模型实例
+    @classmethod
+    @DB.connection_context()
+    def model_instance(cls, tenant_id, llm_type,
+                       llm_name=None, lang="Chinese"):
+        model_config = TenantLLMService.get_model_config(tenant_id, llm_type, llm_name)
         if llm_type == LLMType.EMBEDDING.value:
             if model_config["llm_factory"] not in EmbeddingModel:
                 return
@@ -287,40 +270,39 @@ class TenantLLMService(CommonService):
         """
         e, tenant = TenantService.get_by_id(tenant_id)
         if not e:
-            raise LookupError("Tenant not found")
+            logging.error(f"Tenant not found: {tenant_id}")
+            return 0
 
-        if llm_type == LLMType.EMBEDDING.value:
-            mdlnm = tenant.embd_id
-        elif llm_type == LLMType.SPEECH2TEXT.value:
-            mdlnm = tenant.asr_id
-        elif llm_type == LLMType.IMAGE2TEXT.value:
-            mdlnm = tenant.img2txt_id
-        elif llm_type == LLMType.CHAT.value:
-            mdlnm = tenant.llm_id if not llm_name else llm_name
-        elif llm_type == LLMType.RERANK:
-            mdlnm = tenant.rerank_id if not llm_name else llm_name
-        elif llm_type == LLMType.TTS:
-            mdlnm = tenant.tts_id if not llm_name else llm_name
-        else:
-            assert False, "LLM type error"
+        llm_map = {
+            LLMType.EMBEDDING.value: tenant.embd_id,
+            LLMType.SPEECH2TEXT.value: tenant.asr_id,
+            LLMType.IMAGE2TEXT.value: tenant.img2txt_id,
+            LLMType.CHAT.value: tenant.llm_id if not llm_name else llm_name,
+            LLMType.RERANK.value: tenant.rerank_id if not llm_name else llm_name,
+            LLMType.TTS.value: tenant.tts_id if not llm_name else llm_name
+        }
+
+        mdlnm = llm_map.get(llm_type)
+        if mdlnm is None:
+            logging.error(f"LLM type error: {llm_type}")
+            return 0
 
         llm_name, llm_factory = TenantLLMService.split_model_name_and_factory(mdlnm)
 
-        num = 0
         try:
-            if llm_factory:
-                tenant_llms = cls.query(tenant_id=tenant_id, llm_name=llm_name, llm_factory=llm_factory)
-            else:
-                tenant_llms = cls.query(tenant_id=tenant_id, llm_name=llm_name)
-            if not tenant_llms:
-                return num
-            else:
-                tenant_llm = tenant_llms[0]
-                num = cls.model.update(used_tokens=tenant_llm.used_tokens + used_tokens) \
-                    .where(cls.model.tenant_id == tenant_id, cls.model.llm_factory == tenant_llm.llm_factory, cls.model.llm_name == llm_name) \
-                    .execute()
+            num = cls.model.update(
+                used_tokens=cls.model.used_tokens + used_tokens
+            ).where(
+                cls.model.tenant_id == tenant_id,
+                cls.model.llm_name == llm_name,
+                cls.model.llm_factory == llm_factory if llm_factory else True
+            ).execute()
         except Exception:
-            logging.exception("TenantLLMService.increase_usage got exception")
+            logging.exception(
+                "TenantLLMService.increase_usage got exception,Failed to update used_tokens for tenant_id=%s, llm_name=%s",
+                tenant_id, llm_name)
+            return 0
+
         return num
 
     @classmethod
@@ -339,10 +321,7 @@ class TenantLLMService(CommonService):
         return list(objs)
 
 
-class LLMBundle(object):
-    """
-    从tenant_llm取出模型信息并封装成对象
-    """    
+class LLMBundle:
     def __init__(self, tenant_id, llm_type, llm_name=None, lang="Chinese"):
         """初始化
 
@@ -372,10 +351,8 @@ class LLMBundle(object):
 
         assert self.mdl, "Can't find model for {}/{}/{}".format(
             tenant_id, llm_type, llm_name)
-        self.max_length = 8192
-        for lm in LLMService.query(llm_name=llm_name):
-            self.max_length = lm.max_tokens
-            break
+        model_config = TenantLLMService.get_model_config(tenant_id, llm_type, llm_name)
+        self.max_length = model_config.get("max_tokens", 8192)
 
     def encode(self, texts: list):
         embeddings, used_tokens = self.mdl.encode(texts)
@@ -403,6 +380,14 @@ class LLMBundle(object):
 
     def describe(self, image, max_tokens=300):
         txt, used_tokens = self.mdl.describe(image, max_tokens)
+        if not TenantLLMService.increase_usage(
+                self.tenant_id, self.llm_type, used_tokens):
+            logging.error(
+                "LLMBundle.describe can't update token usage for {}/IMAGE2TEXT used_tokens: {}".format(self.tenant_id, used_tokens))
+        return txt
+
+    def describe_with_prompt(self, image, prompt):
+        txt, used_tokens = self.mdl.describe_with_prompt(image, prompt)
         if not TenantLLMService.increase_usage(
                 self.tenant_id, self.llm_type, used_tokens):
             logging.error(

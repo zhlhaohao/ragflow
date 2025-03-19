@@ -1,3 +1,6 @@
+#
+#  Copyright 2025 The InfiniFlow Authors. All Rights Reserved.
+#
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
 #  You may obtain a copy of the License at
@@ -10,6 +13,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
+
 import os
 import re
 from collections import Counter
@@ -42,8 +46,8 @@ class LayoutRecognizer(Recognizer):
     def __init__(self, domain):
         try:
             model_dir = os.path.join(
-                    get_project_base_directory(),
-                    "rag/res/deepdoc")
+                get_project_base_directory(),
+                "rag/res/deepdoc")
             super().__init__(self.labels, domain, model_dir)
         except Exception:
             model_dir = snapshot_download(repo_id="InfiniFlow/deepdoc",
@@ -56,9 +60,8 @@ class LayoutRecognizer(Recognizer):
     def __call__(self, image_list, ocr_res, scale_factor=3,
                  thr=0.2, batch_size=16, drop=True):
         def __is_garbage(b):
-            patt = [r"^•+$", r"(版权归©|免责条款|地址[:：])", r"\.{3,}", "^[0-9]{1,2} / ?[0-9]{1,2}$",
+            patt = [r"^•+$", "^[0-9]{1,2} / ?[0-9]{1,2}$",
                     r"^[0-9]{1,2} of [0-9]{1,2}$", "^http://[^ ]{12,}",
-                    "(资料|数据)来源[:：]", "[0-9a-z._-]+@[a-z0-9-]+\\.[a-z]{2,3}",
                     "\\(cid *: *[0-9]+ *\\)"
                     ]
             return any([re.search(p, b["text"]) for p in patt])
@@ -156,6 +159,7 @@ class LayoutRecognizer(Recognizer):
     def forward(self, image_list, thr=0.7, batch_size=16):
         return super().__call__(image_list, thr, batch_size)
 
+
 class LayoutRecognizer4YOLOv10(LayoutRecognizer):
     labels = [
         "title",
@@ -181,9 +185,9 @@ class LayoutRecognizer4YOLOv10(LayoutRecognizer):
 
     def preprocess(self, image_list):
         inputs = []
-        new_shape = self.input_shape # height, width
+        new_shape = self.input_shape  # height, width
         for img in image_list:
-            shape = img.shape[:2]# current shape [height, width]
+            shape = img.shape[:2]  # current shape [height, width]
             # Scale ratio (new / old)
             r = min(new_shape[0] / shape[0], new_shape[1] / shape[1])
             # Compute padding
@@ -238,4 +242,3 @@ class LayoutRecognizer4YOLOv10(LayoutRecognizer):
             "bbox": [float(t) for t in boxes[i].tolist()],
             "score": float(scores[i])
         } for i in indices]
-

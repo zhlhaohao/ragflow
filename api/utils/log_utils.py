@@ -18,6 +18,8 @@ import os.path
 import logging
 from logging.handlers import RotatingFileHandler
 
+initialized_root_logger = False
+
 def get_project_base_directory():
     """
     获取项目的基础目录路径。
@@ -32,15 +34,13 @@ def get_project_base_directory():
     return PROJECT_BASE
 
 def initRootLogger(logfile_basename: str, log_format: str = "%(asctime)-15s %(levelname)-8s %(process)d %(message)s"):
-    """
-    初始化根日志记录器，设置特定的格式和处理器。
-    该函数为应用程序设置日志配置，确保日志同时输出到控制台和文件，并具有适当的级别。
-    """
-    logger = logging.getLogger()
-    if logger.hasHandlers():
+    global initialized_root_logger
+    if initialized_root_logger:
         return
+    initialized_root_logger = True
 
-    # 获取日志文件的绝对路径
+    logger = logging.getLogger()
+    logger.handlers.clear()
     log_path = os.path.abspath(os.path.join(get_project_base_directory(), "logs", f"{logfile_basename}.log"))
 
     # 创建日志目录（如果不存在）

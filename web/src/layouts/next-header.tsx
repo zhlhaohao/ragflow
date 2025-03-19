@@ -1,7 +1,7 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Container } from '@/components/ui/container';
-import { Segmented, SegmentedValue } from '@/components/ui/segmented ';
+import { Segmented, SegmentedValue } from '@/components/ui/segmented';
 import { useTranslate } from '@/hooks/common-hooks';
 import { useNavigatePage } from '@/hooks/logic-hooks/navigate-hooks';
 import { useNavigateWithFromState } from '@/hooks/route-hook';
@@ -31,9 +31,9 @@ export function Header() {
   const tagsData = useMemo(
     () => [
       { path: Routes.Datasets, name: t('knowledgeBase'), icon: Library },
-      { path: Routes.Chat, name: t('chat'), icon: MessageSquareText },
-      { path: Routes.Search, name: t('search'), icon: Search },
-      { path: Routes.Agent, name: t('flow'), icon: Cpu },
+      { path: Routes.Chats, name: t('chat'), icon: MessageSquareText },
+      { path: Routes.Searches, name: t('search'), icon: Search },
+      { path: Routes.Agents, name: t('flow'), icon: Cpu },
       { path: Routes.Files, name: t('fileManager'), icon: File },
     ],
     [t],

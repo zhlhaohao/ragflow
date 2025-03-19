@@ -3,12 +3,14 @@ import { DSL, IFlow, IFlowTemplate } from '@/interfaces/database/flow';
 import { IDebugSingleRequestBody } from '@/interfaces/request/flow';
 import i18n from '@/locales/config';
 import { useGetSharedChatSearchParams } from '@/pages/chat/shared-hooks';
+import { BeginId } from '@/pages/flow/constant';
 import flowService from '@/services/flow-service';
 import { buildMessageListWithUuid } from '@/utils/chat';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { message } from 'antd';
 import { set } from 'lodash';
 import get from 'lodash/get';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'umi';
 import { v4 as uuid } from 'uuid';
 
@@ -16,7 +18,7 @@ export const EmptyDsl = {
   graph: {
     nodes: [
       {
-        id: 'begin',
+        id: BeginId,
         type: 'beginNode',
         position: {
           x: 50,
@@ -50,6 +52,8 @@ export const EmptyDsl = {
 };
 
 export const useFetchFlowTemplates = (): ResponseType<IFlowTemplate[]> => {
+  const { t } = useTranslation();
+
   const { data } = useQuery({
     queryKey: ['fetchFlowTemplates'],
     initialData: [],
@@ -58,8 +62,8 @@ export const useFetchFlowTemplates = (): ResponseType<IFlowTemplate[]> => {
       if (Array.isArray(data?.data)) {
         data.data.unshift({
           id: uuid(),
-          title: 'Blank',
-          description: 'Create your agent from scratch',
+          title: t('flow.blank'),
+          description: t('flow.createFromNothing'),
           dsl: EmptyDsl,
         });
       }

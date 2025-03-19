@@ -18,7 +18,7 @@ import re
 from dataclasses import dataclass
 
 from rag.settings import TAG_FLD, PAGERANK_FLD
-from rag.utils import rmSpace
+from rag.utils import rmSpace, get_float
 from rag.nlp import rag_tokenizer, query
 import numpy as np
 from rag.utils.doc_store_conn import DocStoreConnection, MatchDenseExpr, FusionExpr, OrderByExpr
@@ -61,7 +61,7 @@ class Dealer:
         if len(shape) > 1:
             raise Exception(
                 f"Dealer.get_vector returned array's shape {shape} doesn't match expectation(exact one dimension).")
-        embedding_data = [float(v) for v in qv]
+        embedding_data = [get_float(v) for v in qv]
         vector_column_name = f"q_{len(embedding_data)}_vec"
         return MatchDenseExpr(vector_column_name, embedding_data, 'float', 'cosine', topk, {"similarity": similarity})
 
@@ -71,7 +71,7 @@ class Dealer:
             if key in req and req[key] is not None:
                 condition[field] = req[key]
         # TODO(yzc): `available_int` is nullable however infinity doesn't support nullable columns.
-        for key in ["knowledge_graph_kwd", "available_int"]:
+        for key in ["knowledge_graph_kwd", "available_int", "entity_kwd", "from_entity_kwd", "to_entity_kwd", "removed_kwd"]:
             if key in req and req[key] is not None:
                 condition[key] = req[key]
         return condition
@@ -197,7 +197,7 @@ class Dealer:
         )
     @staticmethod
     def trans2floats(txt):
-        return [float(t) for t in txt.split("\t")]
+        return [get_float(t) for t in txt.split("\t")]
 
     def insert_citations(self, answer, chunks, chunk_v,
                          embd_mdl, tkweight=0.1, vtweight=0.9):
@@ -256,6 +256,11 @@ class Dealer:
             return answer, set([])
 
         ans_v, _ = embd_mdl.encode(pieces_)
+        for i in range(len(chunk_v)):
+            if len(ans_v[0]) != len(chunk_v[i]):
+                chunk_v[i] = [0.0]*len(ans_v[0])
+                logging.warning("The dimension of query and chunk do not match: {} vs. {}".format(len(ans_v[0]), len(chunk_v[i])))
+
         assert len(ans_v[0]) == len(chunk_v[0]), "The dimension of query and chunk do not match: {} vs. {}".format(
             len(ans_v[0]), len(chunk_v[0]))
 
@@ -321,6 +326,9 @@ class Dealer:
         q_denor = np.sqrt(np.sum([s*s for t,s in query_rfea.items() if t != PAGERANK_FLD]))
         for i in search_res.ids:
             nor, denor = 0, 0
+            if not search_res.field[i].get(TAG_FLD):
+                rank_fea.append(0)
+                continue
             for t, sc in eval(search_res.field[i].get(TAG_FLD, "{}")).items():
                 if t in query_rfea:
                     nor += query_rfea[t] * sc
@@ -357,7 +365,7 @@ class Dealer:
         for chunk_id in sres.ids:
             vector = sres.field[chunk_id].get(vector_column, zero_vector)
             if isinstance(vector, str):
-                vector = [float(v) for v in vector.split("\t")]
+                vector = [get_float(v) for v in vector.split("\t")]
             ins_embd.append(vector)
         if not ins_embd:
             return [], [], []
@@ -470,21 +478,13 @@ class Dealer:
         ranks = {"total": 0, "chunks": [], "doc_aggs": {}}
         if not question:
             return ranks
-    
-        # 定义重新排序的页面限制
-        RERANK_PAGE_LIMIT = 3
-        # 构建检索请求
-        req = {"kb_ids": kb_ids, "doc_ids": doc_ids, "size": max(page_size * RERANK_PAGE_LIMIT, 128),
+
+        RERANK_LIMIT = 64
+        req = {"kb_ids": kb_ids, "doc_ids": doc_ids, "page": page, "size": RERANK_LIMIT,
                "question": question, "vector": True, "topk": top,
                "similarity": similarity_threshold,
                "available_int": 1}
-    
-        # 调整请求参数以适应分页
-        if page > RERANK_PAGE_LIMIT:
-            req["page"] = page
-            req["size"] = page_size
-    
-        # 处理租户ID
+
         if isinstance(tenant_ids, str):
             tenant_ids = tenant_ids.split(",")
     
@@ -492,24 +492,19 @@ class Dealer:
         sres = self.search(req, [index_name(tid) for tid in tenant_ids],
                            kb_ids, embd_mdl, highlight, rank_feature=rank_feature)
         ranks["total"] = sres.total
-    
-        # 根据模型重新排序
-        if page <= RERANK_PAGE_LIMIT:
-            if rerank_mdl and sres.total > 0:
-                sim, tsim, vsim = self.rerank_by_model(rerank_mdl,
-                                                       sres, question, 1 - vector_similarity_weight,
-                                                       vector_similarity_weight,
-                                                       rank_feature=rank_feature)
-            else:
-                sim, tsim, vsim = self.rerank(
-                    sres, question, 1 - vector_similarity_weight, vector_similarity_weight,
-                    rank_feature=rank_feature)
-            idx = np.argsort(sim * -1)[(page - 1) * page_size:page * page_size]
+
+        if rerank_mdl and sres.total > 0:
+            sim, tsim, vsim = self.rerank_by_model(rerank_mdl,
+                                                   sres, question, 1 - vector_similarity_weight,
+                                                   vector_similarity_weight,
+                                                   rank_feature=rank_feature)
         else:
-            sim = tsim = vsim = [1] * len(sres.ids)
-            idx = list(range(len(sres.ids)))
-    
-        # 初始化向量相关变量
+            sim, tsim, vsim = self.rerank(
+                sres, question, 1 - vector_similarity_weight, vector_similarity_weight,
+                rank_feature=rank_feature)
+        idx = np.argsort(sim * -1)[(page - 1) * page_size:page * page_size]
+
+
         dim = len(sres.query_vector)
         vector_column = f"q_{dim}_vec"
         zero_vector = [0.0] * dim
@@ -524,14 +519,14 @@ class Dealer:
                 break
             id = sres.ids[i]
             chunk = sres.field[id]
-            dnm = chunk["docnm_kwd"]
-            did = chunk["doc_id"]
+            dnm = chunk.get("docnm_kwd", "")
+            did = chunk.get("doc_id", "")
             position_int = chunk.get("position_int", [])
             d = {
                 "chunk_id": id,
                 "content_ltks": chunk["content_ltks"],
                 "content_with_weight": chunk["content_with_weight"],
-                "doc_id": chunk["doc_id"],
+                "doc_id": did,
                 "docnm_kwd": dnm,
                 "kb_id": chunk["kb_id"],
                 "important_kwd": chunk.get("important_kwd", []),
@@ -602,6 +597,8 @@ class Dealer:
             es_res = self.dataStore.search(fields, [], condition, [], OrderByExpr(), p, bs, index_name(tenant_id),
                                            kb_ids)
             dict_chunks = self.dataStore.getFields(es_res, fields)
+            for id, doc in dict_chunks.items():
+                doc["id"] = id
             if dict_chunks:
                 res.extend(dict_chunks.values())
             if len(dict_chunks.values()) < bs:
@@ -609,17 +606,8 @@ class Dealer:
         return res
 
     def all_tags(self, tenant_id: str, kb_ids: list[str], S=1000):
-        """
-        获取所有标签。
-
-        参数:
-        tenant_id (str): 租户ID。
-        kb_ids (list[str]): 知识库ID列表。
-        S (int): 参数S。
-
-        返回:
-        dict: 标签聚合结果。
-        """
+        if not self.dataStore.indexExist(index_name(tenant_id), kb_ids[0]):
+            return []
         res = self.dataStore.search([], [], {}, [], OrderByExpr(), 0, 0, index_name(tenant_id), kb_ids, ["tag_kwd"])
         return self.dataStore.getAggregation(res, "tag_kwd")
 
@@ -663,7 +651,7 @@ class Dealer:
         if not aggs:
             return False
         cnt = np.sum([c for _, c in aggs])
-        tag_fea = sorted([(a, round(0.1*(c + 1) / (cnt + S) / (all_tags.get(a, 0.0001)))) for a, c in aggs],
+        tag_fea = sorted([(a, round(0.1*(c + 1) / (cnt + S) / max(1e-6, all_tags.get(a, 0.0001)))) for a, c in aggs],
                          key=lambda x: x[1] * -1)[:topn_tags]
         doc[TAG_FLD] = {a: c for a, c in tag_fea if c > 0}
         return True
@@ -693,6 +681,6 @@ class Dealer:
         if not aggs:
             return {}
         cnt = np.sum([c for _, c in aggs])
-        tag_fea = sorted([(a, round(0.1*(c + 1) / (cnt + S) / (all_tags.get(a, 0.0001)))) for a, c in aggs],
+        tag_fea = sorted([(a, round(0.1*(c + 1) / (cnt + S) / max(1e-6, all_tags.get(a, 0.0001)))) for a, c in aggs],
                          key=lambda x: x[1] * -1)[:topn_tags]
-        return {a: c for a, c in tag_fea if c > 0}
+        return {a: max(1, c) for a, c in tag_fea}

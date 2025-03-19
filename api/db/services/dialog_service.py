@@ -15,27 +15,25 @@
 #
 import logging
 import binascii
-import os
-import json
+import time
+from functools import partial
 import re
-from collections import defaultdict
 from copy import deepcopy
 from timeit import default_timer as timer
-import datetime
-from datetime import timedelta
+from agentic_reasoning import DeepResearcher
 from api.db import LLMType, ParserType, StatusEnum
 from api.db.db_models import Dialog, DB
 from api.db.services.common_service import CommonService
-from api.db.services.document_service import DocumentService
 from api.db.services.knowledgebase_service import KnowledgebaseService
-from api.db.services.llm_service import LLMService, TenantLLMService, LLMBundle
+from api.db.services.llm_service import TenantLLMService, LLMBundle
 from api import settings
-from graphrag.utils import get_tags_from_cache, set_tags_to_cache
 from rag.app.resume import forbidden_select_fields4resume
+from rag.app.tag import label_question
 from rag.nlp.search import index_name
-from rag.settings import TAG_FLD
-from rag.utils import rmSpace, num_tokens_from_string, encoder
-from api.utils.file_utils import get_project_base_directory
+from rag.prompts import kb_prompt, message_fit_in, llm_id2llm_type, keyword_extraction, full_question, chunks_format, \
+    citation_prompt
+from rag.utils import rmSpace, num_tokens_from_string
+from rag.utils.tavily_conn import Tavily
 from api.utils import ic
 
 class DialogService(CommonService):
@@ -64,146 +62,51 @@ class DialogService(CommonService):
         return list(chats.dicts())
 
 
-def message_fit_in(msg, max_length=4000):
-    def count():
-        nonlocal msg
-        tks_cnts = []
-        for m in msg:
-            tks_cnts.append(
-                {"role": m["role"], "count": num_tokens_from_string(m["content"])})
-        total = 0
-        for m in tks_cnts:
-            total += m["count"]
-        return total
+def chat_solo(dialog, messages, stream=True):
+    if llm_id2llm_type(dialog.llm_id) == "image2text":
+        chat_mdl = LLMBundle(dialog.tenant_id, LLMType.IMAGE2TEXT, dialog.llm_id)
+    else:
+        chat_mdl = LLMBundle(dialog.tenant_id, LLMType.CHAT, dialog.llm_id)
 
-    c = count()
-    if c < max_length:
-        return c, msg
-
-    msg_ = [m for m in msg[:-1] if m["role"] == "system"]
-    if len(msg) > 1:
-        msg_.append(msg[-1])
-    msg = msg_
-    c = count()
-    if c < max_length:
-        return c, msg
-
-    ll = num_tokens_from_string(msg_[0]["content"])
-    ll2 = num_tokens_from_string(msg_[-1]["content"])
-    if ll / (ll + ll2) > 0.8:
-        m = msg_[0]["content"]
-        m = encoder.decode(encoder.encode(m)[:max_length - ll2])
-        msg[0]["content"] = m
-        return max_length, msg
-
-    m = msg_[1]["content"]
-    m = encoder.decode(encoder.encode(m)[:max_length - ll2])
-    msg[1]["content"] = m
-    return max_length, msg
-
-
-def llm_id2llm_type(llm_id):
-    llm_id, _ = TenantLLMService.split_model_name_and_factory(llm_id)
-    fnm = os.path.join(get_project_base_directory(), "conf")
-    llm_factories = json.load(open(os.path.join(fnm, "llm_factories.json"), "r"))
-    for llm_factory in llm_factories["factory_llm_infos"]:
-        for llm in llm_factory["llm"]:
-            if llm_id == llm["llm_name"]:
-                return llm["model_type"].strip(",")[-1]
-
-
-def kb_prompt(kbinfos, max_tokens):
-    """
-    根据给定的知识库信息和最大令牌数生成知识库提示。
-
-    参数:
-    kbinfos (dict): 包含知识库信息的字典，其中 "chunks" 键包含知识片段列表。
-    max_tokens (int): 允许的最大令牌数。
-
-    返回:
-    list: 包含格式化后的知识库提示的列表。
-    """
-    # 提取知识片段的内容和权重
-    knowledges = [ck["content_with_weight"] for ck in kbinfos["chunks"]]
-    used_token_count = 0
-    chunks_num = 0
-    # 计算使用的令牌数，直到达到最大令牌数的97%
-    for i, c in enumerate(knowledges):
-        used_token_count += num_tokens_from_string(c)
-        chunks_num += 1
-        if max_tokens * 0.97 < used_token_count:
-            knowledges = knowledges[:i]
-            break
-
-    # 获取文档元数据
-    docs = DocumentService.get_by_ids([ck["doc_id"] for ck in kbinfos["chunks"][:chunks_num]])
-    docs = {d.id: d.meta_fields for d in docs}
-
-    # 按文档名称和关键字分组知识片段
-    doc2chunks = defaultdict(lambda: {"chunks": [], "meta": []})
-    for ck in kbinfos["chunks"][:chunks_num]:
-        doc2chunks[ck["docnm_kwd"]]["chunks"].append(ck["content_with_weight"])
-        doc2chunks[ck["docnm_kwd"]]["meta"] = docs.get(ck["doc_id"], {})
-
-    # 格式化知识库提示
-    knowledges = []
-    for nm, cks_meta in doc2chunks.items():
-        txt = f"Document: {nm} \n"
-        for k,v in cks_meta["meta"].items():
-            txt += f"{k}: {v}\n"
-        txt += "Relevant fragments as following:\n"
-        for i, chunk in enumerate(cks_meta["chunks"], 1):
-            txt += f"{i}. {chunk}\n"
-        knowledges.append(txt)
-
-    # ic(knowledges)   # 0002.md
-    return knowledges
-
-
-def label_question(question, kbs):
-    tags = None
-    tag_kb_ids = []
-    for kb in kbs:
-        if kb.parser_config.get("tag_kb_ids"):
-            tag_kb_ids.extend(kb.parser_config["tag_kb_ids"])
-    if tag_kb_ids:
-        all_tags = get_tags_from_cache(tag_kb_ids)
-        if not all_tags:
-            all_tags = settings.retrievaler.all_tags_in_portion(kb.tenant_id, tag_kb_ids)
-            set_tags_to_cache(all_tags, tag_kb_ids)
-        else:
-            all_tags = json.loads(all_tags)
-        tag_kbs = KnowledgebaseService.get_by_ids(tag_kb_ids)
-        tags = settings.retrievaler.tag_query(question,
-                                              list(set([kb.tenant_id for kb in tag_kbs])),
-                                              tag_kb_ids,
-                                              all_tags,
-                                              kb.parser_config.get("topn_tags", 3)
-                                              )
-    return tags
+    prompt_config = dialog.prompt_config
+    tts_mdl = None
+    if prompt_config.get("tts"):
+        tts_mdl = LLMBundle(dialog.tenant_id, LLMType.TTS)
+    msg = [{"role": m["role"], "content": re.sub(r"##\d+\$\$", "", m["content"])}
+           for m in messages if m["role"] != "system"]
+    if stream:
+        last_ans = ""
+        for ans in chat_mdl.chat_streamly(prompt_config.get("system", ""), msg, dialog.llm_setting):
+            answer = ans
+            delta_ans = ans[len(last_ans):]
+            if num_tokens_from_string(delta_ans) < 16:
+                continue
+            last_ans = answer
+            yield {"answer": answer, "reference": {}, "audio_binary": tts(tts_mdl, delta_ans), "prompt": "", "created_at": time.time()}
+        if delta_ans:
+            yield {"answer": answer, "reference": {}, "audio_binary": tts(tts_mdl, delta_ans), "prompt": "", "created_at": time.time()}
+    else:
+        answer = chat_mdl.chat(prompt_config.get("system", ""), msg, dialog.llm_setting)
+        user_content = msg[-1].get("content", "[content not available]")
+        logging.debug("User: {}|Assistant: {}".format(user_content, answer))
+        yield {"answer": answer, "reference": {}, "audio_binary": tts(tts_mdl, answer), "prompt": "", "created_at": time.time()}
 
 
 def chat(dialog, messages, stream=True, **kwargs):
     assert messages[-1]["role"] == "user", "The last content of this conversation is not from user."
+    if not dialog.kb_ids:
+        for ans in chat_solo(dialog, messages, stream):
+            yield ans
+        return
 
     chat_start_ts = timer()
 
-    # Get llm model name and model provider name
-    llm_id, model_provider = TenantLLMService.split_model_name_and_factory(dialog.llm_id)
-
-    # 从系统模型表中获取模型信息，Get llm model instance by model and provide name
-    llm = LLMService.query(llm_name=llm_id) if not model_provider else LLMService.query(llm_name=llm_id, fid=model_provider)
-
-    if not llm:
-        # Model name is provided by tenant, but not system built-in
-        # 系统模型表中没有该模型，尝试从租户模型表中获取模型信息
-        llm = TenantLLMService.query(tenant_id=dialog.tenant_id, llm_name=llm_id) if not model_provider else \
-            TenantLLMService.query(tenant_id=dialog.tenant_id, llm_name=llm_id, llm_factory=model_provider)
-        if not llm:
-            raise LookupError("LLM(%s) not found" % dialog.llm_id)
-        max_tokens = 8192
+    if llm_id2llm_type(dialog.llm_id) == "image2text":
+        llm_model_config = TenantLLMService.get_model_config(dialog.tenant_id, LLMType.IMAGE2TEXT, dialog.llm_id)
     else:
-        max_tokens = llm[0].max_tokens
+        llm_model_config = TenantLLMService.get_model_config(dialog.tenant_id, LLMType.CHAT, dialog.llm_id)
+
+    max_tokens = llm_model_config.get("max_tokens", 8192)
 
     check_llm_ts = timer()
 
@@ -216,8 +119,7 @@ def chat(dialog, messages, stream=True, **kwargs):
 
     # embedding_model_name = embedding_list[0]  # F8080 移到了下方
 
-    is_knowledge_graph = all([kb.parser_id == ParserType.KG for kb in kbs])
-    retriever = settings.retrievaler if not is_knowledge_graph else settings.kg_retrievaler
+    retriever = settings.retrievaler
 
     # 提取用户最近的3个问题
     questions = [m["content"] for m in messages if m["role"] == "user"][-3:]
@@ -226,9 +128,6 @@ def chat(dialog, messages, stream=True, **kwargs):
     attachments = kwargs["doc_ids"].split(",") if "doc_ids" in kwargs else None
     if "doc_ids" in messages[-1]:
         attachments = messages[-1]["doc_ids"]
-        for m in messages[:-1]:
-            if "doc_ids" in m:
-                attachments.extend(m["doc_ids"])
 
     create_retriever_ts = timer()
 
@@ -289,12 +188,11 @@ def chat(dialog, messages, stream=True, **kwargs):
 
     bind_reranker_ts = timer()
     generate_keyword_ts = bind_reranker_ts
+    thought = ""
+    kbinfos = {"total": 0, "chunks": [], "doc_aggs": []}
 
-    # 如果提示配置中不包含 knowledge，则初始化 kbinfos 为空。
-
-    # F8080: 判断prompt_config["parameters"]没有定义knowledge参数，或者prompt_config["system"] 不包含 {knowledge} 子串
-    if "knowledge" not in [p["key"] for p in prompt_config["parameters"]] or "{knowledge}" not in prompt_config["system"]:
-        kbinfos = {"total": 0, "chunks": [], "doc_aggs": []}
+    if "knowledge" not in [p["key"] for p in prompt_config["parameters"]]:
+        knowledges = []
     else:
         # 如果助理设置了"关键词提取"选项，则调用 keyword_extraction 函数提取用户问题的关键词并附加到用户问题的后面。
         if prompt_config.get("keyword", False):
@@ -305,51 +203,65 @@ def chat(dialog, messages, stream=True, **kwargs):
         # 找到助手的所有知识库的tenant_id，并调用retriever.retrieval函数进行检索相关的chunks，返回结果为kbinfos。
         tenant_ids = list(set([kb.tenant_id for kb in kbs]))
 
-        kbinfos = retriever.retrieval(" ".join(questions), embd_mdl, tenant_ids, dialog.kb_ids, 1, dialog.top_n,
-                                      dialog.similarity_threshold,
-                                      dialog.vector_similarity_weight,
-                                      doc_ids=attachments,
-                                      top=dialog.top_k, aggs=False, rerank_mdl=rerank_mdl,
-                                      rank_feature=label_question(" ".join(questions), kbs)
-                                      )
+        knowledges = []
+        if prompt_config.get("reasoning", False):
+            reasoner = DeepResearcher(chat_mdl,
+                                      prompt_config,
+                                      partial(retriever.retrieval, embd_mdl=embd_mdl, tenant_ids=tenant_ids, kb_ids=dialog.kb_ids, page=1, page_size=dialog.top_n, similarity_threshold=0.2, vector_similarity_weight=0.3))
 
-    retrieval_ts = timer()
+            for think in reasoner.thinking(kbinfos, " ".join(questions)):
+                if isinstance(think, str):
+                    thought = think
+                    knowledges = [t for t in think.split("\n") if t]
+                elif stream:
+                    yield think
+        else:
+            kbinfos = retriever.retrieval(" ".join(questions), embd_mdl, tenant_ids, dialog.kb_ids, 1, dialog.top_n,
+                                          dialog.similarity_threshold,
+                                          dialog.vector_similarity_weight,
+                                          doc_ids=attachments,
+                                          top=dialog.top_k, aggs=False, rerank_mdl=rerank_mdl,
+                                          rank_feature=label_question(" ".join(questions), kbs)
+                                          )
+            if prompt_config.get("tavily_api_key"):
+                tav = Tavily(prompt_config["tavily_api_key"])
+                tav_res = tav.retrieve_chunks(" ".join(questions))
+                kbinfos["chunks"].extend(tav_res["chunks"])
+                kbinfos["doc_aggs"].extend(tav_res["doc_aggs"])
+            if prompt_config.get("use_kg"):
+                ck = settings.kg_retrievaler.retrieval(" ".join(questions),
+                                                       tenant_ids,
+                                                       dialog.kb_ids,
+                                                       embd_mdl,
+                                                       LLMBundle(dialog.tenant_id, LLMType.CHAT))
+                if ck["content_with_weight"]:
+                    kbinfos["chunks"].insert(0, ck)
 
-    # 将kbinfos中的chunks组合成一个字符串 -> knowledges
-    knowledges = kb_prompt(kbinfos, max_tokens)
+            knowledges = kb_prompt(kbinfos, max_tokens)
 
     logging.debug(
         "{}->{}".format(" ".join(questions), "\n->".join(knowledges)))
 
-    # 如果knowledge为空，且系统提示中有设置empty_response选项，则返回empty_response选项的值。
+    retrieval_ts = timer()
     if not knowledges and prompt_config.get("empty_response"):
         empty_res = prompt_config["empty_response"]
-        yield {"answer": empty_res, "reference": kbinfos, "audio_binary": tts(tts_mdl, empty_res)}
+        yield {"answer": empty_res, "reference": kbinfos, "prompt": "\n\n### Query:\n%s" % " ".join(questions), "audio_binary": tts(tts_mdl, empty_res)}
         return {"answer": prompt_config["empty_response"], "reference": kbinfos}
 
     kwargs["knowledge"] = "\n------\n" + "\n\n------\n\n".join(knowledges)
     gen_conf = dialog.llm_setting
 
-    # F8080 : 如果系统提示中包含knowledge变量，则将{knowledges}和其它变量替换成实际的值
-    if "{knowledge}" in prompt_config["system"]:
-        msg = [{"role": "system", "content": prompt_config["system"].format(**kwargs)}]
-    else:
-        msg = [{"role": "system", "content": prompt_config["system"]}]
-
-    # msg[1:]存放对话历史信息。
+    msg = [{"role": "system", "content": prompt_config["system"].format(**kwargs)}]
+    prompt4citation = ""
+    if knowledges and (prompt_config.get("quote", True) and kwargs.get("quote", True)):
+        prompt4citation = citation_prompt()
     msg.extend([{"role": m["role"], "content": re.sub(r"##\d+\$\$", "", m["content"])}
                 for m in messages if m["role"] != "system"])
-    
-    # 使用 message_fit_in 函数确保消息列表中的令牌数量不超过限制。
-    used_token_count, msg = message_fit_in(msg, int(max_tokens * 0.97))
+    used_token_count, msg = message_fit_in(msg, int(max_tokens * 0.95))
     assert len(msg) >= 2, f"message_fit_in has bug: {msg}"
 
     # prompt设置为助手的系统提示,例如"你是一个智能助手，请回答问题"
     prompt = msg[0]["content"]
-
-    # 将用户的问题(可能是经过优化的)添加到提示词中。
-    prompt += "\n\n### Query:\n%s" % " ".join(questions)
-    ic(questions)
 
     # 调整生成配置中的最大令牌数，确保不超过剩余可用令牌数。
     if "max_tokens" in gen_conf:
@@ -359,49 +271,35 @@ def chat(dialog, messages, stream=True, **kwargs):
 
     # 处理生成的答案,根据需要插入引用。
     def decorate_answer(answer):
-        """
-        装饰最终回答，包含以下功能：
-        1. 添加引用标注
-        2. 处理API密钥错误提示
-        3. 收集响应耗时数据
-        4. 构造返回数据结构
-
-        Args:
-            answer: 原始生成的回答文本
-
-        Returns:
-            dict: 包含处理后的回答、引用信息和调试信息的字典
-        """
-        nonlocal prompt_config, knowledges, kwargs, kbinfos, prompt, retrieval_ts
-
-        # 初始化引用信息
-        finish_chat_ts = timer()
+        nonlocal prompt_config, knowledges, kwargs, kbinfos, prompt, retrieval_ts, questions
 
         refs = []
-        # 引用标注处理（当配置开启且存在知识库时）
+        ans = answer.split("</think>")
+        think = ""
+        if len(ans) == 2:
+            think = ans[0] + "</think>"
+            answer = ans[1]
         if knowledges and (prompt_config.get("quote", True) and kwargs.get("quote", True)):
-            # 使用检索器插入引用标注，返回修改后的回答和引用索引
-            if answer:  # F8080 answer在前端提问的时候为None
-                # 给答案插入引用标注，返回引用索引
+            answer = re.sub(r"##[ij]\$\$", "", answer, flags=re.DOTALL)
+            if not re.search(r"##[0-9]+\$\$", answer):
                 answer, idx = retriever.insert_citations(answer,
-                                                        [ck["content_ltks"]
-                                                        for ck in kbinfos["chunks"]],
-                                                        [ck["vector"]
-                                                        for ck in kbinfos["chunks"]],
-                                                        embd_mdl,
-                                                        tkweight=1 - dialog.vector_similarity_weight,
-                                                        vtweight=dialog.vector_similarity_weight)
+                                                         [ck["content_ltks"]
+                                                          for ck in kbinfos["chunks"]],
+                                                         [ck["vector"]
+                                                          for ck in kbinfos["chunks"]],
+                                                         embd_mdl,
+                                                         tkweight=1 - dialog.vector_similarity_weight,
+                                                         vtweight=dialog.vector_similarity_weight)
+            else:
+                idx = set([])
+                for r in re.finditer(r"##([0-9]+)\$\$", answer):
+                    i = int(r.group(1))
+                    if i < len(kbinfos["chunks"]):
+                        idx.add(i)
 
-                # 转换知识块为文档ID集合
-                idx = set([kbinfos["chunks"][int(i)]["doc_id"] for i in idx])
-                # 根据文档ID集合筛选相关文档
-                recall_docs = [
-                    d for d in kbinfos["doc_aggs"] if d["doc_id"] in idx]
-            else:  # F8080 recall_docs在前端提问的时候为None
-                recall_docs = None
-
-
-            # 保底逻辑：如果无匹配文档则保留原始文档集合
+            idx = set([kbinfos["chunks"][int(i)]["doc_id"] for i in idx])
+            recall_docs = [
+                d for d in kbinfos["doc_aggs"] if d["doc_id"] in idx]
             if not recall_docs:
                 recall_docs = kbinfos["doc_aggs"]
             kbinfos["doc_aggs"] = recall_docs
@@ -431,32 +329,48 @@ def chat(dialog, messages, stream=True, **kwargs):
         retrieval_time_cost = (retrieval_ts - generate_keyword_ts) * 1000
         generate_result_time_cost = (finish_chat_ts - retrieval_ts) * 1000
 
-        prompt = f"{prompt}\n\n - Total: {total_time_cost:.1f}ms\n  - Check LLM: {check_llm_time_cost:.1f}ms\n  - Create retriever: {create_retriever_time_cost:.1f}ms\n  - Bind embedding: {bind_embedding_time_cost:.1f}ms\n  - Bind LLM: {bind_llm_time_cost:.1f}ms\n  - Tune question: {refine_question_time_cost:.1f}ms\n  - Bind reranker: {bind_reranker_time_cost:.1f}ms\n  - Generate keyword: {generate_keyword_time_cost:.1f}ms\n  - Retrieval: {retrieval_time_cost:.1f}ms\n  - Generate answer: {generate_result_time_cost:.1f}ms"
-        return {"answer": answer, "reference": refs, "prompt": prompt}
+        tk_num = num_tokens_from_string(think+answer)
+        prompt += "\n\n### Query:\n%s" % " ".join(questions)
+        prompt = (
+                f"{prompt}\n\n"
+                "## Time elapsed:\n"
+                f"  - Total: {total_time_cost:.1f}ms\n"
+                f"  - Check LLM: {check_llm_time_cost:.1f}ms\n"
+                f"  - Create retriever: {create_retriever_time_cost:.1f}ms\n"
+                f"  - Bind embedding: {bind_embedding_time_cost:.1f}ms\n"
+                f"  - Bind LLM: {bind_llm_time_cost:.1f}ms\n"
+                f"  - Tune question: {refine_question_time_cost:.1f}ms\n"
+                f"  - Bind reranker: {bind_reranker_time_cost:.1f}ms\n"
+                f"  - Generate keyword: {generate_keyword_time_cost:.1f}ms\n"
+                f"  - Retrieval: {retrieval_time_cost:.1f}ms\n"
+                f"  - Generate answer: {generate_result_time_cost:.1f}ms\n\n"
+                "## Token usage:\n"
+                f"  - Generated tokens(approximately): {tk_num}\n"
+                f"  - Token speed: {int(tk_num/(generate_result_time_cost/1000.))}/s"
+        )
+        return {"answer": think+answer, "reference": refs, "prompt": re.sub(r"\n", "  \n", prompt), "created_at": time.time()}
 
         ic(prompt)
     if stream:
         last_ans = ""
         answer = ""
-
-        # 0003.md
-
-        for ans in chat_mdl.chat_streamly(prompt, msg[1:], gen_conf):
+        for ans in chat_mdl.chat_streamly(prompt+prompt4citation, msg[1:], gen_conf):
+            if thought:
+                ans = re.sub(r"<think>.*</think>", "", ans, flags=re.DOTALL)
             answer = ans
             delta_ans = ans[len(last_ans):]
             if num_tokens_from_string(delta_ans) < 16:
                 continue
             last_ans = answer
-            yield {"answer": answer, "reference": {}, "audio_binary": tts(tts_mdl, delta_ans)}
+            yield {"answer": thought+answer, "reference": {}, "audio_binary": tts(tts_mdl, delta_ans)}
         delta_ans = answer[len(last_ans):]
         if delta_ans:
-            yield {"answer": answer, "reference": {}, "audio_binary": tts(tts_mdl, delta_ans)}
-        yield decorate_answer(answer)
+            yield {"answer": thought+answer, "reference": {}, "audio_binary": tts(tts_mdl, delta_ans)}
+        yield decorate_answer(thought+answer)
     else:
-        """ F8080: 非流式响应改造成返回提示词和上下文，用于前端发起请求
-        answer = chat_mdl.chat(prompt, msg[1:], gen_conf)
-        logging.debug("User: {}|Assistant: {}".format(
-            msg[-1]["content"], answer))
+        answer = chat_mdl.chat(prompt+prompt4citation, msg[1:], gen_conf)
+        user_content = msg[-1].get("content", "[content not available]")
+        logging.debug("User: {}|Assistant: {}".format(user_content, answer))
         res = decorate_answer(answer)
         res["audio_binary"] = tts(tts_mdl, answer)
         yield res
@@ -492,6 +406,7 @@ Please write the SQL, only SQL, without any other explanations or text.
         nonlocal sys_prompt, user_prompt, question, tried_times
         sql = chat_mdl.chat(sys_prompt, [{"role": "user", "content": user_prompt}], {
             "temperature": 0.06})
+        sql = re.sub(r"<think>.*</think>", "", sql, flags=re.DOTALL)
         logging.debug(f"{question} ==> {user_prompt} get SQL: {sql}")
         sql = re.sub(r"[\r\n]+", " ", sql.lower())
         sql = re.sub(r".*select ", "select ", sql.lower())
@@ -598,172 +513,6 @@ Please write the SQL, only SQL, without any other explanations or text.
     }
 
 
-def relevant(tenant_id, llm_id, question, contents: list):
-    if llm_id2llm_type(llm_id) == "image2text":
-        chat_mdl = LLMBundle(tenant_id, LLMType.IMAGE2TEXT, llm_id)
-    else:
-        chat_mdl = LLMBundle(tenant_id, LLMType.CHAT, llm_id)
-    prompt = """
-        You are a grader assessing relevance of a retrieved document to a user question. 
-        It does not need to be a stringent test. The goal is to filter out erroneous retrievals.
-        If the document contains keyword(s) or semantic meaning related to the user question, grade it as relevant. 
-        Give a binary score 'yes' or 'no' score to indicate whether the document is relevant to the question.
-        No other words needed except 'yes' or 'no'.
-    """
-    if not contents:
-        return False
-    contents = "Documents: \n" + "   - ".join(contents)
-    contents = f"Question: {question}\n" + contents
-    if num_tokens_from_string(contents) >= chat_mdl.max_length - 4:
-        contents = encoder.decode(encoder.encode(contents)[:chat_mdl.max_length - 4])
-    ans = chat_mdl.chat(prompt, [{"role": "user", "content": contents}], {"temperature": 0.01})
-    if ans.lower().find("yes") >= 0:
-        return True
-    return False
-
-
-def rewrite(tenant_id, llm_id, question):
-    if llm_id2llm_type(llm_id) == "image2text":
-        chat_mdl = LLMBundle(tenant_id, LLMType.IMAGE2TEXT, llm_id)
-    else:
-        chat_mdl = LLMBundle(tenant_id, LLMType.CHAT, llm_id)
-    prompt = """
-        You are an expert at query expansion to generate a paraphrasing of a question.
-        I can't retrieval relevant information from the knowledge base by using user's question directly.     
-        You need to expand or paraphrase user's question by multiple ways such as using synonyms words/phrase, 
-        writing the abbreviation in its entirety, adding some extra descriptions or explanations, 
-        changing the way of expression, translating the original question into another language (English/Chinese), etc. 
-        And return 5 versions of question and one is from translation.
-        Just list the question. No other words are needed.
-    """
-    ans = chat_mdl.chat(prompt, [{"role": "user", "content": question}], {"temperature": 0.8})
-    return ans
-
-
-def keyword_extraction(chat_mdl, content, topn=3):
-    prompt = f"""
-Role: You're a text analyzer. 
-Task: extract the most important keywords/phrases of a given piece of text content.
-Requirements: 
-  - Summarize the text content, and give top {topn} important keywords/phrases.
-  - The keywords MUST be in language of the given piece of text content.
-  - The keywords are delimited by ENGLISH COMMA.
-  - Keywords ONLY in output.
-
-### Text Content 
-{content}
-
-"""
-    msg = [
-        {"role": "system", "content": prompt},
-        {"role": "user", "content": "Output: "}
-    ]
-    _, msg = message_fit_in(msg, chat_mdl.max_length)
-    kwd = chat_mdl.chat(prompt, msg[1:], {"temperature": 0.2})
-    if isinstance(kwd, tuple):
-        kwd = kwd[0]
-    if kwd.find("**ERROR**") >= 0:
-        return ""
-    return kwd
-
-
-def question_proposal(chat_mdl, content, topn=3):
-    prompt = f"""
-Role: You're a text analyzer. 
-Task:  propose {topn} questions about a given piece of text content.
-Requirements: 
-  - Understand and summarize the text content, and propose top {topn} important questions.
-  - The questions SHOULD NOT have overlapping meanings.
-  - The questions SHOULD cover the main content of the text as much as possible.
-  - The questions MUST be in language of the given piece of text content.
-  - One question per line.
-  - Question ONLY in output.
-
-### Text Content 
-{content}
-
-"""
-    msg = [
-        {"role": "system", "content": prompt},
-        {"role": "user", "content": "Output: "}
-    ]
-    _, msg = message_fit_in(msg, chat_mdl.max_length)
-    kwd = chat_mdl.chat(prompt, msg[1:], {"temperature": 0.2})
-    if isinstance(kwd, tuple):
-        kwd = kwd[0]
-    if kwd.find("**ERROR**") >= 0:
-        return ""
-    return kwd
-
-
-def full_question(tenant_id, llm_id, messages):
-    if llm_id2llm_type(llm_id) == "image2text":
-        chat_mdl = LLMBundle(tenant_id, LLMType.IMAGE2TEXT, llm_id)
-    else:
-        chat_mdl = LLMBundle(tenant_id, LLMType.CHAT, llm_id)
-    conv = []
-    for m in messages:
-        if m["role"] not in ["user", "assistant"]:
-            continue
-        conv.append("{}: {}".format(m["role"].upper(), m["content"]))
-    conv = "\n".join(conv)
-    today = datetime.date.today().isoformat()
-    yesterday = (datetime.date.today() - timedelta(days=1)).isoformat()
-    tomorrow = (datetime.date.today() + timedelta(days=1)).isoformat()
-    prompt = f"""
-Role: A helpful assistant
-
-Task and steps: 
-    1. Generate a full user question that would follow the conversation.
-    2. If the user's question involves relative date, you need to convert it into absolute date based on the current date, which is {today}. For example: 'yesterday' would be converted to {yesterday}.
-    
-Requirements & Restrictions:
-  - Text generated MUST be in the same language of the original user's question.
-  - If the user's latest question is completely, don't do anything, just return the original question.
-  - DON'T generate anything except a refined question.
-
-######################
--Examples-
-######################
-
-# Example 1
-## Conversation
-USER: What is the name of Donald Trump's father?
-ASSISTANT:  Fred Trump.
-USER: And his mother?
-###############
-Output: What's the name of Donald Trump's mother?
-
-------------
-# Example 2
-## Conversation
-USER: What is the name of Donald Trump's father?
-ASSISTANT:  Fred Trump.
-USER: And his mother?
-ASSISTANT:  Mary Trump.
-User: What's her full name?
-###############
-Output: What's the full name of Donald Trump's mother Mary Trump?
-
-------------
-# Example 3
-## Conversation
-USER: What's the weather today in London?
-ASSISTANT:  Cloudy.
-USER: What's about tomorrow in Rochester?
-###############
-Output: What's the weather in Rochester on {tomorrow}?
-######################
-
-# Real Data
-## Conversation
-{conv}
-###############
-    """
-    ans = chat_mdl.chat(prompt, [{"role": "user", "content": "Output: "}], {"temperature": 0.2})
-    return ans if ans.find("**ERROR**") < 0 else messages[-1]["content"]
-
-
 def tts(tts_mdl, text):
     if not tts_mdl or not text:
         return
@@ -830,6 +579,7 @@ def ask(question, kb_ids, tenant_id):
 
         if answer.lower().find("invalid key") >= 0 or answer.lower().find("invalid api") >= 0:
             answer += " Please set LLM API-Key in 'User Setting -> Model Providers -> API-Key'"
+        refs["chunks"] = chunks_format(refs)
         return {"answer": answer, "reference": refs}
 
     answer = ""

@@ -13,6 +13,8 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
+#  AFTER UPDATING THIS FILE, PLEASE ENSURE THAT docs/references/supported_models.mdx IS ALSO UPDATED for consistency!
+#
 from .embedding_model import (
     OllamaEmbed,
     LocalAIEmbed,
@@ -73,6 +75,7 @@ from .chat_model import (
     UpstageChat,
     NovitaAIChat,
     SILICONFLOWChat,
+    PPIOChat,
     YiChat,
     ReplicateChat,
     HunyuanChat,
@@ -83,6 +86,7 @@ from .chat_model import (
     HuggingFaceChat,
     GPUStackChat,
     HaoSuanChat,  # F8080 昊算
+    ModelScopeChat,
 )
 
 from .cv_model import (
@@ -104,6 +108,7 @@ from .cv_model import (
     YiCV,
     HunyuanCV,
 )
+
 from .rerank_model import (
     LocalAIRerank,
     DefaultRerank,
@@ -120,7 +125,9 @@ from .rerank_model import (
     VoyageRerank,
     QWenRerank,
     GPUStackRerank,
+    HuggingfaceRerank,
 )
+
 from .sequence2txt_model import (
     GPTSeq2txt,
     QWenSeq2txt,
@@ -129,6 +136,7 @@ from .sequence2txt_model import (
     TencentCloudSeq2txt,
     GPUStackSeq2txt,
 )
+
 from .tts_model import (
     FishAudioTTS,
     QwenTTS,
@@ -136,6 +144,7 @@ from .tts_model import (
     SparkTTS,
     XinferenceTTS,
     GPUStackTTS,
+    SILICONFLOWTTS
 )
 
 # 定义了各类嵌入模型、LLM对话模型的实现模块
@@ -158,6 +167,7 @@ EmbeddingModel = {
     "NVIDIA": NvidiaEmbed,
     "LM-Studio": LmStudioEmbed,
     "OpenAI-API-Compatible": OpenAI_APIEmbed,
+    "VLLM": OpenAI_APIEmbed,
     "Cohere": CoHereEmbed,
     "TogetherAI": TogetherAIEmbed,
     "PerfXCloud": PerfXCloudEmbed,
@@ -186,6 +196,7 @@ CvModel = {
     "LM-Studio": LmStudioCV,
     "StepFun": StepFunCV,
     "OpenAI-API-Compatible": OpenAI_APICV,
+    "VLLM": OpenAI_APICV,
     "TogetherAI": TogetherAICV,
     "01.AI": YiCV,
     "Tencent Hunyuan": HunyuanCV,
@@ -213,6 +224,7 @@ ChatModel = {
     "NVIDIA": NvidiaChat,
     "LM-Studio": LmStudioChat,
     "OpenAI-API-Compatible": OpenAI_APIChat,
+    "VLLM": OpenAI_APIChat,
     "Cohere": CoHereChat,
     "LeptonAI": LeptonAIChat,
     "TogetherAI": TogetherAIChat,
@@ -220,6 +232,7 @@ ChatModel = {
     "Upstage": UpstageChat,
     "novita.ai": NovitaAIChat,
     "SILICONFLOW": SILICONFLOWChat,
+    "PPIO": PPIOChat,
     "01.AI": YiChat,
     "Replicate": ReplicateChat,
     "Tencent Hunyuan": HunyuanChat,
@@ -230,6 +243,7 @@ ChatModel = {
     "HuggingFace": HuggingFaceChat,
     "GPUStack": GPUStackChat,
     "HaoSuan": HaoSuanChat,
+    "ModelScope":ModelScopeChat,
 }
 
 RerankModel = {
@@ -241,6 +255,7 @@ RerankModel = {
     "NVIDIA": NvidiaRerank,
     "LM-Studio": LmStudioRerank,
     "OpenAI-API-Compatible": OpenAI_APIRerank,
+    "VLLM": CoHereRerank,
     "Cohere": CoHereRerank,
     "TogetherAI": TogetherAIRerank,
     "SILICONFLOW": SILICONFLOWRerank,
@@ -248,6 +263,7 @@ RerankModel = {
     "Voyage AI": VoyageRerank,
     "Tongyi-Qianwen": QWenRerank,
     "GPUStack": GPUStackRerank,
+    "HuggingFace": HuggingfaceRerank,
 }
 
 Seq2txtModel = {
@@ -266,4 +282,5 @@ TTSModel = {
     "XunFei Spark": SparkTTS,
     "Xinference": XinferenceTTS,
     "GPUStack": GPUStackTTS,
+    "SILICONFLOW": SILICONFLOWTTS,
 }

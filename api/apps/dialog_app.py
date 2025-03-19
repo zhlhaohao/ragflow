@@ -18,6 +18,7 @@ from flask import request
 from flask_login import login_required, current_user
 from api.db.services.dialog_service import DialogService
 from api.db import StatusEnum
+from api.db.services.llm_service import TenantLLMService
 from api.db.services.knowledgebase_service import KnowledgebaseService
 from api.db.services.user_service import TenantService, UserTenantService
 from api import settings
@@ -79,9 +80,10 @@ def set_dialog():
         if not e:
             return get_data_error_result(message="Tenant not found!")
         if len(req.get("kb_ids")) > 0: # F8080 如果没有选择任何一个知识库,就不校验embedding模型是否一致 - 自由提问模式下,知识库为空
-            kbs = KnowledgebaseService.get_by_ids(req.get("kb_ids"))
-            embd_count = len(set([kb.embd_id for kb in kbs]))
-            if embd_count != 1:
+            kbs = KnowledgebaseService.get_by_ids(req.get("kb_ids", []))
+            embd_ids = [TenantLLMService.split_model_name_and_factory(kb.embd_id)[0] for kb in kbs]  # remove vendor suffix for comparison
+            embd_count = len(set(embd_ids))
+            if embd_count > 1:
                 return get_data_error_result(message=f'Datasets use different embedding models: {[kb.embd_id for kb in kbs]}"')
 
         llm_id = req.get("llm_id", tenant.llm_id)
@@ -95,7 +97,7 @@ def set_dialog():
                 "id": get_uuid(),
                 "tenant_id": current_user.id,
                 "name": name,
-                "kb_ids": req["kb_ids"],
+                "kb_ids": req.get("kb_ids", []),
                 "description": description,
                 "llm_id": llm_id,
                 "llm_setting": llm_setting,

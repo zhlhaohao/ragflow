@@ -1,3 +1,6 @@
+#
+#  Copyright 2025 The InfiniFlow Authors. All Rights Reserved.
+#
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
 #  You may obtain a copy of the License at
@@ -10,6 +13,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
+
 import logging
 import re
 import csv
@@ -25,6 +29,8 @@ from deepdoc.parser import PdfParser, ExcelParser, DocxParser
 from docx import Document
 from PIL import Image
 from markdown import markdown
+
+from rag.utils import get_float
 
 
 class Excel(ExcelParser):
@@ -122,8 +128,8 @@ class Pdf(PdfParser):
             section, line_tag = box['text'], self._line_tag(box, zoomin)
             has_bull, index = has_qbullet(reg, box, last_box, last_index, last_bull, bull_x0_list)
             last_box, last_index, last_bull = box, index, has_bull
-            line_pn = float(line_tag.lstrip('@@').split('\t')[0])
-            line_top = float(line_tag.rstrip('##').split('\t')[3])
+            line_pn = get_float(line_tag.lstrip('@@').split('\t')[0])
+            line_top = get_float(line_tag.rstrip('##').split('\t')[3])
             tbl_pn, tbl_left, tbl_right, tbl_top, tbl_bottom, tbl_tag, tbl_text = self.get_tbls_info(tbls, tbl_index)
             if not has_bull:  # No question bullet
                 if not last_q:
@@ -173,7 +179,7 @@ class Pdf(PdfParser):
         tbl_tag = "@@{}\t{:.1f}\t{:.1f}\t{:.1f}\t{:.1f}##" \
             .format(tbl_pn, tbl_left, tbl_right, tbl_top, tbl_bottom)
         _tbl_text = ''.join(tbls[tbl_index][0][1])
-        return tbl_pn, tbl_left, tbl_right, tbl_top, tbl_bottom, tbl_tag,
+        return tbl_pn, tbl_left, tbl_right, tbl_top, tbl_bottom, tbl_tag, _tbl_text
 
 
 class Docx(DocxParser):
@@ -390,7 +396,7 @@ def chunk(filename, binary=None, lang="Chinese", callback=None, **kwargs):
                     f"{len(fails)} failure, line: %s..." % (",".join(fails[:3])) if fails else "")))
 
         if question:
-            res.append(beAdoc(deepcopy(doc), question, answer, eng, len(reader)))
+            res.append(beAdoc(deepcopy(doc), question, answer, eng, len(list(reader))))
 
         callback(0.6, ("Extract Q&A: {}".format(len(res)) + (
             f"{len(fails)} failure, line: %s..." % (",".join(fails[:3])) if fails else "")))

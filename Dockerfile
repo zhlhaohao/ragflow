@@ -65,15 +65,16 @@ RUN --mount=type=cache,id=ragflow_apt,target=/var/cache/apt,sharing=locked \
     apt install -y default-jdk && \
     apt install -y libatk-bridge2.0-0 && \
     apt install -y libpython3-dev libgtk-4-1 libnss3 xdg-utils libgbm-dev && \
+    apt install -y libjemalloc-dev && \
     apt install -y python3-pip pipx nginx unzip curl wget git vim less
 
 # 如果需要使用镜像源，则配置 pip 使用清华大学的镜像源，并安装 uv 工具
 RUN if [ "$NEED_MIRROR" == "1" ]; then \
-        pip3 config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple && \
-        pip3 config set global.trusted-host pypi.tuna.tsinghua.edu.cn; \
+        pip3 config set global.index-url https://mirrors.aliyun.com/pypi/simple && \
+        pip3 config set global.trusted-host mirrors.aliyun.com; \
         mkdir -p /etc/uv && \
         echo "[[index]]" > /etc/uv/uv.toml && \
-        echo 'url = "https://pypi.tuna.tsinghua.edu.cn/simple"' >> /etc/uv/uv.toml && \
+        echo 'url = "https://mirrors.aliyun.com/pypi/simple"' >> /etc/uv/uv.toml && \
         echo "default = true" >> /etc/uv/uv.toml; \
     fi; \
     pipx install uv
@@ -84,23 +85,40 @@ ENV PATH=/root/.local/bin:$PATH
 # 更新 nodejs 到较新版本（Ubuntu 22.04 自带的 nodejs 12.22 版本过旧）
 RUN --mount=type=cache,id=ragflow_apt,target=/var/cache/apt,sharing=locked \
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
-    apt purge -y nodejs npm && \
-    apt autoremove && \
+    apt purge -y nodejs npm cargo && \
+    apt autoremove -y && \
     apt update && \
-    apt install -y nodejs cargo 
+    apt install -y nodejs
 
-# 添加 mssql ODBC 驱动
-# macOS ARM64 环境下安装 msodbcsql18。
-# 一般 x86_64 环境下安装 msodbcsql17。
+# A modern version of cargo is needed for the latest version of the Rust compiler.
+RUN apt update && apt install -y curl build-essential \
+    && if [ "$NEED_MIRROR" == "1" ]; then \
+         # Use TUNA mirrors for rustup/rust dist files
+         export RUSTUP_DIST_SERVER="https://mirrors.tuna.tsinghua.edu.cn/rustup"; \
+         export RUSTUP_UPDATE_ROOT="https://mirrors.tuna.tsinghua.edu.cn/rustup/rustup"; \
+         echo "Using TUNA mirrors for Rustup."; \
+       fi; \
+    # Force curl to use HTTP/1.1
+    curl --proto '=https' --tlsv1.2 --http1.1 -sSf https://sh.rustup.rs | bash -s -- -y --profile minimal \
+    && echo 'export PATH="/root/.cargo/bin:${PATH}"' >> /root/.bashrc
+
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+RUN cargo --version && rustc --version
+
+# Add msssql ODBC driver
+# macOS ARM64 environment, install msodbcsql18.
+# general x86_64 environment, install msodbcsql17.
 RUN --mount=type=cache,id=ragflow_apt,target=/var/cache/apt,sharing=locked \
     curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add - && \
     curl https://packages.microsoft.com/config/ubuntu/22.04/prod.list > /etc/apt/sources.list.d/mssql-release.list && \
     apt update && \
-    if [ -n "$ARCH" ] && [ "$ARCH" = "arm64" ]; then \
-        # MacOS ARM64 
+    arch="$(uname -m)"; \
+    if [ "$arch" = "arm64" ] || [ "$arch" = "aarch64" ]; then \
+        # ARM64 (macOS/Apple Silicon or Linux aarch64)
         ACCEPT_EULA=Y apt install -y unixodbc-dev msodbcsql18; \
     else \
-        # (x86_64)
+        # x86_64 or others
         ACCEPT_EULA=Y apt install -y unixodbc-dev msodbcsql17; \
     fi || \
     { echo "Failed to install ODBC driver"; exit 1; }
@@ -135,8 +153,14 @@ WORKDIR /ragflow
 # 安装依赖项（根据 uv.lock 文件）
 COPY pyproject.toml uv.lock ./
 
-# 安装python 依赖库 pip install
+# https://github.com/astral-sh/uv/issues/10462
+# uv records index url into uv.lock but doesn't failover among multiple indexes
 RUN --mount=type=cache,id=ragflow_uv,target=/root/.cache/uv,sharing=locked \
+    if [ "$NEED_MIRROR" == "1" ]; then \
+        sed -i 's|pypi.org|mirrors.aliyun.com/pypi|g' uv.lock; \
+    else \
+        sed -i 's|mirrors.aliyun.com/pypi|pypi.org|g' uv.lock; \
+    fi; \
     if [ "$LIGHTEN" == "1" ]; then \
         uv sync --python 3.10 --frozen; \
     else \
@@ -182,12 +206,13 @@ COPY deepdoc deepdoc
 COPY rag rag
 COPY agent agent
 COPY graphrag graphrag
+COPY agentic_reasoning agentic_reasoning
 COPY pyproject.toml uv.lock ./
 
 # 复制服务配置模板和入口脚本
 COPY docker/service_conf.yaml.template ./conf/service_conf.yaml.template
-COPY docker/entrypoint.sh ./entrypoint.sh
-RUN chmod +x ./entrypoint.sh
+COPY docker/entrypoint.sh docker/entrypoint-parser.sh ./
+RUN chmod +x ./entrypoint*.sh
 
 # 复制编译后的网页文件
 COPY --from=builder /ragflow/web/dist /ragflow/web/dist

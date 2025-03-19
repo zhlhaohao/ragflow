@@ -1,3 +1,6 @@
+#
+#  Copyright 2025 The InfiniFlow Authors. All Rights Reserved.
+#
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
 #  You may obtain a copy of the License at
@@ -10,22 +13,27 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
+
 import logging
-from tika import parser
-from io import BytesIO
-from docx import Document
-from timeit import default_timer as timer
 import re
-from deepdoc.parser.pdf_parser import PlainParser
-from rag.nlp import rag_tokenizer, naive_merge, tokenize_table, tokenize_chunks, find_codec, concat_img, \
-    naive_merge_docx, tokenize_chunks_docx
-from deepdoc.parser import PdfParser, ExcelParser, DocxParser, HtmlParser, JsonParser, MarkdownParser, TxtParser
-from rag.utils import num_tokens_from_string
-from PIL import Image
 from functools import reduce
+from io import BytesIO
+from timeit import default_timer as timer
+
+from docx import Document
+from docx.image.exceptions import InvalidImageStreamError, UnexpectedEndOfFileError, UnrecognizedImageError
 from markdown import markdown
-from docx.image.exceptions import UnrecognizedImageError, UnexpectedEndOfFileError, InvalidImageStreamError
+from PIL import Image
+from tika import parser
+
+from api.db import LLMType
+from api.db.services.llm_service import LLMBundle
+from deepdoc.parser import DocxParser, ExcelParser, HtmlParser, JsonParser, MarkdownParser, PdfParser, TxtParser
+from deepdoc.parser.pdf_parser import PlainParser, VisionParser
+from rag.nlp import concat_img, find_codec, naive_merge, naive_merge_docx, rag_tokenizer, tokenize_chunks, tokenize_chunks_docx, tokenize_table
+from rag.utils import num_tokens_from_string
 from api.utils import ic
+
 
 class Docx(DocxParser):
     """
@@ -158,6 +166,8 @@ class Docx(DocxParser):
                             # 计算单元格合并的列数
                             span += 1
                             i = j
+                        else:
+                            break
                     i += 1
                     # 添加单元格
                     html += f"<td>{c.text}</td>" if span == 1 else f"<td colspan='{span}'>{c.text}</td>"
@@ -172,6 +182,9 @@ class Docx(DocxParser):
         return new_line, tbls
 
 class Pdf(PdfParser):
+    def __init__(self):
+        super().__init__()
+
     def __call__(self, filename, binary=None, from_page=0,
                  to_page=100000, zoomin=3, callback=None):
         start = timer()
@@ -249,7 +262,7 @@ def chunk(filename, binary=None, from_page=0, to_page=100000,
     is_english = lang.lower() == "english"  # is_english(cks)
     parser_config = kwargs.get(
         "parser_config", {
-            "chunk_token_num": 128, "delimiter": "\n!?。；！？", "layout_recognize": True})
+            "chunk_token_num": 128, "delimiter": "\n!?。；！？", "layout_recognize": "DeepDOC"})
     doc = {
         "docnm_kwd": filename,
         "title_tks": rag_tokenizer.tokenize(re.sub(r"\.[a-zA-Z]+$", "", filename))
@@ -286,17 +299,22 @@ def chunk(filename, binary=None, from_page=0, to_page=100000,
 
     # 如果是pdf文件
     elif re.search(r"\.pdf$", filename, re.IGNORECASE):
-        # 如果 layout_recognize=True，那么调用OCR，否则直接从pdf提取文本(PlainParser)
-        pdf_parser = Pdf() if parser_config.get("layout_recognize", True) else PlainParser()
-        sections, tables = pdf_parser(filename if not binary else binary, from_page=from_page, to_page=to_page, callback=callback)
-        # 使用 tokenize_table 方法处理表格。
+        layout_recognizer = parser_config.get("layout_recognize", "DeepDOC")
+
+        if layout_recognizer == "DeepDOC":
+            pdf_parser = Pdf()
+        elif layout_recognizer == "Plain Text":
+            pdf_parser = PlainParser()
+        else:
+            vision_model = LLMBundle(kwargs["tenant_id"], LLMType.IMAGE2TEXT, llm_name=layout_recognizer, lang=lang)
+            pdf_parser = VisionParser(vision_model=vision_model, **kwargs)
+
+        sections, tables = pdf_parser(filename if not binary else binary, from_page=from_page, to_page=to_page,
+                                      callback=callback)
         res = tokenize_table(tables, doc, is_english)
 
-    # 如果是excel文件
-    elif re.search(r"\.xlsx?$", filename, re.IGNORECASE):
-        # 调用回调函数，通知解析开始，进度为10%
-        callback(0.1, "开始解析.")
-        # 创建ExcelParser对象，用于解析Excel文件
+    elif re.search(r"\.(csv|xlsx?)$", filename, re.IGNORECASE):
+        callback(0.1, "Start to parse.")
         excel_parser = ExcelParser()
         # 检查解析配置中是否启用了"html4excel"选项
         if parser_config.get("html4excel"):
@@ -370,9 +388,7 @@ def chunk(filename, binary=None, from_page=0, to_page=100000,
 if __name__ == "__main__":
     import sys
 
-
     def dummy(prog=None, msg=""):
         pass
-
 
     chunk(sys.argv[1], from_page=0, to_page=10, callback=dummy)

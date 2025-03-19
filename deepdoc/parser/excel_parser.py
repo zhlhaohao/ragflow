@@ -11,32 +11,69 @@
 #  limitations under the License.
 #
 
-from openpyxl import load_workbook
+import logging
 import sys
 from io import BytesIO
+
+import pandas as pd
+from openpyxl import Workbook, load_workbook
+
 from rag.nlp import find_codec
 from api.utils import ic
 
 
 class RAGFlowExcelParser:
+
+    @staticmethod
+    def _load_excel_to_workbook(file_like_object):
+        if isinstance(file_like_object, bytes):
+            file_like_object = BytesIO(file_like_object)
+
+        # Read first 4 bytes to determine file type
+        file_like_object.seek(0)
+        file_head = file_like_object.read(4)
+        file_like_object.seek(0)
+
+        if not (file_head.startswith(b'PK\x03\x04') or file_head.startswith(b'\xD0\xCF\x11\xE0')):
+            logging.info("****wxy: Not an Excel file, converting CSV to Excel Workbook")
+
+            try:
+                file_like_object.seek(0)
+                df = pd.read_csv(file_like_object)
+                return RAGFlowExcelParser._dataframe_to_workbook(df)
+
+            except Exception as e_csv:
+                raise Exception(f"****wxy: Failed to parse CSV and convert to Excel Workbook: {e_csv}")
+
+        try:
+            return load_workbook(file_like_object)
+        except Exception as e:
+            logging.info(f"****wxy: openpyxl load error: {e}, try pandas instead")
+            try:
+                file_like_object.seek(0)
+                df = pd.read_excel(file_like_object)
+                return RAGFlowExcelParser._dataframe_to_workbook(df)
+            except Exception as e_pandas:
+                raise Exception(f"****wxy: pandas.read_excel error: {e_pandas}, original openpyxl error: {e}")
+
+    @staticmethod
+    def _dataframe_to_workbook(df):
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Data"
+
+        for col_num, column_name in enumerate(df.columns, 1):
+            ws.cell(row=1, column=col_num, value=column_name)
+
+        for row_num, row in enumerate(df.values, 2):
+            for col_num, value in enumerate(row, 1):
+                ws.cell(row=row_num, column=col_num, value=value)
+
+        return wb
+
     def html(self, fnm, chunk_rows=256):
-        """
-        将Excel文件转换为HTML格式的表格。
-
-        参数:
-        fnm (str or bytes): Excel文件的路径或二进制数据。
-        chunk_rows (int): 每个表格块包含的行数，默认为256。
-
-        返回:
-        list: 包含HTML表格字符串的列表。
-        """
-        # 如果fnm是字符串，则认为是文件路径，加载Excel文件
-        if isinstance(fnm, str):
-            wb = load_workbook(fnm, data_only=True)   #F8080
-        else:
-            # 否则认为是二进制数据，使用BytesIO将其转换为文件对象再加载Excel文件
-            wb = load_workbook(BytesIO(fnm), data_only=True)  # F8080
-
+        file_like_object = BytesIO(fnm) if not isinstance(fnm, str) else fnm
+        wb = RAGFlowExcelParser._load_excel_to_workbook(file_like_object)
         tb_chunks = []
         # 遍历Excel文件中的每个工作表
         for sheetname in wb.sheetnames:
@@ -71,21 +108,9 @@ class RAGFlowExcelParser:
         return tb_chunks
 
     def __call__(self, fnm):
-        """
-        解析Excel文件并返回格式化的字符串列表。
+        file_like_object = BytesIO(fnm) if not isinstance(fnm, str) else fnm
+        wb = RAGFlowExcelParser._load_excel_to_workbook(file_like_object)
 
-        参数:
-        fnm (str or bytes): Excel文件的路径或二进制数据。
-
-        返回:
-        list: 包含格式化字符串的列表。
-        """
-        # 如果fnm是字符串，则认为是文件路径，加载Excel文件
-        if isinstance(fnm, str):
-            wb = load_workbook(fnm, data_only=True)  #F8080 不读公式
-        else:
-            # 否则认为是二进制数据，使用BytesIO将其转换为文件对象再加载Excel文件
-            wb = load_workbook(BytesIO(fnm), data_only=True) #F8080 不读公式
         res = []
         # 遍历Excel文件中的每个工作表
         for sheetname in wb.sheetnames:
@@ -144,7 +169,7 @@ class RAGFlowExcelParser:
         int: 文件中的总行数。
         """
         if fnm.split(".")[-1].lower().find("xls") >= 0:
-            wb = load_workbook(BytesIO(binary))
+            wb = RAGFlowExcelParser._load_excel_to_workbook(BytesIO(binary))
             total = 0
             for sheetname in wb.sheetnames:
                 ws = wb[sheetname]
