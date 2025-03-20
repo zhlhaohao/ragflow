@@ -94,14 +94,14 @@ class Base(ABC):
 
                 # F8080 加入思维链内容提取
                 reasoning = getattr(getattr(getattr(resp, 'choices', [{}])[0], 'delta', {}), 'reasoning_content', '')
-                if reasoning != '':
+                if reasoning is not None and reasoning != '':
                     has_reasoning = True
                     if '<think>' not in ans:
                         ans += '<think>'
                     ans += reasoning
 
                 content = getattr(getattr(getattr(resp, 'choices', [{}])[0], 'delta', {}), 'content', '')
-                if content != '':
+                if content is not None and content != '':
                     if '<think>' in ans and '</think>' not in ans and has_reasoning:
                         ans += '</think>'
                     ans += content

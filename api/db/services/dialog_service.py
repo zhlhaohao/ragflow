@@ -191,9 +191,10 @@ def chat(dialog, messages, stream=True, **kwargs):
     # Get llm model name and model provider name
     llm_id, model_provider = TenantLLMService.split_model_name_and_factory(dialog.llm_id)
 
+    """
     # 从系统模型表中获取模型信息，Get llm model instance by model and provide name
     llm = LLMService.query(llm_name=llm_id) if not model_provider else LLMService.query(llm_name=llm_id, fid=model_provider)
-
+    
     if not llm:
         # Model name is provided by tenant, but not system built-in
         # 系统模型表中没有该模型，尝试从租户模型表中获取模型信息
@@ -204,6 +205,7 @@ def chat(dialog, messages, stream=True, **kwargs):
         max_tokens = 8192
     else:
         max_tokens = llm[0].max_tokens
+    """
 
     check_llm_ts = timer()
 
@@ -246,6 +248,12 @@ def chat(dialog, messages, stream=True, **kwargs):
         chat_mdl = LLMBundle(dialog.tenant_id, LLMType.IMAGE2TEXT, dialog.llm_id)
     else:
         chat_mdl = LLMBundle(dialog.tenant_id, LLMType.CHAT, dialog.llm_id)
+
+    if not chat_mdl:
+        raise LookupError("LLM(%s) not found" % dialog.llm_id)
+    
+    max_tokens = chat_mdl.max_length
+
 
     bind_llm_ts = timer()
 
@@ -907,7 +915,7 @@ def chat_nokb(dialog, messages, stream=True):
         _type_: _description_
     """
     llm_id, model_provider = TenantLLMService.split_model_name_and_factory(dialog.llm_id)
-
+    """
     # 在llm表中找到模型信息
     llm = LLMService.query(llm_name=llm_id) if not model_provider else LLMService.query(llm_name=llm_id, fid=model_provider)
 
@@ -917,9 +925,13 @@ def chat_nokb(dialog, messages, stream=True):
             TenantLLMService.query(tenant_id=dialog.tenant_id, llm_name=llm_id, llm_factory=model_provider)
         if not llm:
             raise LookupError("LLM(%s) not found" % dialog.llm_id)
+    """
 
     # 从TenantLLM表取出模型信息（包括api_key）,然后封装成对象返回，也包装了chat_streamly和chat方法
     chat_mdl = LLMBundle(dialog.tenant_id, LLMType.CHAT, dialog.llm_id)
+    if not chat_mdl:
+        raise LookupError("LLM(%s) not found" % dialog.llm_id)
+
     prompt_config = dialog.prompt_config
     gen_conf = dialog.llm_setting
     prompt = prompt_config["system"]
@@ -929,6 +941,7 @@ def chat_nokb(dialog, messages, stream=True):
         for ans in chat_mdl.chat_streamly(prompt, messages, gen_conf):
             answer = ans
             yield {"answer": answer}
+
     else:
         answer = chat_mdl.chat(prompt_config["system"], messages, gen_conf)
         yield answer
