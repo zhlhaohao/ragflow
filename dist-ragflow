@@ -1,0 +1,15 @@
+echo -n '请输入版本号:'
+read img_ver
+
+echo -n '是否构建镜像 (y/n)'
+read flag
+if [ "$flag" = "y" -o "$flag" = "Y" ] ; then
+  docker build --build-arg NEED_MIRROR=1 -f /home/lianghao/github/ragflow/Dockerfile -t ragflow:$img_ver /home/lianghao/github/ragflow
+fi
+
+echo -n '是否上传到pot (y/n)'
+read flag
+if [ "$flag" = "y" -o "$flag" = "Y" ] ; then
+  docker tag ragflow:$img_ver 132.120.194.217:9201/ragflow:$img_ver
+  docker push 132.120.194.217:9201/ragflow:$img_ver
+fi

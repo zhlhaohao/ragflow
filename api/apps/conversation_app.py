@@ -37,7 +37,7 @@ from api.utils import ic
 from rag.app.tag import label_question
 
 
-@manager.route('/set', methods=['POST'])
+@manager.route('/set', methods=['POST'])    # noqa: F821
 @login_required
 def set_conversation():
     req = request.json
@@ -512,10 +512,16 @@ def completion_nokb():
                 # answer = json.dumps(parsed_response)
 
                 # 将最后一条用户提问和助理的回答保存到对话记录中
-                conv.message.append(messages[-1])
-                conv.message.append({"role": "assistant", "content":
-                    final_ans['answer'], "id": message_id})
-                ConversationService.update_by_id(conv.id, conv.to_dict())
+                if final_ans is None:
+                    err_msg = "大模型返回空回答"
+                    yield "data:" + json.dumps({"code": 500, "message": err_msg,
+                                            "data": {"answer": "**ERROR**: " + err_msg, "reference": []}},
+                                           ensure_ascii=False) + "\n\n"
+                else:
+                    conv.message.append(messages[-1])
+                    conv.message.append({"role": "assistant", "content":
+                        final_ans['answer'], "id": message_id})
+                    ConversationService.update_by_id(conv.id, conv.to_dict())
             except Exception as e:
                 traceback.print_exc()
                 yield "data:" + json.dumps({"code": 500, "message": str(e),

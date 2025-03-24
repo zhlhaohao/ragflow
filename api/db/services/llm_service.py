@@ -465,10 +465,11 @@ class LLMBundle:
     def chat_streamly(self, system, history, gen_conf):
         for txt in self.mdl.chat_streamly(system, history, gen_conf):
             if isinstance(txt, int):
-                if not TenantLLMService.increase_usage(
-                        self.tenant_id, self.llm_type, txt, self.llm_name):
-                    logging.error(
-                        "LLMBundle.chat_streamly can't update token usage for {}/CHAT llm_name: {}, content: {}".format(self.tenant_id, self.llm_name,
-                                                                                                                        txt))
+                # F8080 - 如果返回的是int，这是消耗的token数，在此注释token更新代码
+                # if not TenantLLMService.increase_usage(
+                #         self.tenant_id, self.llm_type, txt, self.llm_name):
+                #     logging.error(
+                #         "LLMBundle.chat_streamly can't update token usage for {}/CHAT llm_name: {}, content: {}".format(self.tenant_id, self.llm_name,
+                #                                                                                                   txt))
                 return
             yield txt
