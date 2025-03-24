@@ -23,7 +23,7 @@ from api.utils import datetime_format, current_timestamp, get_uuid
 
 class CommonService:
     """Base service class that provides common database operations.
-    
+    封装了mysql操作
     This class serves as a foundation for all service classes in the application,
     implementing standard CRUD operations and common database query patterns.
     It uses the Peewee ORM for database interactions and provides a consistent

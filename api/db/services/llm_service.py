@@ -239,6 +239,7 @@ class TenantLLMService(CommonService):
         """
 
         model_config = TenantLLMService.get_model_config(tenant_id, llm_type, llm_name)
+
         if llm_type == LLMType.EMBEDDING.value:
             if model_config["llm_factory"] not in EmbeddingModel:
                 return
@@ -382,6 +383,7 @@ class LLMBundle:
             # 返回factory对象，例如 DeepSeekChat, QWenChat（在chat_model.py中定义的)
             self.mdl = TenantLLMService.model_instance(
                 tenant_id, llm_type, llm_name, lang=lang)
+            model_config = TenantLLMService.get_model_config(tenant_id, llm_type, llm_name)
         except LookupError as ex:
             # 如果本人的账号找不到模型，就从super user账号找
             super_tenants = UserTenantService.get_tenants_by_is_superuser()
@@ -389,10 +391,12 @@ class LLMBundle:
                 super_tenant_id = super_tenants[0]['tenant_id']
                 self.mdl = TenantLLMService.model_instance(
                     super_tenant_id, llm_type, llm_name, lang=lang)
+                model_config = TenantLLMService.get_model_config(super_tenant_id, llm_type, llm_name)
 
         assert self.mdl, "Can't find model for {}/{}/{}".format(
             tenant_id, llm_type, llm_name)
-        model_config = TenantLLMService.get_model_config(tenant_id, llm_type, llm_name)
+
+        # model_config = TenantLLMService.get_model_config(tenant_id, llm_type, llm_name)
         self.max_length = model_config.get("max_tokens", 8192)
 
     def encode(self, texts: list):

@@ -60,7 +60,6 @@ from rag.settings import DOC_MAXIMUM_SIZE, SVR_CONSUMER_GROUP_NAME, get_svr_queu
 from rag.utils import num_tokens_from_string, truncate
 from rag.utils.redis_conn import REDIS_CONN
 from rag.utils.storage_factory import STORAGE_IMPL
-from api.utils import ic
 from graphrag.utils import chat_limiter
 
 BATCH_SIZE = 64
@@ -83,7 +82,6 @@ FACTORY = {
     ParserType.KG.value: naive,
     ParserType.TAG.value: tag
 }
-# redis消费者名称，用于区分不同的消费者,在这里用进程编号(参数1)作为消费者名称
 
 UNACKED_ITERATOR = None
 
@@ -217,28 +215,15 @@ async def get_storage_binary(bucket, name):
 
 
 async def build_chunks(task, progress_callback):
-    """对文件切块，自动生成关键词，自动生成QA，然后把这些信息放到到docs，并返回
-    row: 任务配置- doc_id  location name  size  parser_id切块器id  parser_config
-
-    Args:
-        task (_type_): 任务对象
-        progress_callback (_type_): 进度回调函数
-
-    Returns:
-        _type_: docs: doc_id  kb_id
-    """    
     if task["size"] > DOC_MAXIMUM_SIZE:
         set_progress(task["id"], prog=-1, msg="File size exceeds( <= %dMb )" %
                                               (int(DOC_MAXIMUM_SIZE / 1024 / 1024)))
         return []
 
-    # 根据用户设置的解析方法parser_id(例如naive)获取对应的切块器
     chunker = FACTORY[task["parser_id"].lower()]
     try:
-        # 获取文件的存储地址
         st = timer()
         bucket, name = File2DocumentService.get_storage_address(doc_id=task["doc_id"])
-        # 从minio存储中获取文件二进制内容        
         binary = await get_storage_binary(bucket, name)
         logging.info("From minio({}) {}/{}".format(timer() - st, task["location"], task["name"]))
     except TimeoutError:
@@ -267,7 +252,6 @@ async def build_chunks(task, progress_callback):
         logging.exception("Chunking {}/{} got exception".format(task["location"], task["name"]))
         raise
 
-    # 初始化文档列表(在这里文件的一个切块被视为一个doc)
     docs = []
     doc = {
         "doc_id": task["doc_id"],
@@ -276,32 +260,20 @@ async def build_chunks(task, progress_callback):
     if task["pagerank"]:
         doc[PAGERANK_FLD] = int(task["pagerank"])
     el = 0
-    # 遍历切块结果
     for ck in cks:
-        # ic(ck)
-        # 深拷贝doc对象，深拷贝意味着新对象完全独立于原对象
         d = copy.deepcopy(doc)
-        # 字典 ck 中的所有键值对合并到字典 d 中。如果 ck 中的键已经在 d 中存在，那么 d 中对应的键的值将被 ck 中的值覆盖。
         d.update(ck)
-        # 为切块信息生成唯一标识符
         d["id"] = xxhash.xxh64((ck["content_with_weight"] + str(d["doc_id"])).encode("utf-8")).hexdigest()
-        # 为切块信息生成时间信息
         d["create_time"] = str(datetime.now()).replace("T", " ")[:19]
         d["create_timestamp_flt"] = datetime.now().timestamp()
-        # 如果切块没有图像数据,则跳过下面的处理
         if not d.get("image"):
             _ = d.pop("image", None)
             d["img_id"] = ""
             docs.append(d)
             continue
 
-        # 处理文档切块中的图像数据，并将其存储到指定的存储实现中
         try:
-            # 初始化缓冲区
             output_buffer = BytesIO()
-            # 检查 d["image"] 是否为字节串类型 (bytes)。
-            # 如果是字节串类型，直接使用 BytesIO 将其包装成一个文件对象。
-            # 如果不是字节串类型，假设 d["image"] 是一个支持 .save 方法的对象（如PIL图像对象），将其保存到 output_buffer 中，格式为 JPEG。
             if isinstance(d["image"], bytes):
                 output_buffer = BytesIO(d["image"])
             else:
@@ -319,9 +291,7 @@ async def build_chunks(task, progress_callback):
         del d["image"]
         docs.append(d)
     logging.info("MINIO PUT({}):{}".format(task["name"], el))
-    # ic(docs)
 
-    # 如果配置中有自动关键词生成，则生成关键词
     if task["parser_config"].get("auto_keywords", 0):
         st = timer()
         progress_callback(msg="Start to generate keywords for every chunk ...")
@@ -342,7 +312,6 @@ async def build_chunks(task, progress_callback):
                 nursery.start_soon(lambda: doc_keyword_extraction(chat_mdl, d, task["parser_config"]["auto_keywords"]))
         progress_callback(msg="Keywords generation {} chunks completed in {:.2f}s".format(len(docs), timer() - st))
 
-    # 如果配置中有自动问题生成，则生成问题
     if task["parser_config"].get("auto_questions", 0):
         st = timer()
         progress_callback(msg="Start to generate questions for every chunk ...")
@@ -408,37 +377,15 @@ async def build_chunks(task, progress_callback):
 
 
 def init_kb(row, vector_size: int):
-    """
-    Elasticsearch 中为特定租户初始化一个知识库索引，如果索引已经存在则不做任何操作，否则创建索引并应用指定的映射配置。这
-    """
     idxnm = search.index_name(row["tenant_id"])
     return settings.docStoreConn.createIdx(idxnm, row.get("kb_id", ""), vector_size)
 
 
 async def embedding(docs, mdl, parser_config=None, callback=None):
-    """
-    调用嵌入模型进行文本嵌入。
-    docs: 文档列表
-    mdl: 模型
-    parser_config: 解析器配置
-    callback: 回调函数
-    """    
     if parser_config is None:
         parser_config = {}
     batch_size = 16
     tts, cnts = [], []
-
-    # 准备标题和内容，tts是标题 cnts是内容
-    # tts：这是一个列表推导式，遍历 docs 列表中的每一个文档 d。
-    # 使用 d.get("title_tks") 检查文档是否有标题词元。
-    # 如果文档有标题词元，则调用 rmSpace 函数来移除词元中的空白字符。
-    # 将处理后的标题词元加入到 tts 列表中。
-
-    # cnts：这也是一个列表推导式，同样遍历 docs 列表中的每一个文档 d。
-    # 使用正则表达式 re.sub 来替换文档中的 HTML 表格标签。
-    # 正则表达式 r"</?(table|td|caption|tr|th)( [^<>]{0,12})?>" 匹配所有的表格相关标签，包括 <table>, <td>, <caption>, <tr>, <th> 及其关闭标签，并且允许标签内有最多 12 个非尖括号字符的属性。
-    # 替换匹配到的标签为单个空格 " "。
-    # 将清理后的文档内容文本加入到 cnts 列表中
     for d in docs:
         tts.append(d.get("docnm_kwd", "Title"))
         c = "\n".join(d.get("question_kwd", []))
@@ -448,23 +395,13 @@ async def embedding(docs, mdl, parser_config=None, callback=None):
         if not c:
             c = "None"
         cnts.append(c)
-    # ic(cnts)     # 被嵌入的文本数组，内容见 0001.md
 
     tk_count = 0
-    # 初始化一个空的 NumPy 数组 tts_，用于存放处理后的标题嵌入向量。
     if len(tts) == len(cnts):
-        """
-        调用嵌入模型进行文本嵌入。
-        docs: 文档列表
-        mdl: 模型
-        parser_config: 解析器配置
-        callback: 回调函数
-        """
         vts, c = await trio.to_thread.run_sync(lambda: mdl.encode(tts[0: 1]))
         tts = np.concatenate([vts for _ in range(len(tts))], axis=0)
         tk_count += c
 
-    # 处理内容嵌入,解释同上
     cnts_ = np.array([])
     for i in range(0, len(cnts), batch_size):
         vts, c = await trio.to_thread.run_sync(lambda: mdl.encode([truncate(c, mdl.max_length-10) for c in cnts[i: i + batch_size]]))
@@ -476,23 +413,15 @@ async def embedding(docs, mdl, parser_config=None, callback=None):
         callback(prog=0.7 + 0.2 * (i + 1) / len(cnts), msg="")
     cnts = cnts_
 
-
-    # 计算标题权重,取parser_config["filename_embd_weight"]值。如果没有设置该键，则默认使用 0.1。
     title_w = float(parser_config.get("filename_embd_weight", 0.1))
-    # 如果标题嵌入向量 tts 和内容嵌入向量 cnts 的长度相同，那么就按照权重 title_w 组合这两个向量。
-    # 如果长度不同，则直接使用内容嵌入向量 cnts 作为最终的文档嵌入向量
     vects = (title_w * tts + (1 - title_w) *
              cnts) if len(tts) == len(cnts) else cnts
 
-    # 检查向量数量是否与文档数量一致
     assert len(vects) == len(docs)
     vector_size = 0
-    # 将文档嵌入向量存储到文档docs中
     for i, d in enumerate(docs):
-        # 从嵌入向量数组 vects 中获取第 i 个文档的嵌入向量。使用 .tolist() 方法将 NumPy 数组转换为 Python 列表。
         v = vects[i].tolist()
         vector_size = len(v)
-        # 键名格式为 "q_<嵌入向量长度>_vec"，例如，如果嵌入向量的长度为 768，则键名为 "q_768_vec"。
         d["q_%d_vec" % len(v)] = v
     return tk_count, vector_size
 
@@ -504,7 +433,6 @@ async def run_raptor(row, chat_mdl, embd_mdl, vector_size, callback=None):
                                              fields=["content_with_weight", vctr_nm]):
         chunks.append((d["content_with_weight"], np.array(d[vctr_nm])))
 
-    # 它使用高斯混合模型 (Gaussian Mixture Model, GMM) 对文档嵌入进行聚类(簇)，并对每个簇生成摘要。
     raptor = Raptor(
         row["parser_config"]["raptor"].get("max_cluster", 64),
         chat_mdl,
@@ -540,29 +468,6 @@ async def run_raptor(row, chat_mdl, embd_mdl, vector_size, callback=None):
 
 
 async def do_handle_task(task):
-    """
-    处理文档处理任务的主函数，负责协调文档切块、嵌入、索引等操作。
-
-    Args:
-        task (dict): 任务配置字典，包含以下关键字段：
-            - id: 任务ID
-            - from_page: 起始页码
-            - to_page: 结束页码
-            - tenant_id: 租户ID
-            - embd_id: 嵌入模型ID
-            - language: 语言
-            - llm_id: 大语言模型ID
-            - kb_id: 知识库ID
-            - doc_id: 文档ID
-            - name: 文档名称
-            - parser_config: 解析器配置
-
-    Returns:
-        None
-
-    Raises:
-        Exception: 如果任务处理过程中发生错误
-    """    
     task_id = task["id"]
     task_from_page = task["from_page"]
     task_to_page = task["to_page"]
@@ -588,7 +493,7 @@ async def do_handle_task(task):
 
     task_canceled = TaskService.do_cancel(task_id)
     if task_canceled:
-        progress_callback(-1, msg="任务被取消.")
+        progress_callback(-1, msg="Task has been canceled.")
         return
 
     try:
@@ -625,20 +530,18 @@ async def do_handle_task(task):
     else:
         # Standard chunking methods
         start_ts = timer()
-        # 文件切块和分词
         chunks = await build_chunks(task, progress_callback)
         logging.info("Build document {}: {:.2f}s".format(task_document_name, timer() - start_ts))
         if chunks is None:
             return
         if not chunks:
-            progress_callback(1., msg=f"无文本块生成 from {task_document_name}")
+            progress_callback(1., msg=f"No chunk built from {task_document_name}")
             return
         # TODO: exception handler
         ## set_progress(task["did"], -1, "ERROR: ")
-        progress_callback(msg="生成 {} 文本块".format(len(chunks)))
+        progress_callback(msg="Generate {} chunks".format(len(chunks)))
         start_ts = timer()
         try:
-            # 文本嵌入向量生成
             token_count, vector_size = await embedding(chunks, embedding_model, task_parser_config, progress_callback)
         except Exception as e:
             error_message = "Generate embedding error:{}".format(str(e))
@@ -646,7 +549,7 @@ async def do_handle_task(task):
             logging.exception(error_message)
             token_count = 0
             raise
-        progress_message = "生成文本嵌入向量 ({:.2f}s)".format(timer() - start_ts)
+        progress_message = "Embedding chunks ({:.2f}s)".format(timer() - start_ts)
         logging.info(progress_message)
         progress_callback(msg=progress_message)
 
@@ -654,34 +557,19 @@ async def do_handle_task(task):
     start_ts = timer()
     doc_store_result = ""
     es_bulk_size = 4
-
-    # F8080 : top-int 用于chunk排序
-    for i, chunk in enumerate(chunks):
-        if "top_int" not in chunk:
-            chunk["top_int"] = i
-
-    # 遍历chunks列表，每次处理es_bulk_size个元素插入到ES, chunks内容见 0004.md
     for b in range(0, len(chunks), es_bulk_size):
         doc_store_result = await trio.to_thread.run_sync(lambda: settings.docStoreConn.insert(chunks[b:b + es_bulk_size], search.index_name(task_tenant_id), task_dataset_id))
         if b % 128 == 0:
-            progress_callback(prog=0.8 + 0.1 * (b + 1) / len(chunks), msg="保存到向量数据库")
-        # 如果doc_store_result有值，说明插入操作出错
+            progress_callback(prog=0.8 + 0.1 * (b + 1) / len(chunks), msg="")
         if doc_store_result:
-            # 构造错误消息
             error_message = f"Insert chunk error: {doc_store_result}, please check log file and Elasticsearch/Infinity status!"
-            # 调用progress_callback函数报告错误
             progress_callback(-1, msg=error_message)
-            # 抛出异常
             raise Exception(error_message)
-        # 提取当前处理批次的chunk的id
         chunk_ids = [chunk["id"] for chunk in chunks[:b + es_bulk_size]]
-        # 将chunk_ids列表转换为字符串
         chunk_ids_str = " ".join(chunk_ids)
         try:
-            # 调用TaskService的update_chunk_ids方法更新任务的chunk_ids
             TaskService.update_chunk_ids(task["id"], chunk_ids_str)
         except DoesNotExist:
-            # 如果任务不存在，记录警告日志
             logging.warning(f"do_handle_task update_chunk_ids failed since task {task['id']} is unknown.")
             doc_store_result = await trio.to_thread.run_sync(lambda: settings.docStoreConn.delete({"id": chunk_ids}, search.index_name(task_tenant_id), task_dataset_id))
             return
@@ -763,11 +651,11 @@ async def report_status():
 
 async def main():
     logging.info(r"""
-  ______           __      ______                     __
+  ______           __      ______                     __            
  /_  __/___ ______/ /__   / ____/  _____  _______  __/ /_____  _____
   / / / __ `/ ___/ //_/  / __/ | |/_/ _ \/ ___/ / / / __/ __ \/ ___/
- / / / /_/ (__  ) ,<    / /____>  </  __/ /__/ /_/ / /_/ /_/ / /
-/_/  \__,_/____/_/|_|  /_____/_/|_|\___/\___/\__,_/\__/\____/_/
+ / / / /_/ (__  ) ,<    / /____>  </  __/ /__/ /_/ / /_/ /_/ / /    
+/_/  \__,_/____/_/|_|  /_____/_/|_|\___/\___/\__,_/\__/\____/_/                               
     """)
     logging.info(f'TaskExecutor: RAGFlow version: {get_ragflow_version()}')
     settings.init_settings()

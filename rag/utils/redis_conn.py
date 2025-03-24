@@ -48,10 +48,25 @@ class RedisMsg:
 
 @singleton
 class RedisDB:
+    lua_delete_if_equal = None
+    LUA_DELETE_IF_EQUAL_SCRIPT = """
+        local current_value = redis.call('get', KEYS[1])
+        if current_value and current_value == ARGV[1] then
+            redis.call('del', KEYS[1])
+            return 1
+        end
+        return 0
+    """
+
     def __init__(self):
         self.REDIS = None
         self.config = settings.REDIS
         self.__open__()
+
+    def register_scripts(self) -> None:
+        cls = self.__class__
+        client = self.REDIS
+        cls.lua_delete_if_equal = client.register_script(cls.LUA_DELETE_IF_EQUAL_SCRIPT)
 
     def __open__(self):
         try:
@@ -62,6 +77,7 @@ class RedisDB:
                 password=self.config.get("password"),
                 decode_responses=True,
             )
+            self.register_scripts()
         except Exception:
             logging.warning("Redis can't be connected.")
         return self.REDIS
@@ -87,9 +103,6 @@ class RedisDB:
             self.__open__()
 
     def get(self, k):
-        """
-        用于从 Redis 中获取键值的方法。该方法首先检查 self.REDIS 是否已初始化，然后尝试从 Redis 中获取指定键的值。如果在获取过程中发生异常，它会记录警告日志并重新尝试打开 Redis 连接
-        """        
         if not self.REDIS:
             return
         try:
@@ -99,9 +112,6 @@ class RedisDB:
             self.__open__()
 
     def set_obj(self, k, obj, exp=3600):
-        """
-        用于将一个 Python 对象序列化为 JSON 字符串，并将其存储到 Redis 中。如果在设置过程中发生异常，它会记录警告日志并重新尝试打开 Redis 连接。
-        """
         try:
             self.REDIS.set(k, json.dumps(obj, ensure_ascii=False), exp)
             return True
@@ -187,31 +197,6 @@ class RedisDB:
         return None
 
     def transaction(self, key, value, exp=3600):
-        """
-        用于在 Redis 中执行一个事务，确保多个操作要么全部成功，要么全部失败。该方法使用 Redis 的管道功能来实现事务。如果在执行过程中发生异常，它会记录警告日志并重新尝试打开 Redis 连接。下面是对该方法的详细解释和一些改进建议：
-        1. **方法参数**：
-        - `key`：要设置的键。
-        - `value`：要设置的值。
-        - `exp`：过期时间（秒），默认为 3600 秒（1 小时）。
-
-        2. **创建管道**：
-        - `pipeline = self.REDIS.pipeline(transaction=True)`：创建一个 Redis 管道，确保操作在一个事务中执行。
-
-        3. **设置键值**：
-        - `pipeline.set(key, value, ex=exp, nx=True)`：将键值对设置到 Redis 中，并设置过期时间和 `nx` 选项（只有在键不存在时才设置）。
-
-        4. **执行管道**：
-        - `pipeline.execute()`：执行管道中的所有操作。
-
-        5. **异常处理**：
-        - `except Exception as e`：捕获在执行事务过程中可能发生的任何异常。
-        - `logging.warning(f"[EXCEPTION] set {key} || {e}")`：记录包含键值和异常信息的警告日志。
-        - `self.__open__()`：调用 `__open__` 方法重新尝试打开 Redis 连接。
-
-        6. **返回值**：
-        - 如果事务成功，返回 `True`。
-        - 如果事务失败，返回 `False`。
-        """
         try:
             pipeline = self.REDIS.pipeline(transaction=True)
             pipeline.set(key, value, exp, nx=True)
@@ -240,7 +225,7 @@ class RedisDB:
         """https://redis.io/docs/latest/commands/xreadgroup/"""
         try:
             group_info = self.REDIS.xinfo_groups(queue_name)
-            if not any(e["name"] == group_name for e in group_info):
+            if not any(gi["name"] == group_name for gi in group_info):
                 self.REDIS.xgroup_create(queue_name, group_name, id="0", mkstream=True)
             args = {
                 "groupname": group_name,
@@ -259,7 +244,7 @@ class RedisDB:
             res = RedisMsg(self.REDIS, queue_name, group_name, msg_id, payload)
             return res
         except Exception as e:
-            if "key" in str(e):
+            if str(e) == 'no such key':
                 pass
             else:
                 logging.exception(
@@ -273,8 +258,14 @@ class RedisDB:
     def get_unacked_iterator(self, queue_names: list[str], group_name, consumer_name):
         try:
             for queue_name in queue_names:
-                group_info = self.REDIS.xinfo_groups(queue_name)
-                if not any(e["name"] == group_name for e in group_info):
+                try:
+                    group_info = self.REDIS.xinfo_groups(queue_name)
+                except Exception as e:
+                    if str(e) == 'no such key':
+                        logging.warning(f"RedisDB.get_unacked_iterator queue {queue_name} doesn't exist")
+                        continue
+                if not any(gi["name"] == group_name for gi in group_info):
+                    logging.warning(f"RedisDB.get_unacked_iterator queue {queue_name} group {group_name} doesn't exist")
                     continue
                 current_min = 0
                 while True:
@@ -282,13 +273,11 @@ class RedisDB:
                     if not payload:
                         break
                     current_min = payload.get_msg_id()
-                    logging.info(f"RedisDB.get_unacked_iterator {consumer_name} msg_id {current_min}")
+                    logging.info(f"RedisDB.get_unacked_iterator {queue_name} {consumer_name} {current_min}")
                     yield payload
-        except Exception as e:
-            if "key" in str(e):
-                return
+        except Exception:
             logging.exception(
-                "RedisDB.get_unacked_iterator " + consumer_name + " got exception: "
+                "RedisDB.get_unacked_iterator got exception: "
             )
             self.__open__()
 
@@ -304,6 +293,12 @@ class RedisDB:
             )
         return None
 
+    def delete_if_equal(self, key: str, expected_value: str) -> bool:
+        """
+        Do follwing atomically:
+        Delete a key if its value is equals to the given one, do nothing otherwise.
+        """
+        return bool(self.lua_delete_if_equal(keys=[key], args=[expected_value], client=self.REDIS))
 
 REDIS_CONN = RedisDB()
 
@@ -319,7 +314,8 @@ class RedisDistributedLock:
         self.lock = Lock(REDIS_CONN.REDIS, lock_key, timeout=timeout, blocking_timeout=blocking_timeout)
 
     def acquire(self):
-        return self.lock.acquire()
+        REDIS_CONN.delete_if_equal(self.lock_key, self.lock_value)
+        return self.lock.acquire(token=self.lock_value)
 
     def release(self):
         return self.lock.release()

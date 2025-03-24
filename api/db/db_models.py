@@ -986,6 +986,12 @@ class UserCanvas(DataBaseModel):
     user_id = CharField(max_length=255, null=False, help_text="user_id", index=True)
     title = CharField(max_length=255, null=True, help_text="Canvas title")
 
+    permission = CharField(
+        max_length=16,
+        null=False,
+        help_text="me|team",
+        default="me",
+        index=True)
     description = TextField(null=True, help_text="Canvas description")
     canvas_type = CharField(max_length=32, null=True, help_text="Canvas type", index=True)
     dsl = JSONField(null=True, default={})
@@ -1006,6 +1012,16 @@ class CanvasTemplate(DataBaseModel):
     class Meta:
         db_table = "canvas_template"
 
+class UserCanvasVersion(DataBaseModel):
+    id = CharField(max_length=32, primary_key=True)
+    user_canvas_id = CharField(max_length=255, null=False, help_text="user_canvas_id", index=True)
+
+    title = CharField(max_length=255, null=True, help_text="Canvas title")
+    description = TextField(null=True, help_text="Canvas description")
+    dsl = JSONField(null=True, default={})
+
+    class Meta:
+        db_table = "user_canvas_version"
 
 def migrate_db():
     with DB.transaction():
@@ -1148,3 +1164,11 @@ def migrate_db():
             )
         except Exception:
             pass
+        try:
+            migrate(
+                migrator.add_column("user_canvas", "permission",
+                                    CharField(max_length=16, null=False, help_text="me|team", default="me", index=True))
+            )
+        except Exception:
+            pass
+

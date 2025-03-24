@@ -105,10 +105,13 @@ def search_pages_path(pages_dir):
 
 
 def register_page(page_path):
-    path = f'{page_path}'
+    path = f"{page_path}"
 
-    page_name = page_path.stem.rstrip('_app')
-    module_name = '.'.join(page_path.parts[page_path.parts.index('api'):-1] + (page_name,))
+    page_name = page_path.stem.rstrip("_app")
+    module_name = ".".join(
+        page_path.parts[page_path.parts.index("api"): -1] + (page_name,)
+    )
+
 
     # 动态加载模块
     spec = spec_from_file_location(module_name, page_path)
@@ -138,8 +141,8 @@ def register_page(page_path):
 pages_dir = [
     # 当前文件所在目录
     Path(__file__).parent,
-    Path(__file__).parent.parent / 'api' / 'apps',
-    Path(__file__).parent.parent / 'api' / 'apps' / 'sdk',
+    Path(__file__).parent.parent / "api" / "apps",
+    Path(__file__).parent.parent / "api" / "apps" / "sdk",
 ]
 
 # 动态注册所有找到的模块文件，并收集返回的 URL 前缀

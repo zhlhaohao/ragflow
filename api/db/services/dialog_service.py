@@ -107,30 +107,6 @@ def chat(dialog, messages, stream=True, **kwargs):
     # Get llm model name and model provider name
     llm_id, model_provider = TenantLLMService.split_model_name_and_factory(dialog.llm_id)
 
-    """
-    # 从系统模型表中获取模型信息，Get llm model instance by model and provide name
-    llm = LLMService.query(llm_name=llm_id) if not model_provider else LLMService.query(llm_name=llm_id, fid=model_provider)
-    
-    if not llm:
-        # Model name is provided by tenant, but not system built-in
-        # 系统模型表中没有该模型，尝试从租户模型表中获取模型信息
-        llm = TenantLLMService.query(tenant_id=dialog.tenant_id, llm_name=llm_id) if not model_provider else \
-            TenantLLMService.query(tenant_id=dialog.tenant_id, llm_name=llm_id, llm_factory=model_provider)
-        if not llm:
-            raise LookupError("LLM(%s) not found" % dialog.llm_id)
-        max_tokens = 8192
-    else:
-        max_tokens = llm[0].max_tokens
-    """
-
-    """
-    if llm_id2llm_type(dialog.llm_id) == "image2text":
-        llm_model_config = TenantLLMService.get_model_config(dialog.tenant_id, LLMType.IMAGE2TEXT, dialog.llm_id)
-    else:
-        llm_model_config = TenantLLMService.get_model_config(dialog.tenant_id, LLMType.CHAT, dialog.llm_id)
-
-    max_tokens = llm_model_config.get("max_tokens", 8192)
-    """
     check_llm_ts = timer()
 
     # 获取知识库信息
@@ -303,13 +279,15 @@ def chat(dialog, messages, stream=True, **kwargs):
         nonlocal prompt_config, knowledges, kwargs, kbinfos, prompt, retrieval_ts, questions
 
         refs = []
-        ans = answer.split("</think>")
         think = ""
-        if len(ans) == 2:
-            think = ans[0] + "</think>"
-            answer = ans[1]
+        if answer is not None:  #F8080 - 前端知识库对话的时候，answer为None，因为没有生成答案，主要是用于获取文章引用
+            ans = answer.split("</think>")
+            if len(ans) == 2:
+                think = ans[0] + "</think>"
+                answer = ans[1]
+
         if knowledges and (prompt_config.get("quote", True) and kwargs.get("quote", True)):
-            if answer:  # F8080 answer在前端提问的时候为None
+            if answer is not None:  # F8080 answer在前端提问的时候为None
                 # 给答案插入引用标注，返回引用索引
                 answer = re.sub(r"##[ij]\$\$", "", answer, flags=re.DOTALL)
                 if not re.search(r"##[0-9]+\$\$", answer):
@@ -346,7 +324,7 @@ def chat(dialog, messages, stream=True, **kwargs):
                     del c["vector"]
 
         # 错误处理：检测API密钥错误
-        if answer:
+        if answer is not None:  #F8080
             if answer.lower().find("invalid key") >= 0 or answer.lower().find("invalid api") >= 0:
                 answer += " Please set LLM API-Key in 'User Setting -> Model providers -> API-Key'"
 
@@ -364,7 +342,12 @@ def chat(dialog, messages, stream=True, **kwargs):
         retrieval_time_cost = (retrieval_ts - generate_keyword_ts) * 1000
         generate_result_time_cost = (finish_chat_ts - retrieval_ts) * 1000
 
-        tk_num = num_tokens_from_string(think+answer)
+        if answer is not None:  #F8080
+            tk_num = num_tokens_from_string(think+answer)
+        else:
+            tk_num = 0
+
+
         prompt += "\n\n### Query:\n%s" % " ".join(questions)
         prompt = (
                 f"{prompt}\n\n"
@@ -383,7 +366,12 @@ def chat(dialog, messages, stream=True, **kwargs):
                 f"  - Generated tokens(approximately): {tk_num}\n"
                 f"  - Token speed: {int(tk_num/(generate_result_time_cost/1000.))}/s"
         )
-        return {"answer": think+answer, "reference": refs, "prompt": re.sub(r"\n", "  \n", prompt), "created_at": time.time()}
+
+        # F8080
+        if answer:
+            return {"answer": think+answer, "reference": refs, "prompt": re.sub(r"\n", "  \n", prompt), "created_at": time.time()}
+        else:
+            return {"answer": None, "reference": refs, "prompt": re.sub(r"\n", "  \n", prompt), "created_at": time.time()}
 
         ic(prompt)
     if stream:
@@ -403,14 +391,7 @@ def chat(dialog, messages, stream=True, **kwargs):
             yield {"answer": thought+answer, "reference": {}, "audio_binary": tts(tts_mdl, delta_ans)}
         yield decorate_answer(thought+answer)
     else:
-        """ F8080: 非流式响应改造成返回提示词和上下文，用于前端发起请求
-        answer = chat_mdl.chat(prompt, msg[1:], gen_conf)
-        logging.debug("User: {}|Assistant: {}".format(
-            msg[-1]["content"], answer))
-        res = decorate_answer(answer)
-        res["audio_binary"] = tts(tts_mdl, answer)
-        yield res
-        """
+        # F8080: 非流式响应改造成返回提示词和上下文，用于前端发起请求
         res = decorate_answer(None)
         answer = {
             "prompt": prompt,
@@ -624,60 +605,6 @@ def ask(question, kb_ids, tenant_id):
         yield {"answer": answer, "reference": {}}
     yield decorate_answer(answer)
 
-
-def content_tagging(chat_mdl, content, all_tags, examples, topn=3):
-    prompt = f"""
-Role: You're a text analyzer. 
-
-Task: Tag (put on some labels) to a given piece of text content based on the examples and the entire tag set.
-
-Steps:: 
-  - Comprehend the tag/label set.
-  - Comprehend examples which all consist of both text content and assigned tags with relevance score in format of JSON.
-  - Summarize the text content, and tag it with top {topn} most relevant tags from the set of tag/label and the corresponding relevance score.
-
-Requirements
-  - The tags MUST be from the tag set.
-  - The output MUST be in JSON format only, the key is tag and the value is its relevance score.
-  - The relevance score must be range from 1 to 10.
-  - Keywords ONLY in output.
-
-# TAG SET
-{", ".join(all_tags)}
-
-"""
-    for i, ex in enumerate(examples):
-        prompt += """
-# Examples {}
-### Text Content
-{}
-
-Output:
-{}
-
-        """.format(i, ex["content"], json.dumps(ex[TAG_FLD], indent=2, ensure_ascii=False))
-
-    prompt += f"""
-# Real Data
-### Text Content
-{content}
-
-"""
-    msg = [
-        {"role": "system", "content": prompt},
-        {"role": "user", "content": "Output: "}
-    ]
-    _, msg = message_fit_in(msg, chat_mdl.max_length)
-    kwd = chat_mdl.chat(prompt, msg[1:], {"temperature": 0.5})
-    if isinstance(kwd, tuple):
-        kwd = kwd[0]
-    if kwd.find("**ERROR**") >= 0:
-        raise Exception(kwd)
-
-    kwd = re.sub(r".*?\{", "{", kwd)
-    return json.loads(kwd)
-
-
 def chat_nokb(dialog, messages, stream=True):
     """F8080 无知识库对话，例如编程助手对话
 
@@ -723,3 +650,4 @@ def chat_nokb(dialog, messages, stream=True):
     else:
         answer = chat_mdl.chat(prompt_config["system"], messages, gen_conf)
         yield answer
+
