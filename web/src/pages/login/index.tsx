@@ -1,4 +1,5 @@
 import { useLogin, useRegister } from '@/hooks/login-hooks';
+import { useSystemConfig } from '@/hooks/system-hooks';
 import { rsaPsw } from '@/utils';
 import { Button, Checkbox, Form, Input } from 'antd';
 import { useEffect, useState } from 'react';
@@ -9,7 +10,6 @@ import RightPanel from './right-panel';
 import { Domain } from '@/constants/common';
 import styles from './index.less';
 
-// 用户登录+用户注册页面
 const Login = () => {
   const [title, setTitle] = useState('login');
   const navigate = useNavigate();
@@ -17,8 +17,13 @@ const Login = () => {
   const { register, loading: registerLoading } = useRegister();
   const { t } = useTranslation('translation', { keyPrefix: 'login' });
   const loading = signLoading || registerLoading;
+  const { config } = useSystemConfig();
+  const registerEnabled = config?.registerEnabled !== 0;
 
   const changeTitle = () => {
+    if (title === 'login' && !registerEnabled) {
+      return;
+    }
     setTitle((title) => (title === 'login' ? 'register' : 'login'));
   };
   const [form] = Form.useForm();
@@ -31,7 +36,6 @@ const Login = () => {
     try {
       const params = await form.validateFields();
 
-      // 对密码进行加密
       const rsaPassWord = rsaPsw(params.password) as string;
 
       if (title === 'login') {
@@ -43,7 +47,6 @@ const Login = () => {
           navigate('/knowledge');
         }
       } else {
-        // 用户注册
         const code = await register({
           nickname: params.nickname,
           email: params.email,
@@ -122,7 +125,7 @@ const Login = () => {
               </Form.Item>
             )}
             <div>
-              {title === 'login' && (
+              {title === 'login' && registerEnabled && (
                 <div>
                   {t('signInTip')}
                   <Button type="link" onClick={changeTitle}>

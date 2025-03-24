@@ -16,8 +16,6 @@ import styles from './index.less';
 
 type MenuItem = Required<MenuProps>['items'][number];
 
-// 系统设置页面的左侧的菜单栏
-
 const SideBar = () => {
   const navigate = useNavigate();
   const pathName = useSecondPathName();
@@ -31,7 +29,6 @@ const SideBar = () => {
     }
   }, [fetchSystemVersion]);
 
-  // 设置主菜单项的内容
   function getItem(
     label: string,
     key: React.Key,

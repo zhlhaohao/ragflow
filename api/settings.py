@@ -62,19 +62,23 @@ docStoreConn = None
 retrievaler = None
 kg_retrievaler = None
 
+# user registration switch
+REGISTER_ENABLED = 1
+
 
 def init_settings():
-    global LLM, LLM_FACTORY, LLM_BASE_URL, LIGHTEN, DATABASE_TYPE, DATABASE, FACTORY_LLM_INFOS
+    global LLM, LLM_FACTORY, LLM_BASE_URL, LIGHTEN, DATABASE_TYPE, DATABASE, FACTORY_LLM_INFOS, REGISTER_ENABLED
     LIGHTEN = int(os.environ.get('LIGHTEN', "0"))
     DATABASE_TYPE = os.getenv("DB_TYPE", 'mysql')
     DATABASE = decrypt_database_config(name=DATABASE_TYPE)
-
-    # LLM 是从 service.conf 读取的 key=user_default_llm 的配置，是默认llm的配置信息
     LLM = get_base_config("user_default_llm", {})
-
     LLM_DEFAULT_MODELS = LLM.get("default_models", {})
-    LLM_FACTORY = LLM.get("factory", "BAAI")
+    LLM_FACTORY = LLM.get("factory", "Tongyi-Qianwen")
     LLM_BASE_URL = LLM.get("base_url")
+    try:
+        REGISTER_ENABLED = int(os.environ.get("REGISTER_ENABLED", "1"))
+    except Exception:
+        pass  
     
     try:
         with open(os.path.join(get_project_base_directory(), "conf", "llm_factories.json"), "r") as f:
