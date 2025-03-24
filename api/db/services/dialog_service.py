@@ -103,20 +103,16 @@ def chat(dialog, messages, stream=True, **kwargs):
         return
 
     chat_start_ts = timer()
-
-    # Get llm model name and model provider name
-    llm_id, model_provider = TenantLLMService.split_model_name_and_factory(dialog.llm_id)
-
     check_llm_ts = timer()
 
     # 获取知识库信息
     kbs = KnowledgebaseService.get_by_ids(dialog.kb_ids)
     embedding_list = list(set([kb.embd_id for kb in kbs]))
-    if len(embedding_list) > 1:  # F8080 在自由提问模式下,不检查embedding是否一致
+    if len(embedding_list) != 1:
         yield {"answer": "**ERROR**: Knowledge bases use different embedding models.", "reference": []}
         return {"answer": "**ERROR**: Knowledge bases use different embedding models.", "reference": []}
 
-    # embedding_model_name = embedding_list[0]  # F8080 移到了下方
+    embedding_model_name = embedding_list[0]
 
     retriever = settings.retrievaler
 
@@ -131,11 +127,9 @@ def chat(dialog, messages, stream=True, **kwargs):
     create_retriever_ts = timer()
 
     # 绑定嵌入模型
-    if len(embedding_list) > 0:   # F8080 自由提问模式下,没有嵌入模型
-        embedding_model_name = embedding_list[0]
-        embd_mdl = LLMBundle(dialog.tenant_id, LLMType.EMBEDDING, embedding_model_name)
-        if not embd_mdl:
-            raise LookupError("Embedding model(%s) not found" % embedding_model_name)
+    embd_mdl = LLMBundle(dialog.tenant_id, LLMType.EMBEDDING, embedding_model_name)
+    if not embd_mdl:
+        raise LookupError("Embedding model(%s) not found" % embedding_model_name)
 
     bind_embedding_ts = timer()
 
@@ -145,11 +139,11 @@ def chat(dialog, messages, stream=True, **kwargs):
     else:
         chat_mdl = LLMBundle(dialog.tenant_id, LLMType.CHAT, dialog.llm_id)
 
+    # F8080
     if not chat_mdl:
         raise LookupError("LLM(%s) not found" % dialog.llm_id)
-    
+    # F8080
     max_tokens = chat_mdl.max_length
-
 
     bind_llm_ts = timer()
 
