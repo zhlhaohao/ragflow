@@ -33,7 +33,7 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
-    image: oo_audit:latest
+    image: ${AUDIT_IMAGE}
     container_name: oo_audit-server
     ports:
       - 9895:443
