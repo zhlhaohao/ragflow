@@ -14,7 +14,8 @@
         "--query-count", "2",
         "--iteration-limit", "3",
         "--max-results", "3",
-        "--context-length", "500"
+        "--context-length", "500",
+        "--http-proxy", "http://192.168.50.150:7890"
       ]
     },
     "fetch": {

@@ -576,3 +576,86 @@ def list_convsersation_lite():
         return server_error_response(e)
 
 
+
+
+
+
+
+
+
+
+
+@manager.route('/completion_mcp', methods=['POST'])  # noqa: F821
+@login_required
+@validate_request("conversation_id", "messages")
+def completion_mcp():
+    """F8080 MCP能力加强的对话
+    """
+    req = request.json
+    messages = req["messages"]
+    message_id = messages[-1].get("id")
+
+    try:
+        # 获取聊天对象
+        e, conv = ConversationService.get_by_id(req["conversation_id"])
+        if not e:
+            return get_data_error_result(message="Conversation not found!")
+
+        # 获取助理对象
+        e, dia = DialogService.get_by_id(conv.dialog_id)
+        if not e:
+            return get_data_error_result(message="Dialog not found!")
+
+        def stream():
+            nonlocal dia, messages, conv
+            try:
+                # 调用chat函数生成答案，stream模式为True
+                final_ans = None
+                for ans in chat_nokb(dia, messages, True):
+                    ans["id"] = message_id
+                    ans["session_id"] = conv.id
+                    final_ans = ans
+                    yield "data:" + json.dumps({"code": 0, "message": "", "data": ans}, ensure_ascii=False) + "\n\n"
+
+                # parsed_response = json.loads(final_ans['answer'])
+                # if "assistant_reply" not in parsed_response:
+                #     parsed_response["assistant_reply"] = ""
+                # answer = json.dumps(parsed_response)
+
+                # 将最后一条用户提问和助理的回答保存到对话记录中
+                if final_ans is None:
+                    err_msg = "大模型返回空回答"
+                    yield "data:" + json.dumps({"code": 500, "message": err_msg,
+                                            "data": {"answer": "**ERROR**: " + err_msg, "reference": []}},
+                                           ensure_ascii=False) + "\n\n"
+                else:
+                    conv.message.append(messages[-1])
+                    conv.message.append({"role": "assistant", "content":
+                        final_ans['answer'], "id": message_id})
+                    ConversationService.update_by_id(conv.id, conv.to_dict())
+            except Exception as e:
+                traceback.print_exc()
+                yield "data:" + json.dumps({"code": 500, "message": str(e),
+                                            "data": {"answer": "**ERROR**: " + str(e), "reference": []}},
+                                           ensure_ascii=False) + "\n\n"
+
+            # 全部回答完成
+            yield "data:" + json.dumps({"code": 0, "message": "", "data": True}, ensure_ascii=False) + "\n\n"
+
+        if req.get("stream", True):
+            resp = Response(stream(), mimetype="text/event-stream")
+            resp.headers.add_header("Cache-control", "no-cache")
+            resp.headers.add_header("Connection", "keep-alive")
+            resp.headers.add_header("X-Accel-Buffering", "no")
+            resp.headers.add_header("Content-Type", "text/event-stream; charset=utf-8")
+            return resp
+
+        else:
+            answer = None
+            for ans in chat_nokb(dia, messages, False):
+                ConversationService.update_by_id(conv.id, conv.to_dict())
+                break
+
+            return get_json_result(data=answer)
+    except Exception as e:
+        return server_error_response(e)
