@@ -3,38 +3,6 @@
     "time": {
       "command": "uvx",
       "args": ["mcp-server-time", "--local-timezone=Asia/Shanghai"]
-    },    
-    "web-search": {
-      "command": "uv",
-      "args": [
-        "--directory", "mcp/servers/web_search",
-        "run", "mcp_web_search.py",
-        "--jina-url", "http://127.0.0.1:9859/",
-        "--searxng-url", "http://127.0.0.1:8088/",
-        "--query-count", "2",
-        "--iteration-limit", "3",
-        "--max-results", "3",
-        "--context-length", "500"
-      ]
-    },
-    "fetch": {
-      "command": "uvx",
-      "args": ["mcp-server-fetch"]
-    },
-    "baidu-maps": {
-      "command": "uvx",
-      "args": ["mcp-server-baidu-maps"],
-      "env": {
-        "BAIDU_MAPS_API_KEY": "cDegYKJ8dKCl98GmWKCoqxY9dzrqneWA"
-      }
-    },
-    "mongodb-lens": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "mongodb-lens@latest",
-        "mongodb://root:mongodb8738@127.0.0.1:27000/?directConnection=true"
-      ]
     }
   }
 }

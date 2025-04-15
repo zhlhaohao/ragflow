@@ -35,7 +35,7 @@ from api.utils.api_utils import server_error_response, get_data_error_result, va
 from graphrag.general.mind_map_extractor import MindMapExtractor
 from api.utils import ic 
 from rag.app.tag import label_question
-
+from mcps.client import mcp_client
 
 @manager.route('/set', methods=['POST'])    # noqa: F821
 @login_required
@@ -576,15 +576,6 @@ def list_convsersation_lite():
         return server_error_response(e)
 
 
-
-
-
-
-
-
-
-
-
 @manager.route('/completion_mcp', methods=['POST'])  # noqa: F821
 @login_required
 @validate_request("conversation_id", "messages")
@@ -594,6 +585,7 @@ def completion_mcp():
     req = request.json
     messages = req["messages"]
     message_id = messages[-1].get("id")
+    mcp_chat = mcp_client.MCP_CHAT
 
     try:
         # 获取聊天对象
@@ -611,16 +603,11 @@ def completion_mcp():
             try:
                 # 调用chat函数生成答案，stream模式为True
                 final_ans = None
-                for ans in chat_nokb(dia, messages, True):
+                for ans in mcp_chat.chat(messages, None):
                     ans["id"] = message_id
                     ans["session_id"] = conv.id
                     final_ans = ans
                     yield "data:" + json.dumps({"code": 0, "message": "", "data": ans}, ensure_ascii=False) + "\n\n"
-
-                # parsed_response = json.loads(final_ans['answer'])
-                # if "assistant_reply" not in parsed_response:
-                #     parsed_response["assistant_reply"] = ""
-                # answer = json.dumps(parsed_response)
 
                 # 将最后一条用户提问和助理的回答保存到对话记录中
                 if final_ans is None:
@@ -650,12 +637,5 @@ def completion_mcp():
             resp.headers.add_header("Content-Type", "text/event-stream; charset=utf-8")
             return resp
 
-        else:
-            answer = None
-            for ans in chat_nokb(dia, messages, False):
-                ConversationService.update_by_id(conv.id, conv.to_dict())
-                break
-
-            return get_json_result(data=answer)
     except Exception as e:
         return server_error_response(e)

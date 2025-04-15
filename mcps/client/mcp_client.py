@@ -16,7 +16,15 @@ from mcp.client.stdio import stdio_client
 from pydantic import BaseModel
 from openai import OpenAI
 from api import settings
-from lite_llm_json import LiteLLMJson
+from mcps.client.lite_llm_json import LiteLLMJson
+
+MCP_CHAT = None
+
+async def init_mcp() -> None:
+    global MCP_CHAT
+    MCP_CHAT = McpChat()
+    await MCP_CHAT.init_servers()
+
 
 json_schema = {
     "type": "object",
@@ -64,6 +72,7 @@ class Server:
         self.session: ClientSession | None = None
         self._cleanup_lock: asyncio.Lock = asyncio.Lock()
         self.exit_stack: AsyncExitStack = AsyncExitStack()
+        self.tools: list[Any] = []
 
     async def initialize(self) -> None:
         """Initialize the server connection."""
@@ -117,6 +126,7 @@ class Server:
                 for tool in item[1]:
                     tools.append(Tool(tool.name, tool.description, tool.inputSchema))
 
+        self.tools = tools
         return tools
 
     async def execute_tool(
@@ -273,6 +283,7 @@ class McpChat:
 
     async def cleanup_servers(self) -> None:
         """Clean up all servers properly."""
+        logging.info("cleanup servers...")
         cleanup_tasks = []
         for server in self.servers:
             cleanup_tasks.append(asyncio.create_task(server.cleanup()))
@@ -308,10 +319,9 @@ class McpChat:
                 logging.info(f"With arguments: {tool_call['arguments']}")
 
                 for server in self.servers:
-                    tools = await server.list_tools()
-
-                    if any(tool.name == tool_call["tool"] for tool in tools):
+                    if any(tool.name == tool_call["tool"] for tool in server.tools):
                         try:
+                            await server.initialize()
                             result = await server.execute_tool(
                                 tool_call["tool"], tool_call["arguments"]
                             )
@@ -391,6 +401,52 @@ class McpChat:
 
             except KeyboardInterrupt:
                 logging.info("\nExiting...")
+                break
+
+
+
+    def chat(self, messages, gen_conf):
+        """
+        Main chat session handler.
+        """
+        mcp_messages = [{"role": "system", "content": self.system_message}]
+        mcp_messages.extend(messages)
+
+        while True:
+            # 第一步：询问llm，获得答案
+            response = self.openai_client.chat.completions.create(
+                model = settings.MCP_CHAT_MDL,
+                messages = mcp_messages,
+                temperature = 0.7,
+                max_tokens = 4096,
+                top_p = 1.0,
+                stream = False,
+                stop = None,
+            )
+            response_content = response.choices[0].message.content
+            logging.info("\nAssistant: %s", response_content)
+
+            # 根据llm_response判断是否需要调用tool,并调用tool，然后返回结果
+            # 如果不使用tool，那么则原样返回
+            result = asyncio.run(self.process_llm_response(response_content))
+
+            # 如果使用了tool
+            if result != response_content:
+                # 将tool的调用结果加入到历史信息中
+                mcp_messages.append(
+                    {"role": "assistant", "content": response_content}
+                )
+                mcp_messages.append({"role": "system", "content": result})
+
+                # 循环调用llm，获取最终的回复
+                yield {"answer": response_content}
+            # 没有使用tool
+            else:
+                logging.info("\nFinal response: %s", response_content)
+                # mcp_messages.append(
+                #     {"role": "assistant", "content": response_content}
+                # )
+                yield {"answer": response_content}
                 break
 
 

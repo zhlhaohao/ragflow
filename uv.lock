@@ -3003,6 +3003,20 @@ cli = [
 ]
 
 [[package]]
+name = "mcp-server-time"
+version = "0.6.2"
+source = { registry = "https://mirrors.aliyun.com/pypi/simple" }
+dependencies = [
+    { name = "mcp" },
+    { name = "pydantic" },
+    { name = "tzdata" },
+]
+sdist = { url = "https://mirrors.aliyun.com/pypi/packages/76/65/6f4ac2df4dbed45e2606ceb8d05d2d63f3d1a4a6982babf37059683c88d0/mcp_server_time-0.6.2.tar.gz", hash = "sha256:f8baddaf4787a4ccf8bb585fa936e3537692dd9a24ac2bbe5d2616014f08a6b2" }
+wheels = [
+    { url = "https://mirrors.aliyun.com/pypi/packages/f6/71/e5b546bbe8769be4608728624ad4c4c51c93243a124e527b39465bcf559e/mcp_server_time-0.6.2-py3-none-any.whl", hash = "sha256:6b67640eb9df3df834b3de5001e37ca8b0c997ce700b014882b585964094d116" },
+]
+
+[[package]]
 name = "mdurl"
 version = "0.1.2"
 source = { registry = "https://mirrors.aliyun.com/pypi/simple" }
@@ -4827,6 +4841,7 @@ dependencies = [
     { name = "markdown" },
     { name = "markdown-to-json" },
     { name = "mcp", extra = ["cli"] },
+    { name = "mcp-server-time" },
     { name = "mini-racer" },
     { name = "minio" },
     { name = "mistralai" },
@@ -4962,6 +4977,7 @@ requires-dist = [
     { name = "markdown", specifier = "==3.6" },
     { name = "markdown-to-json", specifier = "==2.1.1" },
     { name = "mcp", extras = ["cli"], specifier = ">=1.6.0" },
+    { name = "mcp-server-time", specifier = ">=0.6.2" },
     { name = "mini-racer", specifier = ">=0.12.4,<0.13.0" },
     { name = "minio", specifier = "==7.2.4" },
     { name = "mistralai", specifier = "==0.4.2" },

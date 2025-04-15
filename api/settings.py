@@ -50,6 +50,7 @@ MCP_CHAT_KEY = ""
 MCP_VL_MDL = ""
 MCP_VL_URL = ""
 MCP_VL_KEY = ""
+MCP_CHAT = None
 
 DATABASE_TYPE = os.getenv("DB_TYPE", 'mysql')
 DATABASE = decrypt_database_config(name=DATABASE_TYPE)
