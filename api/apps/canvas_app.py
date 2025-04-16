@@ -29,13 +29,13 @@ from api.db.db_models import APIToken
 import logging
 import time
 
-@manager.route('/templates', methods=['GET'])  # noqa: F821
+@manager.route('/templates', methods=['GET'])  # type: ignore # noqa: F821
 @login_required
 def templates():
     return get_json_result(data=[c.to_dict() for c in CanvasTemplateService.get_all()])
 
 
-@manager.route('/list', methods=['GET'])  # noqa: F821
+@manager.route('/list', methods=['GET'])  # type: ignore # noqa: F821
 @login_required
 def canvas_list():
     return get_json_result(data=sorted([c.to_dict() for c in \
@@ -43,7 +43,7 @@ def canvas_list():
                            )
 
 
-@manager.route('/rm', methods=['POST'])  # noqa: F821
+@manager.route('/rm', methods=['POST'])  # type: ignore # noqa: F821
 @validate_request("canvas_ids")
 @login_required
 def rm():
@@ -56,7 +56,7 @@ def rm():
     return get_json_result(data=True)
 
 
-@manager.route('/set', methods=['POST'])  # noqa: F821
+@manager.route('/set', methods=['POST'])  # type: ignore # noqa: F821
 @validate_request("dsl", "title")
 @login_required
 def save():
@@ -85,7 +85,7 @@ def save():
  
 
 
-@manager.route('/get/<canvas_id>', methods=['GET'])  # noqa: F821
+@manager.route('/get/<canvas_id>', methods=['GET'])  # type: ignore # noqa: F821
 @login_required
 def get(canvas_id):
     e, c = UserCanvasService.get_by_tenant_id(canvas_id)
@@ -94,7 +94,7 @@ def get(canvas_id):
         return get_data_error_result(message="canvas not found.")
     return get_json_result(data=c)
 
-@manager.route('/getsse/<canvas_id>', methods=['GET'])  # type: ignore # noqa: F821
+@manager.route('/getsse/<canvas_id>', methods=['GET'])  # type: ignore # type: ignore # noqa: F821
 def getsse(canvas_id):
     token = request.headers.get('Authorization').split()
     if len(token) != 2:
@@ -109,7 +109,7 @@ def getsse(canvas_id):
     return get_json_result(data=c.to_dict())
 
 
-@manager.route('/completion', methods=['POST'])  # noqa: F821
+@manager.route('/completion', methods=['POST'])  # type: ignore # noqa: F821
 @validate_request("id")
 @login_required
 def run():
@@ -190,7 +190,7 @@ def run():
         return get_json_result(data={"answer": final_ans["content"], "reference": final_ans.get("reference", [])})
 
 
-@manager.route('/reset', methods=['POST'])  # noqa: F821
+@manager.route('/reset', methods=['POST'])  # type: ignore # noqa: F821
 @validate_request("id")
 @login_required
 def reset():
@@ -213,7 +213,7 @@ def reset():
         return server_error_response(e)
 
 
-@manager.route('/input_elements', methods=['GET'])  # noqa: F821
+@manager.route('/input_elements', methods=['GET'])  # type: ignore # noqa: F821
 @login_required
 def input_elements():
     cvs_id = request.args.get("id")
@@ -233,7 +233,7 @@ def input_elements():
         return server_error_response(e)
 
 
-@manager.route('/debug', methods=['POST'])  # noqa: F821
+@manager.route('/debug', methods=['POST'])  # type: ignore # noqa: F821
 @validate_request("id", "component_id", "params")
 @login_required
 def debug():
@@ -257,7 +257,7 @@ def debug():
         return server_error_response(e)
 
 
-@manager.route('/test_db_connect', methods=['POST'])  # noqa: F821
+@manager.route('/test_db_connect', methods=['POST'])  # type: ignore # noqa: F821
 @validate_request("db_type", "database", "username", "host", "port", "password")
 @login_required
 def test_db_connect():
@@ -292,7 +292,7 @@ def test_db_connect():
     except Exception as e:
         return server_error_response(e)
 #api get list version dsl of canvas
-@manager.route('/getlistversion/<canvas_id>', methods=['GET'])  # noqa: F821
+@manager.route('/getlistversion/<canvas_id>', methods=['GET'])  # type: ignore # noqa: F821
 @login_required
 def getlistversion(canvas_id):
     try:
@@ -301,7 +301,7 @@ def getlistversion(canvas_id):
     except Exception as e:
         return get_data_error_result(message=f"Error getting history files: {e}")
 #api get version dsl of canvas
-@manager.route('/getversion/<version_id>', methods=['GET'])  # noqa: F821
+@manager.route('/getversion/<version_id>', methods=['GET'])  # type: ignore # noqa: F821
 @login_required
 def getversion( version_id):
     try:
@@ -311,7 +311,7 @@ def getversion( version_id):
             return get_json_result(data=version.to_dict())
     except Exception as e:
         return get_json_result(data=f"Error getting history file: {e}")
-@manager.route('/listteam', methods=['GET'])  # noqa: F821
+@manager.route('/listteam', methods=['GET'])  # type: ignore # noqa: F821
 @login_required
 def list_kbs():
     keywords = request.args.get("keywords", "")
@@ -327,7 +327,7 @@ def list_kbs():
         return get_json_result(data={"kbs": kbs, "total": total})
     except Exception as e:
         return server_error_response(e)
-@manager.route('/setting', methods=['POST'])  # noqa: F821
+@manager.route('/setting', methods=['POST'])  # type: ignore # noqa: F821
 @validate_request("id", "title", "permission")
 @login_required
 def setting():

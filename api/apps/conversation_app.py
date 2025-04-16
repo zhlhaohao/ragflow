@@ -37,7 +37,7 @@ from api.utils import ic
 from rag.app.tag import label_question
 from mcps.client import mcp_client
 
-@manager.route('/set', methods=['POST'])    # noqa: F821
+@manager.route('/set', methods=['POST'])    # type: ignore # noqa: F821
 @login_required
 def set_conversation():
     req = request.json
@@ -74,7 +74,7 @@ def set_conversation():
         return server_error_response(e)
 
 
-@manager.route('/get', methods=['GET'])  # noqa: F821
+@manager.route('/get', methods=['GET'])  # type: ignore # noqa: F821
 @login_required
 def get():
     conv_id = request.args["conversation_id"]
@@ -117,7 +117,7 @@ def get():
     except Exception as e:
         return server_error_response(e)
 
-@manager.route('/getsse/<dialog_id>', methods=['GET'])  # type: ignore # noqa: F821
+@manager.route('/getsse/<dialog_id>', methods=['GET'])  #noqa: F821
 def getsse(dialog_id):
 
     token = request.headers.get('Authorization').split()
@@ -138,7 +138,7 @@ def getsse(dialog_id):
     except Exception as e:
         return server_error_response(e)
 
-@manager.route('/rm', methods=['POST'])  # noqa: F821
+@manager.route('/rm', methods=['POST'])  # type: ignore # noqa: F821
 @login_required
 def rm():
     conv_ids = request.json["conversation_ids"]
@@ -161,7 +161,7 @@ def rm():
         return server_error_response(e)
 
 
-@manager.route('/list', methods=['GET'])  # noqa: F821
+@manager.route('/list', methods=['GET'])  # type: ignore # noqa: F821
 @login_required
 def list_convsersation():
     dialog_id = request.args["dialog_id"]
@@ -181,7 +181,7 @@ def list_convsersation():
         return server_error_response(e)
 
 
-@manager.route('/completion', methods=['POST'])  # noqa: F821
+@manager.route('/completion', methods=['POST'])  # type: ignore # noqa: F821
 @login_required
 @validate_request("conversation_id", "messages")
 def completion():
@@ -279,7 +279,7 @@ def completion():
         return server_error_response(e)
 
 
-@manager.route('/tts', methods=['POST'])  # noqa: F821
+@manager.route('/tts', methods=['POST'])  # type: ignore # noqa: F821
 @login_required
 def tts():
     req = request.json
@@ -313,7 +313,7 @@ def tts():
     return resp
 
 
-@manager.route('/delete_msg', methods=['POST'])  # noqa: F821
+@manager.route('/delete_msg', methods=['POST'])  # type: ignore # noqa: F821
 @login_required
 @validate_request("conversation_id", "message_id")
 def delete_msg():
@@ -336,7 +336,7 @@ def delete_msg():
     return get_json_result(data=conv)
 
 
-@manager.route('/thumbup', methods=['POST'])  # noqa: F821
+@manager.route('/thumbup', methods=['POST'])  # type: ignore # noqa: F821
 @login_required
 @validate_request("conversation_id", "message_id")
 def thumbup():
@@ -363,7 +363,7 @@ def thumbup():
     return get_json_result(data=conv)
 
 
-@manager.route('/ask', methods=['POST'])  # noqa: F821
+@manager.route('/ask', methods=['POST'])  # type: ignore # noqa: F821
 @login_required
 @validate_request("question", "kb_ids")
 def ask_about():
@@ -389,7 +389,7 @@ def ask_about():
     return resp
 
 
-@manager.route('/mindmap', methods=['POST'])  # noqa: F821
+@manager.route('/mindmap', methods=['POST'])  # type: ignore # noqa: F821
 @login_required
 @validate_request("question", "kb_ids")
 def mindmap():
@@ -414,7 +414,7 @@ def mindmap():
     return get_json_result(data=mind_map)
 
 
-@manager.route('/related_questions', methods=['POST'])  # noqa: F821
+@manager.route('/related_questions', methods=['POST'])  # type: ignore # noqa: F821
 @login_required
 @validate_request("question")
 def related_questions():
@@ -451,7 +451,7 @@ Related search terms:
     """}], {"temperature": 0.9})
     return get_json_result(data=[re.sub(r"^[0-9]\. ", "", a) for a in ans.split("\n") if re.match(r"^[0-9]\. ", a)])
 
-@manager.route('/add_messages', methods=['POST'])  # noqa: F821
+@manager.route('/add_messages', methods=['POST'])  # type: ignore # noqa: F821
 @login_required
 @validate_request("conversation_id", "messages")
 def add_messages():
@@ -474,7 +474,7 @@ def add_messages():
         return server_error_response(e)
 
 
-@manager.route('/completion_nokb', methods=['POST'])  # noqa: F821
+@manager.route('/completion_nokb', methods=['POST'])  # type: ignore # noqa: F821
 @login_required
 @validate_request("conversation_id", "messages")
 def completion_nokb():
@@ -551,7 +551,7 @@ def completion_nokb():
 
 
 
-@manager.route('/list_lite', methods=['GET'])  # noqa: F821
+@manager.route('/list_lite', methods=['GET'])  # type: ignore # noqa: F821
 @login_required
 def list_convsersation_lite():
     """F8080 为节省流量，不返回对话内容，只返回对话列表
@@ -576,7 +576,7 @@ def list_convsersation_lite():
         return server_error_response(e)
 
 
-@manager.route('/completion_mcp', methods=['POST'])  # noqa: F821
+@manager.route('/completion_mcp', methods=['POST'])  # type: ignore # noqa: F821
 @login_required
 @validate_request("conversation_id", "messages")
 def completion_mcp():

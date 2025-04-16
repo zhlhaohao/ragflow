@@ -37,7 +37,7 @@ import xxhash
 import re
 
 
-@manager.route('/list', methods=['POST'])  # noqa: F821
+@manager.route('/list', methods=['POST'])  # type: ignore # noqa: F821
 @login_required
 @validate_request("doc_id")
 def list_chunk():
@@ -118,7 +118,7 @@ def list_chunk():
                                    code=settings.RetCode.DATA_ERROR)
         return server_error_response(e)
 
-@manager.route('/get', methods=['GET'])  # noqa: F821
+@manager.route('/get', methods=['GET'])  # type: ignore # noqa: F821
 @login_required
 def get():
     """
@@ -158,7 +158,7 @@ def get():
         return server_error_response(e)
 
 
-@manager.route('/set', methods=['POST'])  # noqa: F821
+@manager.route('/set', methods=['POST'])  # type: ignore # noqa: F821
 @login_required
 @validate_request("doc_id", "chunk_id", "content_with_weight")
 def set():
@@ -227,7 +227,7 @@ def set():
         return server_error_response(e)
 
 
-@manager.route('/switch', methods=['POST'])  # noqa: F821
+@manager.route('/switch', methods=['POST'])  # type: ignore # noqa: F821
 @login_required
 @validate_request("chunk_ids", "available_int", "doc_id")
 def switch():
@@ -258,7 +258,7 @@ def switch():
         return server_error_response(e)
 
 
-@manager.route('/rm', methods=['POST'])  # noqa: F821
+@manager.route('/rm', methods=['POST'])  # type: ignore # noqa: F821
 @login_required
 @validate_request("chunk_ids", "doc_id")
 def rm():
@@ -287,7 +287,7 @@ def rm():
         return server_error_response(e)
 
 
-@manager.route('/create', methods=['POST'])  # noqa: F821
+@manager.route('/create', methods=['POST'])  # type: ignore # noqa: F821
 @login_required
 @validate_request("doc_id", "content_with_weight")
 def create():
@@ -349,7 +349,7 @@ def create():
         return server_error_response(e)
 
 
-@manager.route('/retrieval_test', methods=['POST'])  # noqa: F821
+@manager.route('/retrieval_test', methods=['POST'])  # type: ignore # noqa: F821
 @login_required
 @validate_request("kb_id", "question")
 def retrieval_test():
@@ -438,7 +438,7 @@ def retrieval_test():
         return server_error_response(e)
 
 
-@manager.route('/knowledge_graph', methods=['GET'])  # noqa: F821
+@manager.route('/knowledge_graph', methods=['GET'])  # type: ignore # noqa: F821
 @login_required
 def knowledge_graph():
     """

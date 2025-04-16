@@ -13,6 +13,8 @@ import jsonschema
 from dotenv import load_dotenv
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
+import anyio
+
 from pydantic import BaseModel
 from openai import OpenAI
 from api import settings
@@ -73,6 +75,7 @@ class Server:
         self._cleanup_lock: asyncio.Lock = asyncio.Lock()
         self.exit_stack: AsyncExitStack = AsyncExitStack()
         self.tools: list[Any] = []
+        self.closed = True
 
     async def initialize(self) -> None:
         """Initialize the server connection."""
@@ -134,7 +137,7 @@ class Server:
         tool_name: str,
         arguments: dict[str, Any],
         retries: int = 2,
-        delay: float = 1.0,
+        delay: float = 0.1,
     ) -> Any:
         """带重试机制的调用工具.
 
@@ -158,9 +161,22 @@ class Server:
         while attempt < retries:
             try:
                 logging.info(f"Executing {tool_name}...")
+                await self.initialize()
                 result = await self.session.call_tool(tool_name, arguments)
-
                 return result
+
+            except anyio.ClosedResourceError as e:
+                attempt += 1
+                logging.warning(
+                    f"Error executing tool: {e}. Attempt {attempt} of {retries}."
+                )
+                await self.initialize()
+                if attempt < retries:
+                    logging.info(f"Retrying in {delay} seconds...")
+                    # await asyncio.sleep(delay)
+                else:
+                    logging.error("Max retries reached. Failing.")
+                    raise
 
             except Exception as e:
                 attempt += 1
@@ -318,10 +334,12 @@ class McpChat:
                 logging.info(f"Executing tool: {tool_call['tool']}")
                 logging.info(f"With arguments: {tool_call['arguments']}")
 
+                tool_json = json.dumps(tool_call, ensure_ascii=False)
+                tool_desc = f"调用工具:\n\n```json\n{tool_json}\n```"
+
                 for server in self.servers:
                     if any(tool.name == tool_call["tool"] for tool in server.tools):
                         try:
-                            await server.initialize()
                             result = await server.execute_tool(
                                 tool_call["tool"], tool_call["arguments"]
                             )
@@ -334,7 +352,7 @@ class McpChat:
                                     f"进度: {progress}/{total} ({percentage:.1f}%)"
                                 )
 
-                            return f"工具执行结果: {result}"
+                            return f"{tool_desc}\n\n工具执行结果:\n\n```\n{result}\n```"
                         except Exception as e:
                             error_msg = f"工具执行出错: {str(e)}"
                             logging.error(error_msg)
@@ -411,6 +429,7 @@ class McpChat:
         """
         mcp_messages = [{"role": "system", "content": self.system_message}]
         mcp_messages.extend(messages)
+        ans = ""
 
         while True:
             # 第一步：询问llm，获得答案
@@ -439,14 +458,18 @@ class McpChat:
                 mcp_messages.append({"role": "system", "content": result})
 
                 # 循环调用llm，获取最终的回复
-                yield {"answer": response_content}
-            # 没有使用tool
+                if '<think>' not in ans:
+                    ans += '<think>'
+                ans += result + "\n\n"
+                yield {"answer": ans}
+            # 没有使用tool，表示是最终回答
             else:
                 logging.info("\nFinal response: %s", response_content)
-                # mcp_messages.append(
-                #     {"role": "assistant", "content": response_content}
-                # )
-                yield {"answer": response_content}
+                if '<think>' in ans and '</think>' not in ans:
+                    ans += '</think>'
+                ans += response_content
+
+                yield {"answer": ans}
                 break
 
 

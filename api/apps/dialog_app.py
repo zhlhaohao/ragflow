@@ -30,7 +30,7 @@ from api.utils import ic
 # F8080
 from api.db.services.llm_service import LLMType,LLMService, TenantLLMService, LLMBundle
 
-@manager.route('/set', methods=['POST'])  # noqa: F821
+@manager.route('/set', methods=['POST'])  # type: ignore # noqa: F821
 @login_required
 def set_dialog():
     req = request.json
@@ -129,7 +129,7 @@ def set_dialog():
         return server_error_response(e)
 
 
-@manager.route('/get', methods=['GET'])  # noqa: F821
+@manager.route('/get', methods=['GET'])  # type: ignore # noqa: F821
 @login_required
 def get():
     dialog_id = request.args["dialog_id"]
@@ -155,7 +155,7 @@ def get_kb_names(kb_ids):
     return ids, nms
 
 
-@manager.route('/list', methods=['GET'])  # noqa: F821
+@manager.route('/list', methods=['GET'])  # type: ignore # noqa: F821
 @login_required
 def list_dialogs():
     try:
@@ -172,7 +172,7 @@ def list_dialogs():
         return server_error_response(e)
 
 
-@manager.route('/rm', methods=['POST'])  # noqa: F821
+@manager.route('/rm', methods=['POST'])  # type: ignore # noqa: F821
 @login_required
 @validate_request("dialog_ids")
 def rm():
@@ -195,7 +195,7 @@ def rm():
         return server_error_response(e)
 
 
-@manager.route('/get_llm_config', methods=['GET'])  # noqa: F821
+@manager.route('/get_llm_config', methods=['GET'])  # type: ignore # noqa: F821
 @login_required
 def get_llm_config():
     """F8080 获取模型的参数，例如api key

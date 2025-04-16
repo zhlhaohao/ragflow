@@ -23,7 +23,7 @@ from api.utils.api_utils import validate_request, build_error_result, apikey_req
 from rag.app.tag import label_question
 
 
-@manager.route('/dify/retrieval', methods=['POST'])  # noqa: F821
+@manager.route('/dify/retrieval', methods=['POST'])  # type: ignore # noqa: F821
 @apikey_required
 @validate_request("knowledge_id", "query")
 def retrieval(tenant_id):
