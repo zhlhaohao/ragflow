@@ -217,11 +217,11 @@ RUN chmod +x ./entrypoint*.sh
 # 复制编译后的网页文件
 COPY --from=builder /ragflow/web/dist /ragflow/web/dist
 
-COPY docker/nginx/nginx.conf /etc/nginx/nginx.conf
-COPY docker/nginx/proxy.conf /etc/nginx/proxy.conf
-COPY docker/nginx/ragflow.conf /etc/nginx/conf.d/ragflow.conf
-COPY docker/nginx/ssl.cert /etc/nginx/conf.d/ssl.cert
-COPY docker/nginx/ssl.key /etc/nginx/conf.d/ssl.key
+# COPY docker/nginx/nginx.conf /etc/nginx/nginx.conf
+# COPY docker/nginx/proxy.conf /etc/nginx/proxy.conf
+# COPY docker/nginx/ragflow.conf /etc/nginx/conf.d/ragflow.conf
+# COPY docker/nginx/ssl.cert /etc/nginx/conf.d/ssl.cert
+# COPY docker/nginx/ssl.key /etc/nginx/conf.d/ssl.key
 
 # 复制版本信息文件
 COPY --from=builder /ragflow/VERSION /ragflow/VERSION
