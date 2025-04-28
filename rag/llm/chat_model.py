@@ -32,6 +32,9 @@ import httpx
 from api.utils import ic
 import logging
 import time
+import rag.llm.chanhu_llm_sdk_python as cniin_llm
+
+
 # Error message constants
 ERROR_PREFIX = "**ERROR**"
 ERROR_RATE_LIMIT = "RATE_LIMIT_EXCEEDED"
@@ -1703,3 +1706,68 @@ class HaoSuanChat(Base):
         super().__init__(key, model_name, base_url)
 
 
+class UniinChat(Base):
+    """ F8080 - 联通元景模型聚合平台接口
+
+    Args:
+        Base (_type_): _description_
+    """    
+    def __init__(self, key, model_name, base_url="https://openai.uniin.cn/openapi/v1"):
+        if not base_url:
+            base_url = "https://openai.uniin.cn/openapi/v1"
+        super().__init__(key, model_name, base_url)
+
+
+    def chat_streamly(self, system, history, gen_conf):
+        app_key = "4eo2y8k1xl2ruuqxopa49b9uhq0zeqf8"
+        app_secret = "oibj0hdgkm5a9l0t91vgw0juusyg21crvv5d701dfbegw3sk69ayuw9ssi6zs3gy"
+        exp_seconds = 3600000
+
+        if system:
+            history.insert(0, {"role": "system", "content": system})
+        if "max_tokens" in gen_conf:
+            del gen_conf["max_tokens"]
+        ans = ""
+        reasoning = ""
+        total_tokens = 0
+
+        try:
+            response = cniin_llm.stream_completions(app_key, app_secret, exp_seconds, self.model_name, history, **gen_conf)
+
+            has_reasoning = False
+            for chunk in response.iter_lines():
+                if not chunk:
+                    continue
+
+                resp_str = chunk.decode('utf-8').replace('data:', '')
+                resp = json.loads(resp_str).get("data")
+
+                if not resp.get("choices") or not isinstance(resp.get("choices"), list) or len(resp.get("choices")) <= 0:
+                    continue
+
+                reasoning = resp.get('choices',[{}])[0].get('message',{}).get('reasoning_content',None)
+                if reasoning is not None and reasoning != '':
+                    has_reasoning = True
+                    if '<think>' not in ans:
+                        ans += '<think>'
+                    ans += reasoning
+
+                content = resp.get('choices',[{}])[0].get('message',{}).get('content',None)
+                if content is not None and content != '':
+                    if '<think>' in ans and '</think>' not in ans and has_reasoning:
+                        ans += '</think>'
+                    ans += content
+
+                total_tokens = num_tokens_from_string(ans)
+
+                # if resp.choices[0].finish_reason == "length":
+                #     if is_chinese(ans):
+                #         ans += LENGTH_NOTIFICATION_CN
+                #     else:
+                #         ans += LENGTH_NOTIFICATION_EN
+                yield ans
+
+        except openai.APIError as e:
+            yield ans + "\n**ERROR**: " + str(e)
+
+        yield total_tokens

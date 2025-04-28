@@ -86,6 +86,7 @@ from .chat_model import (
     HuggingFaceChat,
     GPUStackChat,
     HaoSuanChat,  # F8080 昊算
+    UniinChat,  # F8080 联通元景
     ModelScopeChat,
 )
 
@@ -243,6 +244,7 @@ ChatModel = {
     "HuggingFace": HuggingFaceChat,
     "GPUStack": GPUStackChat,
     "HaoSuan": HaoSuanChat,
+    "Uniin": UniinChat,
     "ModelScope":ModelScopeChat,
 }
 

@@ -127,6 +127,7 @@ dependencies = [
     "trio>=0.29.0",
     "mcp[cli]>=1.6.0",
     "mcp-server-time>=0.6.2",
+    "pyjwt>=2.8.0",
 ]
 
 [project.optional-dependencies]

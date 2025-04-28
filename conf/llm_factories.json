@@ -99,6 +99,12 @@
             "status": "1",
             "llm": [
                 {
+                    "llm_name": "qwq-plus",
+                    "tags": "LLM,CHAT,10000K,max_out_8192,max_in_131072",
+                    "max_tokens": 131072,
+                    "model_type": "chat"
+                },
+                {
                     "llm_name": "qwen-long",
                     "tags": "LLM,CHAT,10000K,max_out_6000,max_in_10000000",
                     "max_tokens": 10000000,
@@ -2241,6 +2247,64 @@
                     "model_type": "chat"
                 }
             ]
+        },
+        {
+            "name": "Uniin",
+            "logo": "",
+            "tags": "LLM",
+            "status": "1",
+            "llm": [
+                {
+                    "llm_name": "qwq-32b",
+                    "tags": "LLM,CHAT,64K,max_out_8192,max_in_57344",
+                    "max_tokens": 65792,
+                    "model_type": "chat"
+                },
+                {
+                    "llm_name": "qwen2.5-coder-32b-instruct",
+                    "tags": "LLM,CHAT,64K,max_out_8192,max_in_57344",
+                    "max_tokens": 65792,
+                    "model_type": "chat"
+                },
+                {
+                    "llm_name": "qwen2.5-72b-instruct",
+                    "tags": "LLM,CHAT,64K,max_out_8192,max_in_57344",
+                    "max_tokens": 65792,
+                    "model_type": "chat"
+                },
+                {
+                    "llm_name": "Doubao-pro-128k",
+                    "tags": "LLM,CHAT,64K,max_out_8192,max_in_57344",
+                    "max_tokens": 65792,
+                    "model_type": "chat"
+                },
+                {
+                    "llm_name": "qwen2-72b-chat-cop",
+                    "tags": "LLM,CHAT,64K,max_out_8192,max_in_57344",
+                    "max_tokens": 65792,
+                    "model_type": "chat"
+                },
+                {
+                    "llm_name": "5-72b-instruct-agent",
+                    "tags": "LLM,CHAT,64K,max_out_8192,max_in_57344",
+                    "max_tokens": 65792,
+                    "model_type": "chat"
+                },
+                {
+                    "llm_name": "Deepseek-r1",
+                    "tags": "LLM,CHAT,64K,max_out_8192,max_in_57344",
+                    "max_tokens": 65792,
+                    "model_type": "chat"
+                },
+                {
+                    "llm_name": "Deepseek-v3-250324",
+                    "tags": "LLM,CHAT,64K,max_out_8192,max_in_57344",
+                    "max_tokens": 65792,
+                    "model_type": "chat"
+                }
+            ]
         }
+
+
     ]
 }
