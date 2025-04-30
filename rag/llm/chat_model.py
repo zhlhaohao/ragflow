@@ -78,11 +78,11 @@ class Base(ABC):
     def _get_delay(self, attempt):
         """Calculate retry delay time"""
         return self.base_delay * (2 ** attempt) + random.uniform(0, 0.5)
-    
+
     def _classify_error(self, error):
         """Classify error based on error message content"""
         error_str = str(error).lower()
-        
+
         if "rate limit" in error_str or "429" in error_str or "tpm limit" in error_str or "too many requests" in error_str or "requests per minute" in error_str:
             return ERROR_RATE_LIMIT
         elif "auth" in error_str or "key" in error_str or "apikey" in error_str or "401" in error_str or "forbidden" in error_str or "permission" in error_str:
@@ -117,7 +117,7 @@ class Base(ABC):
                     model=self.model_name,
                     messages=history,
                     **gen_conf)
-                
+
                 if any([not response.choices, not response.choices[0].message, not response.choices[0].message.content]):
                     return "", 0
                 ans = response.choices[0].message.content.strip()
@@ -126,14 +126,14 @@ class Base(ABC):
                         ans += LENGTH_NOTIFICATION_CN
                     else:
                         ans += LENGTH_NOTIFICATION_EN
-                return ans, self.total_token_count(response)                            
+                return ans, self.total_token_count(response)
             except Exception as e:
                 # Classify the error
                 error_code = self._classify_error(e)
-                
+
                 # Check if it's a rate limit error or server error and not the last attempt
                 should_retry = (error_code == ERROR_RATE_LIMIT or error_code == ERROR_SERVER) and attempt < self.max_retries - 1
-                
+
                 if should_retry:
                     delay = self._get_delay(attempt)
                     logging.warning(f"Error: {error_code}. Retrying in {delay:.2f} seconds... (Attempt {attempt+1}/{self.max_retries})")
@@ -1711,11 +1711,52 @@ class UniinChat(Base):
 
     Args:
         Base (_type_): _description_
-    """    
+    """
     def __init__(self, key, model_name, base_url="https://openai.uniin.cn/openapi/v1"):
         if not base_url:
             base_url = "https://openai.uniin.cn/openapi/v1"
         super().__init__(key, model_name, base_url)
+
+
+    def chat(self, system, history, gen_conf):
+        app_key = "4eo2y8k1xl2ruuqxopa49b9uhq0zeqf8"
+        app_secret = "oibj0hdgkm5a9l0t91vgw0juusyg21crvv5d701dfbegw3sk69ayuw9ssi6zs3gy"
+        exp_seconds = 3600000
+
+        if system:
+            history.insert(0, {"role": "system", "content": system})
+        # if "max_tokens" in gen_conf:
+        #     del gen_conf["max_tokens"]
+
+        try:
+            response = cniin_llm.completions(app_key, app_secret, exp_seconds, self.model_name, history, **gen_conf)
+
+            ans = ""
+            has_reasoning = False
+            # resp_str = response.decode('utf-8').replace('data:', '')
+            resp = json.loads(response).get("data")
+
+            if not resp.get("choices") or not isinstance(resp.get("choices"), list) or len(resp.get("choices")) <= 0:
+                return ans, 0
+
+            reasoning = resp.get('choices',[{}])[0].get('message',{}).get('reasoning_content',None)
+            if reasoning is not None and reasoning != '':
+                has_reasoning = True
+                if '<think>' not in ans:
+                    ans += '<think>'
+                ans += reasoning
+
+            content = resp.get('choices',[{}])[0].get('message',{}).get('content',None)
+            if content is not None and content != '':
+                if '<think>' in ans and '</think>' not in ans and has_reasoning:
+                    ans += '</think>'
+                ans += content
+
+
+            return ans, self.total_token_count(ans)
+
+        except Exception as e:
+            return response + "\n**ERROR**: " + str(e) , 0
 
 
     def chat_streamly(self, system, history, gen_conf):
@@ -1725,8 +1766,8 @@ class UniinChat(Base):
 
         if system:
             history.insert(0, {"role": "system", "content": system})
-        if "max_tokens" in gen_conf:
-            del gen_conf["max_tokens"]
+        # if "max_tokens" in gen_conf:
+        #     del gen_conf["max_tokens"]
         ans = ""
         reasoning = ""
         total_tokens = 0
@@ -1767,7 +1808,7 @@ class UniinChat(Base):
                 #         ans += LENGTH_NOTIFICATION_EN
                 yield ans
 
-        except openai.APIError as e:
+        except Exception as e:
             yield ans + "\n**ERROR**: " + str(e)
 
         yield total_tokens

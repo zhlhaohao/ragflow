@@ -19,6 +19,8 @@ from pydantic import BaseModel
 from openai import OpenAI
 from api import settings
 from mcps.client.lite_llm_json import LiteLLMJson
+from api.db.services.llm_service import LLMService, TenantLLMService, LLMBundle
+from api.db import LLMType
 
 MCP_CHAT = None
 
@@ -423,26 +425,48 @@ class McpChat:
 
 
 
-    def chat(self, messages, gen_conf):
+    def chat(self, dialog, messages):
         """
         Main chat session handler.
         """
+        llm_id, model_provider = TenantLLMService.split_model_name_and_factory(dialog.llm_id)
+        # 从TenantLLM表取出模型信息（包括api_key）,然后封装成对象返回，也包装了chat_streamly和chat方法
+        chat_mdl = LLMBundle(dialog.tenant_id, LLMType.CHAT, dialog.llm_id)
+        if not chat_mdl:
+            raise LookupError("LLM(%s) not found" % dialog.llm_id)
+
+        prompt_config = dialog.prompt_config
+        gen_conf = dialog.llm_setting
+
+        #     answer = ""
+        #     for ans in chat_mdl.chat_streamly(prompt, messages, gen_conf):
+        #         answer = ans
+        #         yield {"answer": answer}
+
+        # else:
+        #     answer = chat_mdl.chat(prompt_config["system"], messages, gen_conf)
+        #     yield answer
+
         mcp_messages = [{"role": "system", "content": self.system_message}]
         mcp_messages.extend(messages)
         ans = ""
+        # 关闭qwen3的思维链输出
+        gen_conf["extra_body"] = {"chat_template_kwargs":{"enable_thinking": False}}
 
         while True:
             # 第一步：询问llm，获得答案
-            response = self.openai_client.chat.completions.create(
-                model = settings.MCP_CHAT_MDL,
-                messages = mcp_messages,
-                temperature = 0.7,
-                max_tokens = 4096,
-                top_p = 1.0,
-                stream = False,
-                stop = None,
-            )
-            response_content = response.choices[0].message.content
+            response_content = chat_mdl.chat(prompt_config["system"], mcp_messages, gen_conf)
+
+            # response = self.openai_client.chat.completions.create(
+            #     model = settings.MCP_CHAT_MDL,
+            #     messages = mcp_messages,
+            #     temperature = 0.7,
+            #     max_tokens = 4096,
+            #     top_p = 1.0,
+            #     stream = False,
+            #     stop = None,
+            # )
+            # response_content = response.choices[0].message.content
             logging.info("\nAssistant: %s", response_content)
 
             # 根据llm_response判断是否需要调用tool,并调用tool，然后返回结果

@@ -603,7 +603,7 @@ def completion_mcp():
             try:
                 # 调用chat函数生成答案，stream模式为True
                 final_ans = None
-                for ans in mcp_chat.chat(messages, None):
+                for ans in mcp_chat.chat(dia, messages):
                     ans["id"] = message_id
                     ans["session_id"] = conv.id
                     final_ans = ans
