@@ -1,0 +1,1 @@
+2025-04-11 11:39:56,950 - __main__ - INFO - Starting web search MCP,args:Namespace(iteration_limit=4, query_count=4, max_results=2, context_length=200, jina_url='https://r.jina.ai/', searxng_url='http://127.0.0.1:8088/', http_proxy=None)

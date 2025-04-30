@@ -1,0 +1,91 @@
+2025-04-11 11:41:29,435 - __main__ - INFO - Starting web search MCP,args:Namespace(iteration_limit=3, query_count=2, max_results=3, context_length=500, jina_url='http://127.0.0.1:9859/', searxng_url='http://127.0.0.1:8088/', http_proxy='http://192.168.50.150:7890')
+2025-04-11 11:42:18,958 - __main__ - INFO - 新生成的2个查询词: ['2025年4月10日纳斯达克指数预测', '2025年4月10日纳斯达克指数分析']
+2025-04-11 11:42:18,959 - __main__ - INFO - 
+=== 第1次循环 ===
+2025-04-11 11:42:25,111 - __main__ - INFO - 本次循环共搜索出4个url.
+2025-04-11 11:42:25,112 - __main__ - INFO - 爬取网页内容: http://quote.eastmoney.com/gb/zsNDX.html
+2025-04-11 11:43:31,372 - __main__ - INFO - 网页是否能够解答问题: Yes
+2025-04-11 11:43:39,808 - __main__ - INFO - Extracted context from http://quote.eastmoney.com/gb/zsNDX.html (first 200 chars): 纳斯达克NDX已收盘（2025-04-10 20:00:00）  
+16387.31  
+\-737.66  
+\-4.31%  
+今开: 16635.45  
+昨收: 17124.97  
+最高: 16712.37  
+最低: 15894.27  
+振幅: 4.78%  
+成交量: 104.4亿
+2025-04-11 11:43:39,811 - __main__ - INFO - 爬取网页内容: https://longforecast.cn/nasdaq
+2025-04-11 11:43:45,664 - __main__ - INFO - 207- Jina爬取 https://longforecast.cn/nasdaq 失败: 500 - Internal server error
+2025-04-11 11:43:45,665 - __main__ - INFO - 爬取网页内容: https://fund.eastmoney.com/a/202504113373868113.html
+2025-04-11 11:43:45,717 - __main__ - ERROR - 210-Error fetching webpage text with Jina:('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+2025-04-11 11:43:45,718 - __main__ - INFO - 爬取网页内容: https://stock.cngold.org/c/2025-04-10/c9821599.html
+2025-04-11 11:43:45,721 - __main__ - ERROR - 210-Error fetching webpage text with Jina:('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+2025-04-11 11:43:46,343 - __main__ - INFO - LLM说可以结束搜索了.
+2025-04-11 14:29:40,696 - __main__ - INFO - Starting web search MCP,args:Namespace(iteration_limit=3, query_count=2, max_results=3, context_length=500, jina_url='http://127.0.0.1:9859/', searxng_url='http://127.0.0.1:8088/', http_proxy='http://192.168.50.150:7890')
+2025-04-11 14:31:59,135 - __main__ - INFO - Starting web search MCP,args:Namespace(iteration_limit=3, query_count=2, max_results=3, context_length=500, jina_url='http://127.0.0.1:9859/', searxng_url='http://127.0.0.1:8088/', http_proxy='http://192.168.50.150:7890')
+2025-04-11 14:34:58,255 - __main__ - INFO - Starting web search MCP,args:Namespace(iteration_limit=3, query_count=2, max_results=3, context_length=500, jina_url='http://127.0.0.1:9859/', searxng_url='http://127.0.0.1:8088/', http_proxy='http://192.168.50.150:7890')
+2025-04-11 14:36:20,486 - __main__ - INFO - 新生成的2个查询词: ['2025年4月10日 上证指数预测', '2025年4月10日 上证指数走势分析']
+2025-04-11 14:36:20,487 - __main__ - INFO - 
+=== 第1次循环 ===
+2025-04-11 14:36:26,519 - __main__ - INFO - 本次循环共搜索出4个url.
+2025-04-11 14:36:26,521 - __main__ - INFO - 爬取网页内容: https://www.55188.com/thread-32283241-1-1.html
+2025-04-11 14:36:39,803 - __main__ - INFO - 207- Jina爬取 https://www.55188.com/thread-32283241-1-1.html 失败: 500 - Internal server error
+2025-04-11 14:36:39,805 - __main__ - INFO - 爬取网页内容: https://stock.cngold.org/c/2025-04-10/c9821359.html
+2025-04-11 14:36:39,833 - __main__ - ERROR - 210-Error fetching webpage text with Jina:('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+2025-04-11 14:36:39,834 - __main__ - INFO - 爬取网页内容: https://caifuhao.eastmoney.com/news/20250410154512905010660
+2025-04-11 14:36:39,836 - __main__ - ERROR - 210-Error fetching webpage text with Jina:('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+2025-04-11 14:36:39,837 - __main__ - INFO - 爬取网页内容: https://zhuanlan.zhihu.com/p/1893807059381773089
+2025-04-11 14:36:39,838 - __main__ - ERROR - 210-Error fetching webpage text with Jina:('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+2025-04-11 14:36:39,839 - __main__ - INFO - No useful contexts were found in this iteration.
+2025-04-11 14:36:40,449 - __main__ - INFO - LLM说可以结束搜索了.
+2025-04-11 14:37:19,969 - __main__ - INFO - 新生成的2个查询词: ['2024年4月10日 上证指数 行情', '2024年4月10日 上证指数 分析']
+2025-04-11 14:37:19,970 - __main__ - INFO - 
+=== 第1次循环 ===
+2025-04-11 14:37:26,100 - __main__ - INFO - 本次循环共搜索出5个url.
+2025-04-11 14:37:26,102 - __main__ - INFO - 爬取网页内容: https://finance.sina.com.cn/realstock/company/sh000001/nc.shtml
+2025-04-11 14:37:50,569 - __main__ - INFO - 网页是否能够解答问题: Yes
+2025-04-11 14:37:59,853 - __main__ - INFO - Extracted context from https://finance.sina.com.cn/realstock/company/sh000001/nc.shtml (first 200 chars): 2024年4月10日，上证指数收盘价为3236.48，涨幅为0.40%。成交额为5192.18亿元。当日开盘价为3219.51，最高价为3249.85，最低价为3211.35，振幅为1.19%。
+2025-04-11 14:37:59,855 - __main__ - INFO - 爬取网页内容: https://baijiahao.baidu.com/s?id=1828997434445503424&wfr=spider&for=pc
+2025-04-11 14:38:12,397 - __main__ - INFO - 207- Jina爬取 https://baijiahao.baidu.com/s?id=1828997434445503424&wfr=spider&for=pc 失败: 500 - Internal server error
+2025-04-11 14:38:12,399 - __main__ - INFO - 爬取网页内容: https://xueqiu.com/s/sh000001
+2025-04-11 14:38:12,424 - __main__ - ERROR - 210-Error fetching webpage text with Jina:('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+2025-04-11 14:38:12,425 - __main__ - INFO - 爬取网页内容: https://caifuhao.eastmoney.com/news/20240410155317371317130
+2025-04-11 14:38:12,428 - __main__ - ERROR - 210-Error fetching webpage text with Jina:('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+2025-04-11 14:38:12,429 - __main__ - INFO - 爬取网页内容: https://www.bilibili.com/read/cv28860103
+2025-04-11 14:38:12,431 - __main__ - ERROR - 210-Error fetching webpage text with Jina:('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+2025-04-11 14:38:13,641 - __main__ - INFO - LLM说可以结束搜索了.
+2025-04-11 14:55:26,512 - __main__ - INFO - Starting web search MCP,args:Namespace(iteration_limit=3, query_count=2, max_results=3, context_length=500, jina_url='http://127.0.0.1:9859/', searxng_url='http://127.0.0.1:8088/', http_proxy='http://192.168.50.150:7890')
+2025-04-11 14:55:52,987 - __main__ - INFO - Starting web search MCP,args:Namespace(iteration_limit=3, query_count=2, max_results=3, context_length=500, jina_url='http://127.0.0.1:9859/', searxng_url='http://127.0.0.1:8088/', http_proxy='http://192.168.50.150:7890')
+2025-04-11 14:56:39,592 - __main__ - INFO - Starting web search MCP,args:Namespace(iteration_limit=3, query_count=2, max_results=3, context_length=500, jina_url='http://127.0.0.1:9859/', searxng_url='http://127.0.0.1:8088/', http_proxy='http://192.168.50.150:7890')
+2025-04-11 15:00:08,569 - __main__ - INFO - Starting web search MCP,args:Namespace(iteration_limit=3, query_count=2, max_results=3, context_length=500, jina_url='http://127.0.0.1:9859/', searxng_url='http://127.0.0.1:8088/', http_proxy='http://192.168.50.150:7890')
+2025-04-11 16:49:05,514 - __main__ - INFO - Starting web search MCP,args:Namespace(iteration_limit=3, query_count=2, max_results=3, context_length=500, jina_url='http://127.0.0.1:9859/', searxng_url='http://127.0.0.1:8088/', http_proxy='http://192.168.50.150:7890')
+2025-04-11 17:14:36,562 - __main__ - INFO - Starting web search MCP,args:Namespace(iteration_limit=3, query_count=2, max_results=3, context_length=500, jina_url='http://127.0.0.1:9859/', searxng_url='http://127.0.0.1:8088/', http_proxy='http://192.168.50.150:7890')
+2025-04-11 17:18:24,069 - __main__ - INFO - Starting web search MCP,args:Namespace(iteration_limit=3, query_count=2, max_results=3, context_length=500, jina_url='http://127.0.0.1:9859/', searxng_url='http://127.0.0.1:8088/', http_proxy=None)
+2025-04-11 17:19:46,456 - __main__ - INFO - Starting web search MCP,args:Namespace(iteration_limit=3, query_count=2, max_results=3, context_length=500, jina_url='http://127.0.0.1:9859/', searxng_url='http://127.0.0.1:8088/', http_proxy=None)
+2025-04-11 17:25:56,179 - __main__ - INFO - Starting web search MCP,args:Namespace(iteration_limit=3, query_count=2, max_results=3, context_length=500, jina_url='http://127.0.0.1:9859/', searxng_url='http://127.0.0.1:8088/', http_proxy=None)
+2025-04-11 17:28:55,629 - __main__ - INFO - Starting web search MCP,args:Namespace(iteration_limit=3, query_count=2, max_results=3, context_length=500, jina_url='http://127.0.0.1:9859/', searxng_url='http://127.0.0.1:8088/', http_proxy=None)
+2025-04-11 17:31:40,117 - __main__ - INFO - Starting web search MCP,args:Namespace(iteration_limit=3, query_count=2, max_results=3, context_length=500, jina_url='http://127.0.0.1:9859/', searxng_url='http://127.0.0.1:8088/', http_proxy=None)
+2025-04-11 17:34:07,384 - __main__ - INFO - Starting web search MCP,args:Namespace(iteration_limit=3, query_count=2, max_results=3, context_length=500, jina_url='http://127.0.0.1:9859/', searxng_url='http://127.0.0.1:8088/', http_proxy=None)
+2025-04-15 15:52:44,416 - __main__ - INFO - Starting web search MCP,args:Namespace(iteration_limit=3, query_count=2, max_results=3, context_length=500, jina_url='http://127.0.0.1:9859/', searxng_url='http://127.0.0.1:8088/', http_proxy=None)
+2025-04-15 15:54:54,846 - __main__ - INFO - Starting web search MCP,args:Namespace(iteration_limit=3, query_count=2, max_results=3, context_length=500, jina_url='http://127.0.0.1:9859/', searxng_url='http://127.0.0.1:8088/', http_proxy=None)
+2025-04-15 15:56:07,344 - __main__ - INFO - Starting web search MCP,args:Namespace(iteration_limit=3, query_count=2, max_results=3, context_length=500, jina_url='http://127.0.0.1:9859/', searxng_url='http://127.0.0.1:8088/', http_proxy=None)
+2025-04-15 15:57:07,608 - __main__ - INFO - Starting web search MCP,args:Namespace(iteration_limit=3, query_count=2, max_results=3, context_length=500, jina_url='http://127.0.0.1:9859/', searxng_url='http://127.0.0.1:8088/', http_proxy=None)
+2025-04-15 15:59:00,679 - __main__ - INFO - Starting web search MCP,args:Namespace(iteration_limit=3, query_count=2, max_results=3, context_length=500, jina_url='http://127.0.0.1:9859/', searxng_url='http://127.0.0.1:8088/', http_proxy=None)
+2025-04-15 16:04:21,422 - __main__ - INFO - Starting web search MCP,args:Namespace(iteration_limit=3, query_count=2, max_results=3, context_length=500, jina_url='http://127.0.0.1:9859/', searxng_url='http://127.0.0.1:8088/', http_proxy=None)
+2025-04-15 16:31:26,738 - __main__ - INFO - Starting web search MCP,args:Namespace(iteration_limit=3, query_count=2, max_results=3, context_length=500, jina_url='http://127.0.0.1:9859/', searxng_url='http://127.0.0.1:8088/', http_proxy=None)
+2025-04-15 16:33:27,890 - __main__ - INFO - Starting web search MCP,args:Namespace(iteration_limit=3, query_count=2, max_results=3, context_length=500, jina_url='http://127.0.0.1:9859/', searxng_url='http://127.0.0.1:8088/', http_proxy=None)
+2025-04-15 16:41:36,427 - __main__ - INFO - Starting web search MCP,args:Namespace(iteration_limit=3, query_count=2, max_results=3, context_length=500, jina_url='http://127.0.0.1:9859/', searxng_url='http://127.0.0.1:8088/', http_proxy=None)
+2025-04-15 16:44:09,211 - __main__ - INFO - Starting web search MCP,args:Namespace(iteration_limit=3, query_count=2, max_results=3, context_length=500, jina_url='http://127.0.0.1:9859/', searxng_url='http://127.0.0.1:8088/', http_proxy=None)
+2025-04-15 16:46:48,839 - __main__ - INFO - Starting web search MCP,args:Namespace(iteration_limit=3, query_count=2, max_results=3, context_length=500, jina_url='http://127.0.0.1:9859/', searxng_url='http://127.0.0.1:8088/', http_proxy=None)
+2025-04-15 16:53:31,321 - __main__ - INFO - Starting web search MCP,args:Namespace(iteration_limit=3, query_count=2, max_results=3, context_length=500, jina_url='http://127.0.0.1:9859/', searxng_url='http://127.0.0.1:8088/', http_proxy=None)
+2025-04-15 17:05:30,364 - __main__ - INFO - Starting web search MCP,args:Namespace(iteration_limit=3, query_count=2, max_results=3, context_length=500, jina_url='http://127.0.0.1:9859/', searxng_url='http://127.0.0.1:8088/', http_proxy=None)
+2025-04-15 17:10:52,849 - __main__ - INFO - Starting web search MCP,args:Namespace(iteration_limit=3, query_count=2, max_results=3, context_length=500, jina_url='http://127.0.0.1:9859/', searxng_url='http://127.0.0.1:8088/', http_proxy=None)
+2025-04-15 17:15:16,521 - __main__ - INFO - Starting web search MCP,args:Namespace(iteration_limit=3, query_count=2, max_results=3, context_length=500, jina_url='http://127.0.0.1:9859/', searxng_url='http://127.0.0.1:8088/', http_proxy=None)
+2025-04-15 17:18:55,984 - __main__ - INFO - Starting web search MCP,args:Namespace(iteration_limit=3, query_count=2, max_results=3, context_length=500, jina_url='http://127.0.0.1:9859/', searxng_url='http://127.0.0.1:8088/', http_proxy=None)
+2025-04-15 17:25:37,500 - __main__ - INFO - Starting web search MCP,args:Namespace(iteration_limit=3, query_count=2, max_results=3, context_length=500, jina_url='http://127.0.0.1:9859/', searxng_url='http://127.0.0.1:8088/', http_proxy=None)
+2025-04-15 17:30:36,943 - __main__ - INFO - Starting web search MCP,args:Namespace(iteration_limit=3, query_count=2, max_results=3, context_length=500, jina_url='http://127.0.0.1:9859/', searxng_url='http://127.0.0.1:8088/', http_proxy=None)
+2025-04-15 17:45:13,565 - __main__ - INFO - Starting web search MCP,args:Namespace(iteration_limit=3, query_count=2, max_results=3, context_length=500, jina_url='http://127.0.0.1:9859/', searxng_url='http://127.0.0.1:8088/', http_proxy=None)
+2025-04-15 17:47:00,641 - __main__ - INFO - Starting web search MCP,args:Namespace(iteration_limit=3, query_count=2, max_results=3, context_length=500, jina_url='http://127.0.0.1:9859/', searxng_url='http://127.0.0.1:8088/', http_proxy=None)
+2025-04-15 17:48:45,392 - __main__ - INFO - Starting web search MCP,args:Namespace(iteration_limit=3, query_count=2, max_results=3, context_length=500, jina_url='http://127.0.0.1:9859/', searxng_url='http://127.0.0.1:8088/', http_proxy=None)
+2025-04-15 17:51:22,165 - __main__ - INFO - Starting web search MCP,args:Namespace(iteration_limit=3, query_count=2, max_results=3, context_length=500, jina_url='http://127.0.0.1:9859/', searxng_url='http://127.0.0.1:8088/', http_proxy=None)
