@@ -85,8 +85,8 @@ from .chat_model import (
     GoogleChat,
     HuggingFaceChat,
     GPUStackChat,
-    HaoSuanChat,  # F8080 昊算
-    UniinChat,  # F8080 联通元景
+    HaoSuanChat,  # F8080
+    UniinChat,  # F8080
     ModelScopeChat,
 )
 

@@ -52,6 +52,9 @@ MCP_VL_URL = ""
 MCP_VL_KEY = ""
 MCP_CHAT = None
 
+UNIIN_APP_KEY = ""
+UNIIN_APP_SECRET = ""
+
 DATABASE_TYPE = os.getenv("DB_TYPE", 'mysql')
 DATABASE = decrypt_database_config(name=DATABASE_TYPE)
 
@@ -76,7 +79,7 @@ REGISTER_ENABLED = 1
 
 def init_settings():
     global LLM, LLM_FACTORY, LLM_BASE_URL, LIGHTEN, DATABASE_TYPE, DATABASE, FACTORY_LLM_INFOS, REGISTER_ENABLED
-    global MCP_CHAT_MDL, MCP_CHAT_URL, MCP_CHAT_KEY, MCP_VL_MDL, MCP_VL_URL, MCP_VL_KEY
+    global MCP_CHAT_MDL, MCP_CHAT_URL, MCP_CHAT_KEY, MCP_VL_MDL, MCP_VL_URL, MCP_VL_KEY, UNIIN_APP_KEY, UNIIN_APP_SECRET
 
     LIGHTEN = int(os.environ.get('LIGHTEN', "0"))
     DATABASE_TYPE = os.getenv("DB_TYPE", 'mysql')
@@ -92,6 +95,9 @@ def init_settings():
     MCP_VL_MDL = LLM.get("mcp_vl_model", "")
     MCP_VL_URL = LLM.get("mcp_vl_url", "")
     MCP_VL_KEY = LLM.get("mcp_vl_key", "")
+    UNIIN_APP_KEY = LLM.get("uniin_app_key", "")
+    UNIIN_APP_SECRET = LLM.get("uniin_app_secret", "")
+
     try:
         REGISTER_ENABLED = int(os.environ.get("REGISTER_ENABLED", "1"))
     except Exception:

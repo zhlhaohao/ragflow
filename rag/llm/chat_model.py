@@ -33,7 +33,7 @@ from api.utils import ic
 import logging
 import time
 import rag.llm.chanhu_llm_sdk_python as cniin_llm
-
+from api import settings
 
 # Error message constants
 ERROR_PREFIX = "**ERROR**"
@@ -1707,7 +1707,7 @@ class HaoSuanChat(Base):
 
 
 class UniinChat(Base):
-    """ F8080 - 联通元景模型聚合平台接口
+    """ F8080 - 模型聚合平台接口
 
     Args:
         Base (_type_): _description_
@@ -1719,8 +1719,6 @@ class UniinChat(Base):
 
 
     def chat(self, system, history, gen_conf):
-        app_key = "4eo2y8k1xl2ruuqxopa49b9uhq0zeqf8"
-        app_secret = "oibj0hdgkm5a9l0t91vgw0juusyg21crvv5d701dfbegw3sk69ayuw9ssi6zs3gy"
         exp_seconds = 3600000
 
         if system:
@@ -1729,7 +1727,7 @@ class UniinChat(Base):
         #     del gen_conf["max_tokens"]
 
         try:
-            response = cniin_llm.completions(app_key, app_secret, exp_seconds, self.model_name, history, **gen_conf)
+            response = cniin_llm.completions(settings.UNIIN_APP_KEY, settings.UNIIN_APP_SECRET, exp_seconds, self.model_name, history, **gen_conf)
 
             ans = ""
             has_reasoning = False
@@ -1760,8 +1758,6 @@ class UniinChat(Base):
 
 
     def chat_streamly(self, system, history, gen_conf):
-        app_key = "4eo2y8k1xl2ruuqxopa49b9uhq0zeqf8"
-        app_secret = "oibj0hdgkm5a9l0t91vgw0juusyg21crvv5d701dfbegw3sk69ayuw9ssi6zs3gy"
         exp_seconds = 3600000
 
         if system:
@@ -1773,7 +1769,7 @@ class UniinChat(Base):
         total_tokens = 0
 
         try:
-            response = cniin_llm.stream_completions(app_key, app_secret, exp_seconds, self.model_name, history, **gen_conf)
+            response = cniin_llm.stream_completions(settings.UNIIN_APP_KEY, settings.UNIIN_APP_SECRET, exp_seconds, self.model_name, history, **gen_conf)
 
             has_reasoning = False
             for chunk in response.iter_lines():
