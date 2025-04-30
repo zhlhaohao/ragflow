@@ -10,10 +10,9 @@ import argparse
 
 mcp = FastMCP("search")
 
-
-base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-api_key = "sk-db2ad92210a348fd884c3b94655095c5"
-model_name = "deepseek-v3"
+base_url = 'http://10.119.101.20:9850/v1'
+api_key = 'sk-dyuyfgue64we6e7wyr'
+model_name = "deepseek-r1"
 
 # 创建日志记录器
 logger = logging.getLogger(__name__)
@@ -38,8 +37,8 @@ file_handler.setFormatter(file_formatter)
 logger.addHandler(file_handler)
 
 client = OpenAI(
-    base_url=base_url,
-    api_key=api_key,
+    base_url = base_url,
+    api_key = api_key,
 )
 
 
@@ -60,6 +59,7 @@ def generate_query(query, stream=False):
             },
             {"role": "user", "content": f"User Query: {query}\n\n{prompt}"},
         ],
+        extra_body = {"chat_template_kwargs":{"enable_thinking": False}}
     )
     logger.info(
         f"新生成的{args.query_count}个查询词: {response.choices[0].message.content}"
@@ -83,7 +83,9 @@ def if_useful(query: str, page_text: str):
                 "role": "user",
                 "content": f"User Query: {query}\n\nWebpage Content (first 20000 characters):\n{page_text[:20000]}\n\n{prompt}",
             },
+
         ],
+        extra_body={"chat_template_kwargs":{"enable_thinking": False}}
     )
 
     response = response.choices[0].message.content
@@ -118,6 +120,7 @@ def extract_relevant_context(query, search_query, page_text):
                 "content": f"User Query: {query}\nSearch Query: {search_query}\n\nWebpage Content (first 20000 characters):\n{page_text[:20000]}\n\n{prompt}",
             },
         ],
+        extra_body={"chat_template_kwargs":{"enable_thinking": False}}
     )
 
     response = response.choices[0].message.content
@@ -144,6 +147,7 @@ def get_new_search_queries(user_query, previous_search_queries, all_contexts):
                 "content": f"User Query: {user_query}\nPrevious Search Queries: {previous_search_queries}\n\nExtracted Relevant Contexts:\n{context_combined}\n\n{prompt}",
             },
         ],
+        extra_body={"chat_template_kwargs":{"enable_thinking": False}}
     )
 
     response = response.choices[0].message.content
@@ -267,6 +271,7 @@ def get_images_description(iamge_url):
                 ],
             }
         ],
+        extra_body={"chat_template_kwargs":{"enable_thinking": False}}
     )
     return completion.choices[0].message.content
 

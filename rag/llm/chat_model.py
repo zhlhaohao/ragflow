@@ -1719,6 +1719,9 @@ class UniinChat(Base):
 
 
     def chat(self, system, history, gen_conf):
+        if "qwen3" in self.model_name.lower() or "qwq" in self.model_name.lower():
+            return self.chat_unsing_stream(system, history, gen_conf)
+
         exp_seconds = 3600000
 
         if system:
@@ -1757,13 +1760,64 @@ class UniinChat(Base):
             return response + "\n**ERROR**: " + str(e) , 0
 
 
+
+    def chat_unsing_stream(self, system, history, gen_conf):
+        """用流式方法调用，但是一次性返回回答
+
+        Args:
+            system (_type_): _description_
+            history (_type_): _description_
+            gen_conf (_type_): _description_
+
+        Yields:
+            _type_: _description_
+        """
+        exp_seconds = 3600000
+
+        if system:
+            history.insert(0, {"role": "system", "content": system})
+
+        ans = ""
+        reasoning = ""
+
+        try:
+            response = cniin_llm.stream_completions(settings.UNIIN_APP_KEY, settings.UNIIN_APP_SECRET, exp_seconds, self.model_name, history, **gen_conf)
+
+            has_reasoning = False
+            for chunk in response.iter_lines():
+                if not chunk:
+                    continue
+
+                resp_str = chunk.decode('utf-8').replace('data:', '')
+                resp = json.loads(resp_str).get("data")
+
+                if not resp.get("choices") or not isinstance(resp.get("choices"), list) or len(resp.get("choices")) <= 0:
+                    continue
+
+                reasoning = resp.get('choices',[{}])[0].get('message',{}).get('reasoning_content',None)
+                if reasoning is not None and reasoning != '':
+                    has_reasoning = True
+                    if '<think>' not in ans:
+                        ans += '<think>'
+                    ans += reasoning
+
+                content = resp.get('choices',[{}])[0].get('message',{}).get('content',None)
+                if content is not None and content != '':
+                    if '<think>' in ans and '</think>' not in ans and has_reasoning:
+                        ans += '</think>'
+                    ans += content
+
+        except Exception as e:
+            ans = ans + "\n**ERROR**: " + str(e)
+
+        return ans, self.total_token_count(ans)
+
+
     def chat_streamly(self, system, history, gen_conf):
         exp_seconds = 3600000
 
         if system:
             history.insert(0, {"role": "system", "content": system})
-        # if "max_tokens" in gen_conf:
-        #     del gen_conf["max_tokens"]
         ans = ""
         reasoning = ""
         total_tokens = 0
@@ -1796,12 +1850,6 @@ class UniinChat(Base):
                     ans += content
 
                 total_tokens = num_tokens_from_string(ans)
-
-                # if resp.choices[0].finish_reason == "length":
-                #     if is_chinese(ans):
-                #         ans += LENGTH_NOTIFICATION_CN
-                #     else:
-                #         ans += LENGTH_NOTIFICATION_EN
                 yield ans
 
         except Exception as e:

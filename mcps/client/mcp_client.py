@@ -21,6 +21,8 @@ from api import settings
 from mcps.client.lite_llm_json import LiteLLMJson
 from api.db.services.llm_service import LLMService, TenantLLMService, LLMBundle
 from api.db import LLMType
+import re
+
 
 MCP_CHAT = None
 
@@ -259,6 +261,7 @@ class McpChat:
 
             for server in self.servers:
                 try:
+                    logging.info(f"Initializing server: {server.name}")
                     await server.initialize()
                 except Exception as e:
                     logging.error(f"Failed to initialize server: {e}")
@@ -336,8 +339,8 @@ class McpChat:
                 logging.info(f"Executing tool: {tool_call['tool']}")
                 logging.info(f"With arguments: {tool_call['arguments']}")
 
-                tool_json = json.dumps(tool_call, ensure_ascii=False)
-                tool_desc = f"调用工具:\n\n```json\n{tool_json}\n```"
+                # tool_json = json.dumps(tool_call, ensure_ascii=False)
+                # tool_desc = f"调用工具:\n\n```json\n{tool_json}\n```"
 
                 for server in self.servers:
                     if any(tool.name == tool_call["tool"] for tool in server.tools):
@@ -354,7 +357,7 @@ class McpChat:
                                     f"进度: {progress}/{total} ({percentage:.1f}%)"
                                 )
 
-                            return f"{tool_desc}\n\n工具执行结果:\n\n```\n{result}\n```"
+                            return f"\n\n工具执行结果:\n\n```\n{result}\n```"
                         except Exception as e:
                             error_msg = f"工具执行出错: {str(e)}"
                             logging.error(error_msg)
@@ -437,44 +440,35 @@ class McpChat:
 
         prompt_config = dialog.prompt_config
         gen_conf = dialog.llm_setting
-
-        #     answer = ""
-        #     for ans in chat_mdl.chat_streamly(prompt, messages, gen_conf):
-        #         answer = ans
-        #         yield {"answer": answer}
-
-        # else:
-        #     answer = chat_mdl.chat(prompt_config["system"], messages, gen_conf)
-        #     yield answer
-
         mcp_messages = [{"role": "system", "content": self.system_message}]
         mcp_messages.extend(messages)
         ans = ""
-        # 关闭qwen3的思维链输出
+        # 关闭本地qwen3的思维链输出
         gen_conf["extra_body"] = {"chat_template_kwargs":{"enable_thinking": False}}
 
         while True:
             # 第一步：询问llm，获得答案
             response_content = chat_mdl.chat(prompt_config["system"], mcp_messages, gen_conf)
-
-            # response = self.openai_client.chat.completions.create(
-            #     model = settings.MCP_CHAT_MDL,
-            #     messages = mcp_messages,
-            #     temperature = 0.7,
-            #     max_tokens = 4096,
-            #     top_p = 1.0,
-            #     stream = False,
-            #     stop = None,
-            # )
-            # response_content = response.choices[0].message.content
             logging.info("\nAssistant: %s", response_content)
 
-            # 根据llm_response判断是否需要调用tool,并调用tool，然后返回结果
-            # 如果不使用tool，那么则原样返回
+            try:
+                tool_call = llm_json.parse_response(response_content)
+                if "tool" in tool_call:
+                    tool_json = json.dumps(tool_call, ensure_ascii=False)
+                    ans  += f"调用工具:\n\n```json\n{tool_json}\n```\n\n"
+                    yield {"answer": ans}
+                    # 根据llm_response判断是否需要调用tool,并调用tool，然后返回结果
+                    # 如果不使用tool，那么则原样返回
+            except Exception as e:
+                pass
+            
             result = asyncio.run(self.process_llm_response(response_content))
 
             # 如果使用了tool
             if result != response_content:
+                # 去掉思维链的内容
+                response_content = re.sub(r'<think>.*?</think>', '', response_content, flags=re.DOTALL)
+
                 # 将tool的调用结果加入到历史信息中
                 mcp_messages.append(
                     {"role": "assistant", "content": response_content}
@@ -482,15 +476,15 @@ class McpChat:
                 mcp_messages.append({"role": "system", "content": result})
 
                 # 循环调用llm，获取最终的回复
-                if '<think>' not in ans:
-                    ans += '<think>'
+                # if '<think>' not in ans:
+                #     ans += '<think>'
                 ans += result + "\n\n"
                 yield {"answer": ans}
             # 没有使用tool，表示是最终回答
             else:
                 logging.info("\nFinal response: %s", response_content)
-                if '<think>' in ans and '</think>' not in ans:
-                    ans += '</think>'
+                # if '<think>' in ans and '</think>' not in ans:
+                #     ans += '</think>'
                 ans += response_content
 
                 yield {"answer": ans}
