@@ -4,25 +4,18 @@ initRootLogger("ragflow_server")
 import asyncio
 import json
 import logging
-import os
-import shutil
-from contextlib import AsyncExitStack
 from typing import Any
-
 import jsonschema
 from dotenv import load_dotenv
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
-import anyio
-
 from pydantic import BaseModel
 from openai import OpenAI
 from api import settings
 from mcps.client.lite_llm_json import LiteLLMJson
-from api.db.services.llm_service import LLMService, TenantLLMService, LLMBundle
+from api.db.services.llm_service import TenantLLMService, LLMBundle
 from api.db import LLMType
+from fastmcp import Client
+from fastmcp.client.sampling import RequestContext, SamplingMessage, SamplingParams
 import re
-
 
 MCP_CHAT = None
 
@@ -70,79 +63,28 @@ class Server:
     """
     Manages MCP server connections and tool execution.
     """
-
     def __init__(self, name: str, config: dict[str, Any]) -> None:
         self.name: str = name
         self.config: dict[str, Any] = config
-        self.stdio_context: Any | None = None
-        self.session: ClientSession | None = None
-        self._cleanup_lock: asyncio.Lock = asyncio.Lock()
-        self.exit_stack: AsyncExitStack = AsyncExitStack()
         self.tools: list[Any] = []
-        self.closed = True
 
-    async def initialize(self) -> None:
-        """Initialize the server connection."""
+    def get_client(self, sampling_handler = None):
+        config =  {"mcpServers": { self.name : self.config}}
+        if sampling_handler:
+            client = Client(config, sampling_handler = sampling_handler)
+        else:
+            client = Client(config)
 
-        # 对于 npm 包，它使用 npx 命令来执行该包;对于 Python 脚本，它使用 python 命令;对于 JavaScript 文件，它使用 node 命令
-        command = (
-            shutil.which("npx")
-            if self.config["command"] == "npx"
-            else self.config["command"]
-        )
-        if command is None:
-            raise ValueError("The command must be a valid string and cannot be None.")
-
-        # 创建一个具有适当命令、参数和环境变量的 StdioServerParameters 对象
-        server_params = StdioServerParameters(
-            command=command,
-            args=self.config["args"],
-            env={**os.environ, **self.config["env"]}
-            if self.config.get("env")
-            else None,
-        )
-        try:
-            # 使用 exit_stack(AsyncExitStack) 管理进程生命周期，确保完成时进行适当的清理
-            # 使用 MCP 库的 stdio_client 函数在本地启动服务器进程
-            # 返回 stdio 流
-            stdio_transport = await self.exit_stack.enter_async_context(
-                stdio_client(server_params)
-            )
-            read, write = stdio_transport
-
-            # 使用服务器启动返回的 stdio 流创建 ClientSession
-            session = await self.exit_stack.enter_async_context(
-                ClientSession(read, write)
-            )
-
-            # 调用 initialize()以建立 MCP 连接
-            await session.initialize()
-            self.session = session
-        except Exception as e:
-            logging.error(f"Error initializing server {self.name}: {e}")
-            await self.cleanup()
-            raise
+        return client
 
     async def list_tools(self) -> list[Any]:
-        """List available tools from the server.
-
-        Returns:
-            A list of available tools.
-
-        Raises:
-            RuntimeError: If the server is not initialized.
-        """
-        if not self.session:
-            raise RuntimeError(f"Server {self.name} not initialized")
-
-        tools_response = await self.session.list_tools()
         tools = []
-
-        for item in tools_response:
-            if isinstance(item, tuple) and item[0] == "tools":
-                for tool in item[1]:
-                    tools.append(Tool(tool.name, tool.description, tool.inputSchema))
-
+        client = self.get_client(self.name)
+        async with client:
+            logging.info(f"mcp server {self.name} 连接{client.is_connected()}")
+            resp = await client.list_tools()
+            for tool in resp:
+                tools.append(Tool(tool.name, tool.description, tool.inputSchema))
         self.tools = tools
         return tools
 
@@ -150,47 +92,23 @@ class Server:
         self,
         tool_name: str,
         arguments: dict[str, Any],
+        sampling_handler,
         retries: int = 2,
-        delay: float = 0.1,
+        delay: float = 2,
     ) -> Any:
         """带重试机制的调用工具.
-
-        Args:
-            tool_name: Name of the tool to execute.
-            arguments: Tool arguments.
-            retries: Number of retry attempts.
-            delay: Delay between retries in seconds.
-
-        Returns:
-            Tool execution result.
-
-        Raises:
-            RuntimeError: If server is not initialized.
-            Exception: If tool execution fails after all retries.
         """
-        if not self.session:
-            raise RuntimeError(f"Server {self.name} not initialized")
-
         attempt = 0
         while attempt < retries:
             try:
                 logging.info(f"Executing {tool_name}...")
-                await self.initialize()
-                result = await self.session.call_tool(tool_name, arguments)
-                return result
+                client = self.get_client(sampling_handler)
 
-            except anyio.ClosedResourceError as e:
-                attempt += 1
-                logging.warning(
-                    f"Error executing tool: {e}. Attempt {attempt} of {retries}."
-                )
-                await self.initialize()
-                if attempt < retries:
-                    logging.info(f"Retrying in {delay} seconds...")
-                    # await asyncio.sleep(delay)
-                else:
-                    logging.error("Max retries reached. Failing.")
-                    raise
+                # logger.info(f"89- 调用工具:{tool_name}, 参数是:{tool_args}\n")
+                async with client:
+                    result = await client.call_tool(tool_name, arguments)
+                    # logger.info(f"101- 工具返回结果:\n{result}")
+                    return result
 
             except Exception as e:
                 attempt += 1
@@ -203,18 +121,6 @@ class Server:
                 else:
                     logging.error("Max retries reached. Failing.")
                     raise
-
-    async def cleanup(self) -> None:
-        """
-        清理MCP服务器资源
-        """
-        async with self._cleanup_lock:
-            try:
-                await self.exit_stack.aclose()
-                self.session = None
-                self.stdio_context = None
-            except Exception as e:
-                logging.error(f"Error during cleanup of server {self.name}: {e}")
 
 
 class Tool:
@@ -259,76 +165,45 @@ class McpChat:
             api_key=settings.MCP_CHAT_KEY,
         )
 
-        self.servers = []
-        try:
-            config = Configuration()
-            server_config = config.load_config("conf/servers_config.json")
+        config = Configuration()
+        server_config = config.load_config("conf/servers_config.json")
 
-            self.servers = [
-                Server(name, srv_config)
-                for name, srv_config in server_config["mcpServers"].items()
-            ]
+        self.servers = [
+            Server(name, srv_config)
+            for name, srv_config in server_config["mcpServers"].items()
+        ]
 
-            for server in self.servers:
-                try:
-                    logging.info(f"Initializing server: {server.name}")
-                    await server.initialize()
-                except Exception as e:
-                    logging.error(f"Failed to initialize server: {e}")
-                    await self.cleanup_servers()
-                    return
-
-            all_tools = []
-            for server in self.servers:
-                tools = await server.list_tools()
-                all_tools.extend(tools)
-
-            tools_description = "\n".join([tool.format_for_llm() for tool in all_tools])
-
-            self.system_message = (
-                "You are a helpful assistant with access to these tools:\n\n"
-                f"{tools_description}\n"
-                "Choose the appropriate tool based on the user's question. "
-                "If no tool is needed, reply directly.\n"
-                "If you need to access database,use a tool.\n"
-                "If you are not clear about table name or table structure, use a tool.\n"
-                "if the table does not exist,dont try to create a new table, just list tables of the database to find an appropriate table.\n\n"
-                "CRITICAL: When you need to use a tool, you must ONLY Respond strictly in **JSON** and nothing else."
-                " The response should adhere to the following JSON schema:\n"
-                "## Response Format:\n"
-                "{\n"
-                '"tool": "string"\n'
-                '"arguments": "dict"\n'
-                "}\n\n"
-                "After receiving a tool's response:\n"
-                "1. Transform the raw data into a natural, conversational response\n"
-                "2. Keep responses concise but informative\n"
-                "3. Focus on the most relevant information\n"
-                "4. Use appropriate context from the user's question\n"
-                "5. Avoid simply repeating the raw data\n\n"
-                "Please use only the tools that are explicitly defined above.\n"
-            )
-        except Exception as ex:
-            await self.cleanup_servers()
-
-
-    async def cleanup_servers(self) -> None:
-        """Clean up all servers properly."""
-        logging.info("cleanup servers...")
-        cleanup_tasks = []
+        all_tools = []
         for server in self.servers:
-            cleanup_tasks.append(asyncio.create_task(server.cleanup()))
+            tools = await server.list_tools()
+            all_tools.extend(tools)
 
-        self.servers = []
-        if cleanup_tasks:
-            try:
-                await asyncio.gather(*cleanup_tasks, return_exceptions=True)
-            except Exception as e:
-                logging.warning(f"Warning during final cleanup: {e}")
+        tools_description = "\n".join([tool.format_for_llm() for tool in all_tools])
+        self.system_message = (
+            "You are a helpful assistant with access to these tools:\n\n"
+            f"{tools_description}\n"
+            "Choose the appropriate tool based on the user's question. "
+            "If no tool is needed, reply directly.\n"
+            "If you need to access database,use a tool.\n"
+            "If you are not clear about table name or table structure, use a tool.\n"
+            "if the table does not exist,dont try to create a new table, just list tables of the database to find an appropriate table.\n\n"
+            "CRITICAL: When you need to use a tool, you must ONLY Respond strictly in **JSON** and nothing else."
+            " The response should adhere to the following JSON schema:\n"
+            "## Response Format:\n"
+            "{\n"
+            '"tool": "string"\n'
+            '"arguments": "dict"\n'
+            "}\n\n"
+            "After receiving a tool's response:\n"
+            "1. Transform the raw data into a natural, conversational response\n"
+            "2. Keep responses concise but informative\n"
+            "3. Focus on the most relevant information\n"
+            "4. Use appropriate context from the user's question\n"
+            "5. Avoid simply repeating the raw data\n\n"
+            "Please use only the tools that are explicitly defined above.\n"
+        )
 
-
-
-    async def process_llm_response(self, llm_response: str) -> str:
+    async def process_llm_response(self, llm_response: str, sampling_handler) -> str:
         """分析llm的回答，如果需要则调用MCP工具.
 
         Args:
@@ -352,20 +227,13 @@ class McpChat:
                 # tool_json = json.dumps(tool_call, ensure_ascii=False)
                 # tool_desc = f"调用工具:\n\n```json\n{tool_json}\n```"
 
+
                 for server in self.servers:
                     if any(tool.name == tool_call["tool"] for tool in server.tools):
                         try:
                             result = await server.execute_tool(
-                                tool_call["tool"], tool_call["arguments"]
+                                tool_call["tool"], tool_call["arguments"], sampling_handler
                             )
-
-                            if isinstance(result, dict) and "progress" in result:
-                                progress = result["progress"]
-                                total = result["total"]
-                                percentage = (progress / total) * 100
-                                logging.info(
-                                    f"进度: {progress}/{total} ({percentage:.1f}%)"
-                                )
 
                             return f"\n\n工具执行结果:\n\n```\n{result}\n```"
                         except Exception as e:
@@ -413,7 +281,17 @@ class McpChat:
 
                     # 根据llm_response判断是否需要调用tool,并调用tool，然后返回结果
                     # 如果不使用tool，那么则原样返回
-                    result = await self.process_llm_response(response_content)
+
+                    # 接收到工具中间结果输出
+                    async def sampling_handler(
+                        messages: list[SamplingMessage],
+                        params: SamplingParams,
+                        ctx: RequestContext,
+                    ) -> str:
+                        logging.info(f"\n{messages[0].content.text}")
+                        return ""
+
+                    result = await self.process_llm_response(response_content, sampling_handler)
 
                     # 如果使用了tool
                     if result != response_content:
@@ -472,8 +350,18 @@ class McpChat:
                     # 如果不使用tool，那么则原样返回
             except Exception as e:
                 pass
-            
-            result = asyncio.run(self.process_llm_response(response_content))
+
+            # 接收到工具中间结果输出
+            async def sampling_handler(
+                messages: list[SamplingMessage],
+                params: SamplingParams,
+                ctx: RequestContext,
+            ):
+                # yield {"answer": messages[0].content.text}
+                print(f"{messages[0].content.text}")
+                return ""
+
+            result = asyncio.run(self.process_llm_response(response_content, sampling_handler))
 
             # 如果使用了tool
             if result != response_content:
@@ -510,7 +398,6 @@ async def main() -> None:
     await mcp_chat.init_servers()
 
     await mcp_chat.start()
-    await mcp_chat.cleanup_servers()
 
 if __name__ == "__main__":
 

@@ -35,6 +35,17 @@
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}",
       "justMyCode": false
+    },
+    {
+      "name": "mcp-chat",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/mcps/client/mcp_chat.py",
+      "args": [],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": false
     }
+
   ]
 }
