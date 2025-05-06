@@ -34,7 +34,7 @@ def A():
                 break
 
     thread.join()
-    print("B returned:", result_container[0])
+    yield(f"B returned:{result_container[0]}")
 
 async def B(queue):
     for i in range(3):
@@ -44,7 +44,7 @@ async def B(queue):
 
 def C():
     for msg in A():
-        print(f"C received: {msg}")
+        print(f"{msg}")
 
 if __name__ == "__main__":
     C()

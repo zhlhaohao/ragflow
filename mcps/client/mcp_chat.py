@@ -69,7 +69,11 @@ class Server:
         self.tools: list[Any] = []
 
     def get_client(self, sampling_handler = None):
-        config =  {"mcpServers": { self.name : self.config}}
+        if "command" in self.config:
+            config =  {"mcpServers": { self.name : self.config}}
+        if "url" in self.config:
+            config =  {"mcpServers": self.config}
+
         if sampling_handler:
             client = Client(config, sampling_handler = sampling_handler)
         else:

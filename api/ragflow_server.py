@@ -45,7 +45,7 @@ from api.utils import show_configs
 from rag.settings import print_rag_settings
 from rag.utils.redis_conn import RedisDistributedLock
 
-from mcps.client import mcp_client
+from mcps.client import mcp_chat
 import asyncio
 
 stop_event = threading.Event()
@@ -89,7 +89,7 @@ async def main() -> None:
     print_rag_settings()
 
     # 初始化mcp服务器
-    await mcp_client.init_mcp()
+    await mcp_chat.init_mcp()
 
 
     # init db

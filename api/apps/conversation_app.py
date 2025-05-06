@@ -35,7 +35,7 @@ from api.utils.api_utils import server_error_response, get_data_error_result, va
 from graphrag.general.mind_map_extractor import MindMapExtractor
 from api.utils import ic 
 from rag.app.tag import label_question
-from mcps.client import mcp_client
+from mcps.client import mcp_chat
 
 @manager.route('/set', methods=['POST'])    # type: ignore # noqa: F821
 @login_required
@@ -585,7 +585,6 @@ def completion_mcp():
     req = request.json
     messages = req["messages"]
     message_id = messages[-1].get("id")
-    mcp_chat = mcp_client.MCP_CHAT
 
     try:
         # 获取聊天对象
@@ -603,7 +602,7 @@ def completion_mcp():
             try:
                 # 调用chat函数生成答案，stream模式为True
                 final_ans = None
-                for ans in mcp_chat.chat(dia, messages):
+                for ans in mcp_chat.MCP_CHAT.chat(dia, messages):
                     ans["id"] = message_id
                     ans["session_id"] = conv.id
                     final_ans = ans
