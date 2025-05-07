@@ -4,18 +4,26 @@
       "command": "uvx",
       "args": ["mcp-server-time", "--local-timezone=Asia/Shanghai"]
     },    
+
+    "web-search-sse":{
+      "url": "http://127.0.0.1:8000/sse"
+    },
+
     "web-search": {
       "command": "uv",
       "args": [
-        "--directory", "mcp/servers/web_search",
-        "run", "mcp_web_search.py",
+        "--directory", 
+        "mcps/servers/web_search",
+        "run", 
+        "mcp_web_search.py",
         "--jina-url", "http://127.0.0.1:9859/",
         "--searxng-url", "http://127.0.0.1:8088/",
         "--query-count", "2",
         "--iteration-limit", "3",
         "--max-results", "3",
         "--context-length", "500",
-        "--http-proxy", "http://192.168.50.150:7890"
+        "--http-proxy", "http://192.168.50.150:7890",
+        "--deep-research"
       ]
     },
     "fetch": {

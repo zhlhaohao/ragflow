@@ -7,7 +7,7 @@ authors = [
 ]
 license = { file = "LICENSE" }
 readme = "README.md"
-requires-python = ">=3.10,<3.13"
+requires-python = ">=3.10,<3.11"
 dependencies = [
     "datrie==0.8.2",
     "akshare>=1.15.78,<2.0.0",
@@ -26,7 +26,7 @@ dependencies = [
     "chardet==5.2.0",
     "cn2an==0.5.22",
     "cohere==5.6.2",
-    "Crawl4AI==0.3.8",
+    # "Crawl4AI==0.3.8",
     "dashscope==1.20.11",
     "deepl==1.18.0",
     "demjson3==3.0.6",
@@ -45,7 +45,7 @@ dependencies = [
     "groq==0.9.0",
     "hanziconv==0.3.2",
     "html-text==0.6.2",
-    "httpx==0.27.0",
+    "httpx>=0.27.0",
     "huggingface-hub>=0.25.0,<0.26.0",
     "infinity-sdk==0.6.0-dev3",
     "infinity-emb>=0.0.66,<0.0.67",
@@ -57,7 +57,7 @@ dependencies = [
     "mistralai==0.4.2",
     "nltk==3.9.1",
     "numpy>=1.26.0,<2.0.0",
-    "ollama==0.2.1",
+    #"ollama==0.2.1",
     "onnxruntime==1.19.2; sys_platform == 'darwin' or platform_machine != 'x86_64'",
     "onnxruntime-gpu==1.19.2; sys_platform != 'darwin' and platform_machine == 'x86_64'",
     "opencv-python==4.10.0.84",
@@ -74,7 +74,7 @@ dependencies = [
     "pycryptodomex==3.20.0",
     "pypdf>=5.0.0,<6.0.0",
     "pytest>=8.3.0,<9.0.0",
-    "python-dotenv==1.0.1",
+    "python-dotenv>=1.0.1",
     "python-dateutil==2.8.2",
     "python-pptx>=1.0.2,<2.0.0",
     "pywencai==0.12.2",
@@ -127,6 +127,8 @@ dependencies = [
     "mcp[cli]>=1.6.0",
     "mcp-server-time>=0.6.2",
     "pyjwt>=2.8.0",
+    "fastmcp>=2.2.10",
+    "mcp-server-time>=0.6.2",
 ]
 
 [project.optional-dependencies]

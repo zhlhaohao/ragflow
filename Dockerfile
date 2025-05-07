@@ -50,7 +50,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # python-pptx:   default-jdk                              tika-server-standard-3.0.0.jar
 # selenium:      libatk-bridge2.0-0                       chrome-linux64-121-0-6167-85
 # 构建 C 扩展：libpython3-dev libgtk-4-1 libnss3 xdg-utils libgbm-dev
-RUN --mount=type=cache,id=ragflow_apt,target=/var/cache/apt,sharing=locked \
+RUN --mount=type=cache,id=ragflow_apt,target=/var/cache/ragflow/apt,sharing=locked \
     if [ "$NEED_MIRROR" == "1" ]; then \
         sed -i 's|http://archive.ubuntu.com|https://mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list; \
     fi; \
@@ -83,7 +83,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
 ENV PATH=/root/.local/bin:$PATH
 
 # 更新 nodejs 到较新版本（Ubuntu 22.04 自带的 nodejs 12.22 版本过旧）
-RUN --mount=type=cache,id=ragflow_apt,target=/var/cache/apt,sharing=locked \
+RUN --mount=type=cache,id=ragflow_node,target=/var/cache/ragflow/node,sharing=locked \
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
     apt purge -y nodejs npm cargo && \
     apt autoremove -y && \
@@ -109,7 +109,7 @@ RUN cargo --version && rustc --version
 # Add msssql ODBC driver
 # macOS ARM64 environment, install msodbcsql18.
 # general x86_64 environment, install msodbcsql17.
-RUN --mount=type=cache,id=ragflow_apt,target=/var/cache/apt,sharing=locked \
+RUN --mount=type=cache,id=ragflow_odbc,target=/var/cache/ragflow/odbc,sharing=locked \
     curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add - && \
     curl https://packages.microsoft.com/config/ubuntu/22.04/prod.list > /etc/apt/sources.list.d/mssql-release.list && \
     apt update && \
@@ -155,7 +155,8 @@ COPY pyproject.toml uv.lock ./
 
 # https://github.com/astral-sh/uv/issues/10462
 # uv records index url into uv.lock but doesn't failover among multiple indexes
-RUN --mount=type=cache,id=ragflow_uv,target=/root/.cache/uv,sharing=locked \
+# ollama 和 Crawl4AI 不能通过 uv lock 依赖校验，所以要单独安装
+RUN --mount=type=cache,id=ragflow_uv,target=/var/cache/ragflow/uv,sharing=locked \
     if [ "$NEED_MIRROR" == "1" ]; then \
         sed -i 's|pypi.org|mirrors.aliyun.com/pypi|g' uv.lock; \
     else \
@@ -165,12 +166,14 @@ RUN --mount=type=cache,id=ragflow_uv,target=/root/.cache/uv,sharing=locked \
         uv sync --python 3.10 --frozen; \
     else \
         uv sync --python 3.10 --frozen --all-extras; \
+        uv pip install Crawl4AI==0.3.8 \
+        uv pip install ollama==0.2.1 \
     fi
 
 # 复制 web 和 docs 目录
 COPY web web
 COPY docs docs
-RUN --mount=type=cache,id=ragflow_npm,target=/root/.npm,sharing=locked \
+RUN --mount=type=cache,id=ragflow_npm,target=/var/cache/ragflow/npm,sharing=locked \
     cd web && npm install && npm run build
 
 # 复制 Git 信息并生成版本信息

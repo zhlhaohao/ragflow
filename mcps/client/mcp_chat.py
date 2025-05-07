@@ -2,6 +2,7 @@ from api.utils.log_utils import initRootLogger
 initRootLogger("ragflow_server")
 
 import asyncio
+import threading
 import json
 import logging
 from typing import Any
@@ -16,6 +17,8 @@ from api.db import LLMType
 from fastmcp import Client
 from fastmcp.client.sampling import RequestContext, SamplingMessage, SamplingParams
 import re
+import queue
+
 
 MCP_CHAT = None
 
@@ -96,12 +99,25 @@ class Server:
         self,
         tool_name: str,
         arguments: dict[str, Any],
-        sampling_handler,
+        msg_queue = None,
         retries: int = 2,
         delay: float = 2,
     ) -> Any:
         """带重试机制的调用工具.
         """
+        # 接收到工具中间结果输出
+        async def sampling_handler(
+            messages: list[SamplingMessage],
+            params: SamplingParams,
+            ctx: RequestContext,
+        ):
+            # yield {"answer": messages[0].content.text}
+            if msg_queue and messages[0].content.text:
+                msg_queue.put(messages[0].content.text)
+            # print(f"{messages[0].content.text}")
+            return ""
+
+
         attempt = 0
         while attempt < retries:
             try:
@@ -207,7 +223,7 @@ class McpChat:
             "Please use only the tools that are explicitly defined above.\n"
         )
 
-    async def process_llm_response(self, llm_response: str, sampling_handler) -> str:
+    async def process_llm_response(self, llm_response: str, msg_queue = None) -> str:
         """分析llm的回答，如果需要则调用MCP工具.
 
         Args:
@@ -231,12 +247,11 @@ class McpChat:
                 # tool_json = json.dumps(tool_call, ensure_ascii=False)
                 # tool_desc = f"调用工具:\n\n```json\n{tool_json}\n```"
 
-
                 for server in self.servers:
                     if any(tool.name == tool_call["tool"] for tool in server.tools):
                         try:
                             result = await server.execute_tool(
-                                tool_call["tool"], tool_call["arguments"], sampling_handler
+                                tool_call["tool"], tool_call["arguments"], msg_queue
                             )
 
                             return f"\n\n工具执行结果:\n\n```\n{result}\n```"
@@ -295,7 +310,7 @@ class McpChat:
                         logging.info(f"\n{messages[0].content.text}")
                         return ""
 
-                    result = await self.process_llm_response(response_content, sampling_handler)
+                    result = await self.process_llm_response(response_content)
 
                     # 如果使用了tool
                     if result != response_content:
@@ -339,6 +354,8 @@ class McpChat:
         # 关闭本地qwen3的思维链输出
         gen_conf["extra_body"] = {"chat_template_kwargs":{"enable_thinking": False}}
 
+        msg_queue = queue.Queue()
+        result_container = [None]  # 使用列表来共享结果，因为 nonlocal 在嵌套函数中可能有限制
         while True:
             # 第一步：询问llm，获得答案
             response_content = chat_mdl.chat(prompt_config["system"], mcp_messages, gen_conf)
@@ -355,17 +372,39 @@ class McpChat:
             except Exception as e:
                 pass
 
-            # 接收到工具中间结果输出
-            async def sampling_handler(
-                messages: list[SamplingMessage],
-                params: SamplingParams,
-                ctx: RequestContext,
-            ):
-                # yield {"answer": messages[0].content.text}
-                print(f"{messages[0].content.text}")
-                return ""
 
-            result = asyncio.run(self.process_llm_response(response_content, sampling_handler))
+            # result = asyncio.run(self.process_llm_response(response_content, sampling_handler))
+
+            async def run_async_func():
+                # 执行异步函数B并获取结果
+                result = await self.process_llm_response(response_content, msg_queue)
+                result_container[0] = result
+                # 执行结束标记
+                msg_queue.put(None)
+
+            def start_event_loop():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                loop.run_until_complete(run_async_func())
+
+
+            # 启动异步事件循环的线程
+            thread = threading.Thread(target=start_event_loop)
+            thread.start()
+
+            while True:
+                try:
+                    msg = msg_queue.get(timeout=0.1)
+                    if msg is None:
+                        break  # 收到结束信号
+                    ans = msg
+                    yield {"answer": ans}
+                except queue.Empty:
+                    if not thread.is_alive():
+                        break
+
+            thread.join()
+            result = result_container[0]
 
             # 如果使用了tool
             if result != response_content:

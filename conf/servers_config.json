@@ -4,8 +4,16 @@
       "command": "uvx",
       "args": ["mcp-server-time", "--local-timezone=Asia/Shanghai"]
     },
-    "web-search":{
-      "url": "http://127.0.0.1:8000/sse"
+    "web-search": {
+      "command": "uv",
+      "args": [
+        "--directory", 
+        "mcps/servers/web_search",
+        "run", 
+        "mcp_web_search.py",
+        "--jina-url", "http://127.0.0.1:9859/",
+        "--searxng-url", "http://127.0.0.1:8088/"
+      ]
     }
   }
 }
