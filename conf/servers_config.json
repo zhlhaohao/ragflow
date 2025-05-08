@@ -9,7 +9,7 @@
       "args": [
         "run", 
         "mcps/servers/web_search/mcp_web_search.py",
-        "--jina-url", "https://r.jina.ai/",
+        "--jina-url", "http://127.0.0.1:9859/",
         "--searxng-url", "http://127.0.0.1:8088/"
       ]
     }

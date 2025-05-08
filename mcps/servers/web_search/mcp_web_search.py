@@ -205,10 +205,11 @@ async def fetch_webpage_text(url, ctx):
     full_url = f"{JINA_BASE_URL}{url}"
 
     headers = {
-        "X-Respond-With": "markdown",
-        "X-With-Generated-Alt": "true",
+        "X-Respond-With": "text",
+        "X-With-Generated-Alt": "false",
         "X-User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3",
-        "X-Timeout": "60",
+        "X-Timeout": "5",
+        "Accept": "text/event-stream"
     }
     if args.http_proxy is not None:
         headers["X-Proxy-Url"] = args.http_proxy
