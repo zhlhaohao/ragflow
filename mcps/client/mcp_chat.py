@@ -397,8 +397,7 @@ class McpChat:
                     msg = msg_queue.get(timeout=0.1)
                     if msg is None:
                         break  # 收到结束信号
-                    ans = msg
-                    yield {"answer": ans}
+                    yield {"answer": f"{ans}, {msg}"}
                 except queue.Empty:
                     if not thread.is_alive():
                         break

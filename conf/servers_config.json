@@ -1,17 +1,15 @@
 {
   "mcpServers": {
     "time": {
-      "command": "uvx",
-      "args": ["mcp-server-time", "--local-timezone=Asia/Shanghai"]
+      "command": "uv",
+      "args": ["run", "mcp-server-time", "--local-timezone=Asia/Shanghai"]
     },
     "web-search": {
       "command": "uv",
       "args": [
-        "--directory", 
-        "mcps/servers/web_search",
         "run", 
-        "mcp_web_search.py",
-        "--jina-url", "http://127.0.0.1:9859/",
+        "mcps/servers/web_search/mcp_web_search.py",
+        "--jina-url", "https://r.jina.ai/",
         "--searxng-url", "http://127.0.0.1:8088/"
       ]
     }

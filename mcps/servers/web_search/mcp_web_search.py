@@ -5,11 +5,19 @@ from openai import AsyncOpenAI
 import logging
 import argparse
 import asyncio
+import yaml
 
 mcp_server = FastMCP("search")
-base_url = "http://10.119.101.20:9850/v1"
-api_key = "sk-dyuyfgue64we6e7wyr"
-model_name = "deepseek-r1"
+
+# 读取配置文件
+with open("conf/local.service_conf.yaml", "r") as f:
+    config = yaml.safe_load(f)
+
+llm_config = config.get('user_default_llm')
+base_url = llm_config.get('mcp_chat_url')
+api_key = llm_config.get('mcp_chat_key')
+model_name = llm_config.get('mcp_chat_model')
+jina_api_key = llm_config.get('jina_api_key')
 
 total_pages = 0
 
@@ -200,16 +208,20 @@ async def fetch_webpage_text(url, ctx):
         "X-Respond-With": "markdown",
         "X-With-Generated-Alt": "true",
         "X-User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3",
-        "X-Timeout": "30",
+        "X-Timeout": "60",
     }
     if args.http_proxy is not None:
         headers["X-Proxy-Url"] = args.http_proxy
+
+    if jina_api_key:
+        headers["Authorization"] = "Bearer " + jina_api_key
+
 
     global total_pages
     try:
         logger.info("开始爬取")
         async with aiohttp.ClientSession(headers=headers) as session:
-            async with session.get(full_url, timeout=30) as resp:
+            async with session.get(full_url, timeout=60) as resp:
                 logger.info("爬取结束")
                 total_pages += 1
                 await ctx.sample(f"{total_pages}网页已读取")
@@ -337,7 +349,7 @@ async def search(query: str, ctx: Context) -> str:
 
             # 每个批次的任务间隔2秒启动
             async def delayed_task(index, link):
-                await asyncio.sleep(index * 2)
+                await asyncio.sleep(index * 1)
                 return await process_link_with_sem(link, query, unique_links[link], ctx)
 
             # 创建所有任务批次,开始执行

@@ -100,7 +100,7 @@ wheels = [
 
 [[package]]
 name = "akshare"
-version = "1.16.87"
+version = "1.16.88"
 source = { registry = "https://mirrors.aliyun.com/pypi/simple" }
 dependencies = [
     { name = "aiohttp" },
@@ -121,9 +121,9 @@ dependencies = [
     { name = "urllib3" },
     { name = "xlrd" },
 ]
-sdist = { url = "https://mirrors.aliyun.com/pypi/packages/de/6a/647e3b677554421ab198201e8c79c04708762e04cbd60f0f31a190ed101f/akshare-1.16.87.tar.gz", hash = "sha256:ce2f042090b95fd4bf1a71cf5704df1cd06f53cb4693926f67b79fbcdc169058" }
+sdist = { url = "https://mirrors.aliyun.com/pypi/packages/dd/cb/1ad6822340cc5f6e25837ce2d43ddba01fce6c84d3051039e758acc04304/akshare-1.16.88.tar.gz", hash = "sha256:43261574e1912d4b9357db9806a353d2cc55db52697ce417af24c97b75fa6b74" }
 wheels = [
-    { url = "https://mirrors.aliyun.com/pypi/packages/41/df/ad84d3b0ca320bb5ea17d224bac454148a6881a5d02fdfab387ebdccc916/akshare-1.16.87-py3-none-any.whl", hash = "sha256:32748dba92a939fa99577653563cae4b4ca97678a394d11dae2c7e276153531f" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/4d/a4/bb6deaab9f541674d512797598a7fdf5b47b36354f9cded7f4ce29b18fe0/akshare-1.16.88-py3-none-any.whl", hash = "sha256:15c279ec08f88d4a5a0e65837d3c333974b8b5fa28f3a581286ce99c1b772233" },
 ]
 
 [[package]]
@@ -838,10 +838,9 @@ wheels = [
 
 [[package]]
 name = "datasets"
-version = "3.5.1"
+version = "3.6.0"
 source = { registry = "https://mirrors.aliyun.com/pypi/simple" }
 dependencies = [
-    { name = "aiohttp" },
     { name = "dill" },
     { name = "filelock" },
     { name = "fsspec", extra = ["http"] },
@@ -856,9 +855,9 @@ dependencies = [
     { name = "tqdm" },
     { name = "xxhash" },
 ]
-sdist = { url = "https://mirrors.aliyun.com/pypi/packages/10/af/8c1d10daf37383c32ab0a7461eaa4d5c7a3c47808fe5a8563744de002df7/datasets-3.5.1.tar.gz", hash = "sha256:f835b45dbbd7065c1191734b6f7c8d96fdf8c5751feaa5aa52b2a0dc43eea58f" }
+sdist = { url = "https://mirrors.aliyun.com/pypi/packages/1a/89/d3d6fef58a488f8569c82fd293ab7cbd4250244d67f425dcae64c63800ea/datasets-3.6.0.tar.gz", hash = "sha256:1b2bf43b19776e2787e181cfd329cb0ca1a358ea014780c3581e0f276375e041" }
 wheels = [
-    { url = "https://mirrors.aliyun.com/pypi/packages/e3/f5/668b3444a2f487b0052b908af631fe39eeb2bdb2359d9bbc2c3b80b71119/datasets-3.5.1-py3-none-any.whl", hash = "sha256:4074dda8dd6e9ece242b1580a8ef3928777d59ae1db144d911229e443a093cbb" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/20/34/a08b0ee99715eaba118cbe19a71f7b5e2425c2718ef96007c325944a1152/datasets-3.6.0-py3-none-any.whl", hash = "sha256:25000c4a2c0873a710df127d08a202a06eab7bf42441a6bc278b499c2f72cd1b" },
 ]
 
 [[package]]
@@ -3098,11 +3097,11 @@ wheels = [
 
 [[package]]
 name = "platformdirs"
-version = "4.3.7"
+version = "4.3.8"
 source = { registry = "https://mirrors.aliyun.com/pypi/simple" }
-sdist = { url = "https://mirrors.aliyun.com/pypi/packages/b6/2d/7d512a3913d60623e7eb945c6d1b4f0bddf1d0b7ada5225274c87e5b53d1/platformdirs-4.3.7.tar.gz", hash = "sha256:eb437d586b6a0986388f0d6f74aa0cde27b48d0e3d66843640bfb6bdcdb6e351" }
+sdist = { url = "https://mirrors.aliyun.com/pypi/packages/fe/8b/3c73abc9c759ecd3f1f7ceff6685840859e8070c4d947c93fae71f6a0bf2/platformdirs-4.3.8.tar.gz", hash = "sha256:3d512d96e16bcb959a814c9f348431070822a6496326a4be0911c40b5a74c2bc" }
 wheels = [
-    { url = "https://mirrors.aliyun.com/pypi/packages/6d/45/59578566b3275b8fd9157885918fcd0c4d74162928a5310926887b856a51/platformdirs-4.3.7-py3-none-any.whl", hash = "sha256:a03875334331946f13c549dbd8f4bac7a13a50a895a0eb1e8c6a8ace80d40a94" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/fe/39/979e8e21520d4e47a0bbe349e2713c0aac6f3d853d0e5b34d76206c439aa/platformdirs-4.3.8-py3-none-any.whl", hash = "sha256:ff7059bb7eb1179e2685604f4aaf157cfd9535242bd23742eadc3c13542139b4" },
 ]
 
 [[package]]
@@ -3879,6 +3878,7 @@ dependencies = [
     { name = "python-dotenv" },
     { name = "python-pptx" },
     { name = "pywencai" },
+    { name = "pyyaml" },
     { name = "qianfan" },
     { name = "ranx" },
     { name = "readability-lxml" },
@@ -4014,6 +4014,7 @@ requires-dist = [
     { name = "python-dotenv", specifier = ">=1.0.1" },
     { name = "python-pptx", specifier = ">=1.0.2,<2.0.0" },
     { name = "pywencai", specifier = "==0.12.2" },
+    { name = "pyyaml" },
     { name = "qianfan", specifier = "==0.4.6" },
     { name = "ranx", specifier = "==0.3.20" },
     { name = "readability-lxml", specifier = "==0.8.1" },
