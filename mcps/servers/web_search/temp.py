@@ -1,26 +1,17 @@
 from fastmcp import FastMCP, Context
 import aiohttp
 import requests
-from openai import AsyncOpenAI
+from openai import OpenAI, AsyncOpenAI
+from prompts import *
 import logging
 import argparse
 import asyncio
-import yaml
 import json
 
 mcp_server = FastMCP("search")
-
-# 读取配置文件
-with open("conf/local.service_conf.yaml", "r") as f:
-    config = yaml.safe_load(f)
-
-llm_config = config.get('user_default_llm')
-base_url = llm_config.get('mcp_chat_url')
-api_key = llm_config.get('mcp_chat_key')
-model_name = llm_config.get('mcp_chat_model')
-jina_api_key = llm_config.get('jina_api_key')
-
-total_pages = 0
+base_url = "http://10.119.101.20:9850/v1"
+api_key = "sk-dyuyfgue64we6e7wyr"
+model_name = "deepseek-r1"
 
 # 创建日志记录器
 logger = logging.getLogger(__name__)
@@ -45,8 +36,8 @@ file_handler.setFormatter(file_formatter)
 logger.addHandler(file_handler)
 
 client = AsyncOpenAI(
-    base_url = base_url,
-    api_key = api_key,
+    base_url=base_url,
+    api_key=api_key,
 )
 
 
@@ -67,7 +58,7 @@ async def generate_query(query, stream=False):
             },
             {"role": "user", "content": f"User Query: {query}\n\n{prompt}"},
         ],
-        extra_body = {"chat_template_kwargs": {"enable_thinking": False}},
+        extra_body={"chat_template_kwargs": {"enable_thinking": False}},
     )
     logger.info(
         f"新生成的{args.query_count}个查询词: {response.choices[0].message.content}"
@@ -191,9 +182,28 @@ async def web_search(query: str):
     except Exception as e:
         logger.error(f"Web search error: {e}")
     return links
+    """通过searxng在互联网搜索用户的问题，返回前web_search个url
+
+    Args:
+        query (str): 用户问题
+
+    Returns:
+        List: url数组
+    """
+    links = []
+    # logger.info(f"164- Searching for: {query}")
+    response = requests.get(
+        f"{args.searxng_url}search?format=json&q={query}&language=zh-CN&time_range=&safesearch=0&categories=general",
+        timeout=30,
+    )
+    results = response.json()["results"]
+    for result in results[: args.max_results]:
+        links.append(result["url"])
+
+    return links
 
 
-async def fetch_webpage_text(url, ctx):
+async def fetch_webpage_text(url):
     """Firecrawl爬取网页的内容
 
     Args:
@@ -202,24 +212,31 @@ async def fetch_webpage_text(url, ctx):
     Returns:
         _type_: _description_
     """
-    full_url = f"{args.firecrawl_url}v1/scrape"
+    FIRECRAWL_BASE_URL = args.firecrawl_url
+    full_url = f"{FIRECRAWL_BASE_URL}v1/scrape"
 
     headers = {
         "Content-Type": "application/json",
     }
+    # if args.http_proxy is not None:
+    #     headers["X-Proxy-Url"] = args.http_proxy
+
+    # curl -X POST http://127.0.0.1:9860/v1/scrape \
+    #     -H 'Content-Type: application/json' \
+    #     -d '{
+    #       "url": "https://www.zaobao.com/news/china/story20250508-6312861",
+    #       "formats" : ["markdown", "html"]
+    #     }'
     param = {
         "url": url,
         "formats": ["markdown"],
     }
 
-    global total_pages
     try:
         logger.info("开始爬取")
         async with aiohttp.ClientSession(headers=headers) as session:
             async with session.post(full_url, json=param, timeout=30) as resp:
                 logger.info("爬取结束")
-                total_pages += 1
-                await ctx.sample(f"{total_pages}网页已读取")
                 if resp.status == 200:
                     resp = await resp.text()
                     result = json.loads(resp)
@@ -248,11 +265,12 @@ async def process_link(link, query, search_query, ctx):
     Returns:
         _type_: 返回网页上与用户提问相关的片段(200字符)
     """
+    # logger.info(f"爬取网页内容: {link}")
+
     page_text = None
-    if link and not link.endswith(".pdf"):
-        logger.info(f"爬取网页内容: {link}")
+    if args.deep_research or link or not link.endswith(".pdf"):
         # await ctx.sample(f"正在爬取 {link}")
-        page_text = await fetch_webpage_text(link, ctx)
+        page_text = await fetch_webpage_text(link)
 
     if page_text is None:
         return None
@@ -269,8 +287,9 @@ async def process_link(link, query, search_query, ctx):
         logger.info("提炼摘要")
         context = await extract_relevant_context(query, search_query, page_text)
         if context:
-            await ctx.sample(f"摘要:\n{context}\n\n")
-            return context
+            chunk = context[: args.context_length]
+            await ctx.sample(f"摘要:\n{chunk}\n\n")
+            return chunk
     return None
 
 
@@ -347,9 +366,9 @@ async def search(query: str, ctx: Context) -> str:
                 async with semaphore:
                     return await process_link(link, query, search_query, ctx)
 
-            # 每个批次的任务间隔1秒启动
+            # 每个批次的任务间隔2秒启动
             async def delayed_task(index, link):
-                await asyncio.sleep(index * 1)
+                await asyncio.sleep(index * 2)
                 return await process_link_with_sem(link, query, unique_links[link], ctx)
 
             # 创建所有任务批次,开始执行
@@ -478,14 +497,13 @@ if __name__ == "__main__":
         type=str,
         help="searxng网址",
     )
-    # parser.add_argument(
-    #     "--http-proxy",
-    #     default=None,
-    #     type=str,
-    #     help="jina爬虫代理地址",
-    # )
+    parser.add_argument(
+        "--http-proxy",
+        default=None,
+        type=str,
+        help="firecrawl爬虫代理地址",
+    )
     args = parser.parse_args()
 
     logger.info(f"Starting web search MCP,args:{args}")
     mcp_server.run()
-    # mcp_server.run(transport="sse", host="0.0.0.0", port=8000)

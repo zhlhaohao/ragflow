@@ -9,7 +9,7 @@
       "args": [
         "run", 
         "mcps/servers/web_search/mcp_web_search.py",
-        "--jina-url", "http://127.0.0.1:9859/",
+        "--firecrawl-url", "http://10.119.101.21:9860/",
         "--searxng-url", "http://127.0.0.1:8088/"
       ]
     }
