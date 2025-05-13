@@ -129,6 +129,7 @@ dependencies = [
     "pyjwt>=2.8.0",
     "PyYAML",
     "fastmcp>=2.2.10",
+    "openai==1.78.1",
 ]
 
 [project.optional-dependencies]
