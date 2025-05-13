@@ -196,6 +196,14 @@ async def web_search(query: str):
 async def fetch_webpage_text(url, ctx):
     """Firecrawl爬取网页的内容
 
+curl -X POST http://10.119.101.21:9860/v1/scrape \
+    -H 'Content-Type: application/json' \
+    -d '{
+      "url": "https://www.zaobao.com/news/china/story20250513-6328924",
+      "onlyMainContent": true,
+      "formats" : ["markdown"]
+    }'
+
     Args:
         url (_type_): url
 
