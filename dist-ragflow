@@ -6,17 +6,17 @@ read flag
 if [ "$flag" = "y" -o "$flag" = "Y" ] ; then
   docker build \
     --build-arg NEED_MIRROR=0 \
-    --build-arg "HTTP_PROXY=http://13.231.28.95:17890/" \
-    --build-arg "HTTPS_PROXY=http://13.231.28.95:17890/" \
+    --build-arg "HTTP_PROXY=http://10.119.80.110:17890/" \
+    --build-arg "HTTPS_PROXY=http://10.119.80.110:17890/" \
     -f /home/lianghao/github/ragflow/Dockerfile \
     -t ragflow:cheetah-$img_ver \
     /home/lianghao/github/ragflow
 
 fi
 
-echo -n '是否上传到pot (y/n)'
-read flag
-if [ "$flag" = "y" -o "$flag" = "Y" ] ; then
-  docker tag ragflow:cheetah-$img_ver 172.24.12.148:9869/ragflow:cheetah-$img_ver
-  docker push 172.24.12.148:9869/ragflow:cheetah-$img_ver
-fi
+# echo -n '是否上传到pot (y/n)'
+# read flag
+# if [ "$flag" = "y" -o "$flag" = "Y" ] ; then
+#   docker tag ragflow:cheetah-$img_ver 172.24.12.148:9869/ragflow:cheetah-$img_ver
+#   docker push 172.24.12.148:9869/ragflow:cheetah-$img_ver
+# fi

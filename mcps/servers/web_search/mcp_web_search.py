@@ -177,7 +177,12 @@ async def get_new_search_queries(user_query, previous_search_queries, all_contex
 
 
 async def web_search(query: str):
-    """通过searxng在互联网异步搜索用户的问题，返回前web_search个url"""
+    """通过searxng在互联网异步搜索用户的问题，返回前web_search个url
+    http://127.0.0.1:8088/search?format=json&q=广州天气&language=zh-CN&time_range=&safesearch=0&categories=general   
+    http://10.119.101.20:9860/search?format=json&q=广州天气&language=zh-CN&time_range=&safesearch=0&categories=general   
+    
+    
+    """
     links = []
     try:
         async with aiohttp.ClientSession(
