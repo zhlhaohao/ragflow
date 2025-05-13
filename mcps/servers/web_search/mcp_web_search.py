@@ -210,6 +210,9 @@ async def fetch_webpage_text(url, ctx):
     param = {
         "url": url,
         "formats": ["markdown"],
+        "onlyMainContent": True,
+        "waitFor": 2000,
+        "timeout": 30000,
     }
 
     global total_pages

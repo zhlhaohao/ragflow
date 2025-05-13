@@ -351,8 +351,8 @@ class McpChat:
         mcp_messages = [{"role": "system", "content": self.system_message}]
         mcp_messages.extend(messages)
         ans = ""
-        # 关闭本地qwen3的思维链输出
-        gen_conf["extra_body"] = {"chat_template_kwargs":{"enable_thinking": False}}
+        # 强制关闭本地qwen3的思维链输出
+        gen_conf["enable_cot"] = False
 
         msg_queue = queue.Queue()
         result_container = [None]  # 使用列表来共享结果，因为 nonlocal 在嵌套函数中可能有限制

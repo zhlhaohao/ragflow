@@ -74,7 +74,7 @@ dependencies = [
     "pycryptodomex==3.20.0",
     "pypdf>=5.0.0,<6.0.0",
     "pytest>=8.3.0,<9.0.0",
-    "python-dotenv>=1.0.1",
+    "python-dotenv==1.1.0",
     "python-dateutil==2.8.2",
     "python-pptx>=1.0.2,<2.0.0",
     "pywencai==0.12.2",

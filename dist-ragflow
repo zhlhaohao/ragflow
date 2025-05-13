@@ -5,7 +5,6 @@ echo -n '是否构建镜像 (y/n)'
 read flag
 if [ "$flag" = "y" -o "$flag" = "Y" ] ; then
   docker build \
-    # --no-cache \
     --build-arg NEED_MIRROR=0 \
     --build-arg "HTTP_PROXY=http://13.231.28.95:17890/" \
     --build-arg "HTTPS_PROXY=http://13.231.28.95:17890/" \

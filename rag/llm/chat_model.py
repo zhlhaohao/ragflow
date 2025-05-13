@@ -106,16 +106,28 @@ class Base(ABC):
 
     def chat(self, system, history, gen_conf):
         if system:
+            if not gen_conf.get("enable_cot"):
+                system = system + "/no_think"
+            else:
+                system = system + "/think"
             history.insert(0, {"role": "system", "content": system})
         if "max_tokens" in gen_conf:
             del gen_conf["max_tokens"]
+
+        # 思维链输出开关处理
+        extra_body = {}
+        if gen_conf.get("enable_cot"):
+            gen_conf.pop("enable_cot")
+        else:
+            extra_body = {"chat_template_kwargs":{"enable_thinking": False}}
 
         # Implement exponential backoff retry strategy
         for attempt in range(self.max_retries):
             try:
                 response = self.client.chat.completions.create(
-                    model=self.model_name,
-                    messages=history,
+                    model = self.model_name,
+                    messages = history,
+                    extra_body = extra_body,
                     **gen_conf)
 
                 if any([not response.choices, not response.choices[0].message, not response.choices[0].message.content]):
@@ -146,17 +158,31 @@ class Base(ABC):
 
     def chat_streamly(self, system, history, gen_conf):
         if system:
+            if not gen_conf.get("enable_cot"):
+                system = system + "/no_think"
+            else:
+                system = system + "/think"
             history.insert(0, {"role": "system", "content": system})
         if "max_tokens" in gen_conf:
             del gen_conf["max_tokens"]
         ans = ""
         reasoning = ""
         total_tokens = 0
+
+        # 思维链输出开关处理
+        # 思维链输出开关处理
+        extra_body = {}
+        if gen_conf.get("enable_cot"):
+            gen_conf.pop("enable_cot")
+        else:
+            extra_body = {"chat_template_kwargs":{"enable_thinking": False}}
+
         try:
             response = self.client.chat.completions.create(
                 model=self.model_name,
                 messages=history,
                 stream=True,
+                extra_body = extra_body,
                 **gen_conf)
 
             has_reasoning = False
@@ -1817,7 +1843,13 @@ class UniinChat(Base):
         exp_seconds = 3600000
 
         if system:
+            if not gen_conf.get("enable_cot"):
+                system = system + "/no_think"
+            else:
+                system = system + "/think"
+
             history.insert(0, {"role": "system", "content": system})
+
         ans = ""
         reasoning = ""
         total_tokens = 0
