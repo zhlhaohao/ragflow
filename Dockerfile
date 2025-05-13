@@ -165,7 +165,6 @@ RUN --mount=type=cache,id=ragflow_uv,target=/var/cache/ragflow/uv,sharing=locked
     if [ "$LIGHTEN" == "1" ]; then \
         uv sync --python 3.10 --frozen; \
     else \
-        uv pip install Crawl4AI==0.3.8; \
         uv sync --python 3.10 --frozen --all-extras; \
     fi
 
