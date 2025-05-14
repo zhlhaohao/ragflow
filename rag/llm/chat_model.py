@@ -169,8 +169,7 @@ class Base(ABC):
         reasoning = ""
         total_tokens = 0
 
-        # 思维链输出开关处理
-        # 思维链输出开关处理
+        # F8080 思维链输出开关处理
         extra_body = {}
         if gen_conf.get("enable_cot"):
             gen_conf.pop("enable_cot")

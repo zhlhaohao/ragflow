@@ -244,3 +244,30 @@ def get_llm_config():
                     })
     except Exception as e:
         return server_error_response(e)
+
+
+
+
+@manager.route('/list_super', methods=['GET'])  # type: ignore # noqa: F821
+@login_required
+def list_admin_dialogs():
+    "F8080 - 列出超级用户所拥有的对话助手"
+    try:
+
+        super_tenants = UserTenantService.get_tenants_by_is_superuser()
+        if len(super_tenants) > 0:
+            super_tenant_id = super_tenants[0]['tenant_id']
+            diags = DialogService.query(
+                tenant_id=super_tenant_id,
+                status=StatusEnum.VALID.value,
+                reverse=True,
+                order_by=DialogService.model.create_time)
+            diags = [d.to_dict() for d in diags]
+            for d in diags:
+                d["kb_ids"], d["kb_names"] = get_kb_names(d["kb_ids"])
+            return get_json_result(data=diags)
+        else:
+            # 返回空数组
+            return get_json_result(data=[])
+    except Exception as e:
+        return server_error_response(e)

@@ -12,6 +12,9 @@
       "args": [],
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}",
+      "env": {
+        "OPENAI_PROXY": "http://10.119.80.110:17890"
+      },      
       "justMyCode": false
     },
     {

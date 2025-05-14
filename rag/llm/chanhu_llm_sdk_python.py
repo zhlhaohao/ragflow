@@ -1,4 +1,5 @@
 
+import os
 import time
 import jwt
 import requests
@@ -42,7 +43,12 @@ def completions(app_key: str, app_secret: str,exp_seconds: int, model: str,messa
     'Authorization': token
     }
     url = endpoint+"/openapi/v1/chat/completions"
-    response = requests.post(url, headers=headers, data=payload)
+    proxy = os.environ.get("OPENAI_PROXY")
+    proxies = {
+        'http': proxy,
+        'https': proxy,
+    } if proxy else None
+    response = requests.post(url, headers=headers, data=payload, proxies=proxies)
     # print(response.text)
     return response.text
 
@@ -69,7 +75,12 @@ def stream_completions(app_key: str, app_secret: str,exp_seconds: int,  model_na
     'Accept':'text/event-stream'
     }
     url = endpoint+"/openapi/v1/chat/completions"
-    response = requests.post(url, headers=headers, data=payload,stream=True)
+    proxy = os.environ.get("OPENAI_PROXY")
+    proxies = {
+        'http': proxy,
+        'https': proxy,
+    } if proxy else None
+    response = requests.post(url, headers=headers, data=payload, stream=True, proxies=proxies)
     return response
 
 
@@ -118,7 +129,13 @@ def get_replaced_content(app_key: str, app_secret: str,exp_seconds:int,prompt_id
     'Content-Type': 'application/json',
     'Authorization': token
     }
-    response = requests.request("POST", url, headers=headers, data=payload)
+
+    proxy = os.environ.get("OPENAI_PROXY")
+    proxies = {
+        'http': proxy,
+        'https': proxy,
+    } if proxy else None
+    response = requests.request("POST", url, headers=headers, data=payload, proxies=proxies)
 
     # print(response.text)
     return response.text
@@ -146,7 +163,13 @@ def completions_with_prompt(app_key: str, app_secret: str,exp_seconds: int, prom
     'Content-Type': 'application/json',
     'Authorization': token
     }
-    response = requests.request("POST", url, headers=headers, data=payload)
+
+    proxy = os.environ.get("OPENAI_PROXY")
+    proxies = {
+        'http': proxy,
+        'https': proxy,
+    } if proxy else None
+    response = requests.request("POST", url, headers=headers, data=payload, proxies=proxies)
 
     replacedContent = json.loads(response.text)['data']['replacedContent']
     #### 非流式调用
@@ -169,7 +192,13 @@ def completions_with_prompt(app_key: str, app_secret: str,exp_seconds: int, prom
     'Authorization': token
     }
     completions_url = endpoint+"/openapi/v1/chat/completions"
-    response = requests.post(completions_url, headers=headers, data=payload)
+
+    proxy = os.environ.get("OPENAI_PROXY")
+    proxies = {
+        'http': proxy,
+        'https': proxy,
+    } if proxy else None
+    response = requests.post(completions_url, headers=headers, data=payload, proxies=proxies)
     return response.text
 
 
@@ -196,7 +225,14 @@ def stream_completions_with_prompt(app_key: str, app_secret: str,exp_seconds: in
     'Content-Type': 'application/json',
     'Authorization': token
     }
-    response = requests.request("POST", url, headers=headers, data=payload)
+
+    proxy = os.environ.get("OPENAI_PROXY")
+    proxies = {
+        'http': proxy,
+        'https': proxy,
+    } if proxy else None
+    response = requests.request("POST", url, headers=headers, data=payload, proxies=proxies)
+
     #### 非流式调用
     payload = json.dumps(
         {
@@ -218,9 +254,6 @@ def stream_completions_with_prompt(app_key: str, app_secret: str,exp_seconds: in
     'Accept':'text/event-stream'
     }
     completions_url = endpoint+"/openapi/v1/chat/completions"
-    response = requests.post(completions_url, headers=headers, data=payload,stream=True)
+
+    response = requests.post(completions_url, headers=headers, data=payload,stream=True, proxies=proxies)
     return response
-
-
-
-
