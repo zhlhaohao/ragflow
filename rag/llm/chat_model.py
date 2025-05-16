@@ -64,7 +64,7 @@ class Base(ABC):
         # F8080 - 代理设置
         timeout = int(os.environ.get('LM_TIMEOUT_SECONDS', 600))
         # 获取环境变量 OPENAI_PROXY
-        if os.environ.get("OPENAI_PROXY"):
+        if os.environ.get("OPENAI_PROXY") and 'host.docker.internal' not in base_url and 'localhost' not in base_url and '127.0.0.1' not in base_url:
             transport = httpx.HTTPTransport(proxy=os.environ.get("OPENAI_PROXY"))
             self.client = OpenAI(http_client=httpx.Client(transport=transport),api_key=key, base_url=base_url, timeout=timeout)
         else:
@@ -116,10 +116,15 @@ class Base(ABC):
 
         # 思维链输出开关处理
         extra_body = {}
-        if gen_conf.get("enable_cot"):
+        if "enable_cot" in gen_conf:
+            if not gen_conf.get("enable_cot"):
+                extra_body = {"chat_template_kwargs":{"enable_thinking": False}}
             gen_conf.pop("enable_cot")
         else:
             extra_body = {"chat_template_kwargs":{"enable_thinking": False}}
+
+        if gen_conf.get("internet"):
+            gen_conf.pop("internet")
 
         # Implement exponential backoff retry strategy
         for attempt in range(self.max_retries):
@@ -171,10 +176,15 @@ class Base(ABC):
 
         # F8080 思维链输出开关处理
         extra_body = {}
-        if gen_conf.get("enable_cot"):
+        if "enable_cot" in gen_conf:
+            if not gen_conf.get("enable_cot"):
+                extra_body = {"chat_template_kwargs":{"enable_thinking": False}}
             gen_conf.pop("enable_cot")
         else:
             extra_body = {"chat_template_kwargs":{"enable_thinking": False}}
+
+        if "internet" in gen_conf:
+            gen_conf.pop("internet")
 
         try:
             response = self.client.chat.completions.create(

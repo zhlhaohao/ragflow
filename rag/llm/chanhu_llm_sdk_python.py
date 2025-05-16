@@ -48,6 +48,7 @@ def completions(app_key: str, app_secret: str,exp_seconds: int, model: str,messa
         'http': proxy,
         'https': proxy,
     } if proxy else None
+    proxies = None
     response = requests.post(url, headers=headers, data=payload, proxies=proxies)
     # print(response.text)
     return response.text
@@ -80,6 +81,7 @@ def stream_completions(app_key: str, app_secret: str,exp_seconds: int,  model_na
         'http': proxy,
         'https': proxy,
     } if proxy else None
+    proxies = None
     response = requests.post(url, headers=headers, data=payload, stream=True, proxies=proxies)
     return response
 
@@ -135,6 +137,7 @@ def get_replaced_content(app_key: str, app_secret: str,exp_seconds:int,prompt_id
         'http': proxy,
         'https': proxy,
     } if proxy else None
+    proxies = None
     response = requests.request("POST", url, headers=headers, data=payload, proxies=proxies)
 
     # print(response.text)
@@ -169,6 +172,7 @@ def completions_with_prompt(app_key: str, app_secret: str,exp_seconds: int, prom
         'http': proxy,
         'https': proxy,
     } if proxy else None
+    proxies = None
     response = requests.request("POST", url, headers=headers, data=payload, proxies=proxies)
 
     replacedContent = json.loads(response.text)['data']['replacedContent']
@@ -198,6 +202,7 @@ def completions_with_prompt(app_key: str, app_secret: str,exp_seconds: int, prom
         'http': proxy,
         'https': proxy,
     } if proxy else None
+    proxies = None
     response = requests.post(completions_url, headers=headers, data=payload, proxies=proxies)
     return response.text
 
@@ -231,6 +236,7 @@ def stream_completions_with_prompt(app_key: str, app_secret: str,exp_seconds: in
         'http': proxy,
         'https': proxy,
     } if proxy else None
+    proxies = None
     response = requests.request("POST", url, headers=headers, data=payload, proxies=proxies)
 
     #### 非流式调用
@@ -255,5 +261,6 @@ def stream_completions_with_prompt(app_key: str, app_secret: str,exp_seconds: in
     }
     completions_url = endpoint+"/openapi/v1/chat/completions"
 
+    proxies = None
     response = requests.post(completions_url, headers=headers, data=payload,stream=True, proxies=proxies)
     return response

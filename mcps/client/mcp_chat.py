@@ -18,7 +18,7 @@ from fastmcp import Client
 from fastmcp.client.sampling import RequestContext, SamplingMessage, SamplingParams
 import re
 import queue
-
+from api.utils import ic
 
 MCP_CHAT = None
 
@@ -254,6 +254,7 @@ class McpChat:
                                 tool_call["tool"], tool_call["arguments"], msg_queue
                             )
 
+                            # logging.info(f"工具返回结果:\n{result}")
                             return f"\n\n工具执行结果:\n\n```\n{result}\n```"
                         except Exception as e:
                             error_msg = f"工具执行出错: {str(e)}"
@@ -312,6 +313,7 @@ class McpChat:
 
                     result = await self.process_llm_response(response_content)
 
+
                     # 如果使用了tool
                     if result != response_content:
                         # 将tool的调用结果加入到历史信息中
@@ -334,7 +336,32 @@ class McpChat:
                 logging.info("\nExiting...")
                 break
 
+    def convert_mixed_utf_string(self, input_str):
+        """
+        处理混杂了 UTF-8 和 UTF 转义字符的字符串，将其正确转换为 UTF-8 字符串
 
+        参数:
+        input_str (str): 包含混合编码的输入字符串
+
+        返回:
+        str: 转换后的纯 UTF-8 字符串
+        """
+        try:
+            # 使用正则表达式查找所有 \uXXXX 格式的转义序列
+            def replace_escape(match):
+                # 获取转义序列中的 Unicode 码点
+                escape_code = match.group(1)
+                # 转换为对应的 Unicode 字符
+                return chr(int(escape_code, 16))
+
+            # 替换所有找到的转义序列
+            decoded_str = re.sub(r'\\u([0-9a-fA-F]{4})', replace_escape, input_str)
+
+            return decoded_str
+        except Exception as e:
+            print(f"处理字符串时出错: {e}")
+            # 如果处理失败，返回原始字符串或进行其他错误处理
+            return input_str
 
     def chat(self, dialog, messages):
         """
@@ -404,6 +431,8 @@ class McpChat:
 
             thread.join()
             result = result_container[0]
+            result = result.replace(r'\\u', r'\u')
+            result = self.convert_mixed_utf_string(result)
 
             # 如果使用了tool
             if result != response_content:
