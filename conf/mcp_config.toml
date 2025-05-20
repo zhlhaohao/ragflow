@@ -1,0 +1,44 @@
+[mcpServers.time]
+desc = "时间日期查询"
+command = "uv"
+args = ["run", "mcp-server-time", "--local-timezone=Asia/Shanghai"]
+
+[mcpServers.web_search]
+desc = "联网查询"
+command = "uv"
+args = [
+  "run",
+  "mcps/servers/web_search/mcp_web_search.py",
+  "--firecrawl-url", "http://gpu2:9860/",
+  "--searxng-url", "http://127.0.0.1:9863/"
+]
+
+[mcpServers.mysql_mcp_server]
+desc = "员工数据库问答"
+url = "http://132.120.194.217:9500/sse"
+system = """### 用户表的表结构的说明
+#### t_users - 用户表
+CREATE TABLE `t_users` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `created_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `creator_id` int DEFAULT '0' COMMENT '创建人id',
+  `modified_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '更新时间',
+  `modifier_id` int DEFAULT '0' COMMENT '修改人id',
+  `is_deleted` int DEFAULT '0' COMMENT '逻辑删除:0=未删除,1=删除',
+  `username` varchar(32) NOT NULL COMMENT '英文账号名,不是姓名',
+  `nickname` varchar(32) NOT NULL DEFAULT '' COMMENT '用户姓名',
+  `sex` int DEFAULT '0' COMMENT '性别',
+  `phone` varchar(32) NOT NULL COMMENT '手机号',
+  `email` varchar(256) NOT NULL COMMENT '邮箱',
+  `hashed_password` varchar(128) NOT NULL COMMENT '密码',
+  `avatar` varchar(128) DEFAULT '' COMMENT '头像',
+  `status` int NOT NULL DEFAULT '0' COMMENT '状态',
+  `is_active` tinyint(1) DEFAULT '0' COMMENT '是否已经验证用户',
+  `is_superuser` tinyint(1) DEFAULT '0' COMMENT '是否超级管理员',
+  `rag_password` varchar(512) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `ix_t_users_username` (`username`),
+  KEY `ix_t_users_id` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=43 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+"""
+

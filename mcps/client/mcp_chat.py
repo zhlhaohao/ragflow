@@ -19,6 +19,7 @@ from fastmcp import Client
 from fastmcp.client.sampling import RequestContext, SamplingMessage, SamplingParams
 import re
 import queue
+import toml
 from api.utils import ic
 
 MCP_CHAT = None
@@ -60,7 +61,7 @@ class Configuration:
         """Load server configuration from JSON file.
         """
         with open(file_path, "r") as f:
-            return json.load(f)
+            return toml.load(f)
 
 
 class Server:
@@ -195,7 +196,7 @@ class McpChat:
         )
 
         config = Configuration()
-        self.server_config = config.load_config("conf/servers_config.json")
+        self.server_config = config.load_config("conf/mcp_config.toml")
 
         self.servers = [
             Server(name, srv_config)
@@ -208,11 +209,13 @@ class McpChat:
             self.server_tools[server.name] = tools
 
 
-    def get_system_message(self, mcp_servers):
+    def mcp_instruction(self, mcp_servers):
         all_tools = []
+
+        # 如果指定了只使用哪些mcp server
         if mcp_servers is not None:
-            for server in mcp_servers:
-                tools = self.server_tools.get(server,[])
+            for server_name in mcp_servers:
+                tools = self.server_tools.get(server_name,[])
                 all_tools.extend(tools)
         else:
             for name in self.server_tools:
@@ -220,29 +223,32 @@ class McpChat:
                 all_tools.extend(tools)
 
         tools_description = "\n".join([tool.format_for_llm() for tool in all_tools])
-        instruction = (
-            "You are a helpful assistant with access to these tools:\n\n"
-            f"{tools_description}\n"
-            "Choose the appropriate tool based on the user's question. "
-            "If no tool is needed, reply directly.\n"
-            "If you need to access database,use a tool.\n"
-            "If you are not clear about table name or table structure, use a tool.\n"
-            "if the table does not exist,dont try to create a new table, just list tables of the database to find an appropriate table.\n\n"
-            "CRITICAL: When you need to use a tool, you must ONLY Respond strictly in **JSON** and nothing else."
-            " The response should adhere to the following JSON schema:\n"
-            "## Response Format:\n"
-            "{\n"
-            '"tool": "string"\n'
-            '"arguments": "dict"\n'
-            "}\n\n"
-            "After receiving a tool's response:\n"
-            "1. Transform the raw data into a natural, conversational response\n"
-            "2. Keep responses concise but informative\n"
-            "3. Focus on the most relevant information\n"
-            "4. Use appropriate context from the user's question\n"
-            "5. Avoid simply repeating the raw data\n\n"
-            "Please use only the tools that are explicitly defined above.\n"
-        )
+        instruction = f"""
+You are a helpful assistant with access to these tools:
+
+{tools_description}
+
+Choose the appropriate tool based on the user's question. If no tool is needed, reply directly
+If you need to access database,use a tool.
+If you are not clear about table name or table structure, use a tool.
+if the table does not exist,dont try to create a new table, just list tables of the database to find an appropriate table.
+
+CRITICAL: When you need to use a tool, you must ONLY Respond strictly in **JSON** and nothing else.The response should adhere to the following JSON schema:
+## Response Format:
+{{
+"tool": "string"
+"arguments": "dict"
+}}
+
+After receiving a tool's response:
+1. Transform the raw data into a natural, conversational response
+2. Keep responses concise but informative
+3. Focus on the most relevant information
+4. Use appropriate context from the user's question
+5. Avoid simply repeating the raw data
+
+Please use only the tools that are explicitly defined above.
+"""
         return instruction
 
 
@@ -398,10 +404,20 @@ class McpChat:
 
         gen_conf = dialog.llm_setting
         prompt_config = dialog.prompt_config
-        mcp_instruction = self.get_system_message(gen_conf.get("mcp_servers"))
+        dia_mcp_servers = gen_conf.get("mcp_servers")
 
+        # 将每个mcp server的独有系统提示词附加到此次问答的系统提示词中
+        system_prompt = prompt_config["system"]
+        for server_name in dia_mcp_servers:
+            config = self.server_config["mcpServers"].get(server_name,{})
+            if config.get("system"):
+                system_prompt += "\n\n" + config.get("system")
+
+        # 枚举当前对话助手所配置所有的mcp servers，生成tools desc
+        mcp_instruction = self.mcp_instruction(dia_mcp_servers)
         mcp_messages = [{"role": "system", "content": mcp_instruction}]
         mcp_messages.extend(messages)
+
         ans = ""
         # 强制关闭本地qwen3的思维链输出
         gen_conf["enable_cot"] = False
@@ -410,7 +426,7 @@ class McpChat:
         result_container = [None]  # 使用列表来共享结果，因为 nonlocal 在嵌套函数中可能有限制
         while True:
             # 第一步：询问llm，获得答案
-            response_content = chat_mdl.chat(prompt_config["system"], mcp_messages, gen_conf)
+            response_content = chat_mdl.chat(system_prompt, mcp_messages, gen_conf)
             logging.info("\nAssistant: %s", response_content)
 
             try:
@@ -423,7 +439,6 @@ class McpChat:
                     # 如果不使用tool，那么则原样返回
             except Exception as e:
                 pass
-
 
             # result = asyncio.run(self.process_llm_response(response_content, sampling_handler))
 

@@ -52,6 +52,14 @@ ERROR_GENERIC = "GENERIC_ERROR"
 LENGTH_NOTIFICATION_CN = "······\n由于大模型的上下文窗口大小限制，回答已经被大模型截断。"
 LENGTH_NOTIFICATION_EN = "...\nThe answer is truncated by your chosen LLM due to its limitation on context length."
 
+# F8080
+def clear_gen_conf(gen_conf):
+    if gen_conf.get("mcp_servers"):
+        gen_conf.pop("mcp_servers")
+
+    if gen_conf.get("enable_cot"):
+        gen_conf.pop("enable_cot")
+
 
 class Base(ABC):
     """所有模型对话接口的基类
@@ -119,17 +127,10 @@ class Base(ABC):
         if "enable_cot" in gen_conf:
             if not gen_conf.get("enable_cot"):
                 extra_body = {"chat_template_kwargs":{"enable_thinking": False}}
-            gen_conf.pop("enable_cot")
         else:
             extra_body = {"chat_template_kwargs":{"enable_thinking": False}}
 
-        if gen_conf.get("internet"):
-            gen_conf.pop("internet")
-
-        if gen_conf.get("mcp_servers"):
-            gen_conf.pop("mcp_servers")
-
-        # Implement exponential backoff retry strategy
+        clear_gen_conf(gen_conf)  # F8080
         for attempt in range(self.max_retries):
             try:
                 response = self.client.chat.completions.create(
@@ -1767,6 +1768,7 @@ class UniinChat(Base):
         # if "max_tokens" in gen_conf:
         #     del gen_conf["max_tokens"]
 
+        clear_gen_conf(gen_conf)
         try:
             response = cniin_llm.completions(settings.UNIIN_APP_KEY, settings.UNIIN_APP_SECRET, exp_seconds, self.model_name, history, **gen_conf)
 
@@ -1875,6 +1877,7 @@ class UniinChat(Base):
         ans = ""
         reasoning = ""
         total_tokens = 0
+        clear_gen_conf(gen_conf)
         try:
             response = cniin_llm.stream_completions(settings.UNIIN_APP_KEY, settings.UNIIN_APP_SECRET, exp_seconds, self.model_name, history, **gen_conf)
             last_msg["content"] = last_msg_content

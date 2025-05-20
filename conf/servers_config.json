@@ -18,7 +18,7 @@
     "mysql-mcp-server":{
       "desc": "员工数据库问答",
       "url": "http://132.120.194.217:9500/sse",
-      "system": "### 数据库表结构的说明\n\n \ #### t_users - 用户表\n\ndesc t_users; \ CREATE TABLE `t_users` ( ", 
+      "system": "hahaahahahah"
     }
   }
 }
