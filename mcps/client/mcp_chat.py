@@ -21,6 +21,7 @@ import re
 import queue
 import toml
 from api.utils import ic
+import datetime
 
 MCP_CHAT = None
 
@@ -29,6 +30,16 @@ async def init_mcp() -> None:
     MCP_CHAT = McpChat()
     await MCP_CHAT.init_servers()
 
+def get_current_time_with_weekday() -> str:
+    """
+    获取当前时间并格式化为 yyyy-mm-dd hh:mm:ss 加上星期几
+
+    Returns:
+        str: 格式化后的时间字符串，例如 "2023-10-05 14:30:45 Thursday"
+    """
+    current_time = datetime.datetime.now()
+    formatted_time = current_time.strftime("%Y-%m-%d %H:%M:%S %A")
+    return formatted_time
 
 json_schema = {
     "type": "object",
@@ -102,7 +113,7 @@ class Server:
         tool_name: str,
         arguments: dict[str, Any],
         msg_queue = None,
-        retries: int = 2,
+        retries: int = 1,
         delay: float = 2,
     ) -> Any:
         """带重试机制的调用工具.
@@ -180,12 +191,13 @@ class Tool:
                 args_desc.append(arg_desc)
 
         return f"""
-Tool: {self.name}
-Description: {self.description}
-Arguments:
+### Tool: {self.name}
+#### Description: {self.description}
+#### Arguments:
 {chr(10).join(args_desc)}
 """
 
+    
 class McpChat:
     """Orchestrates the interaction between user, LLM, and tools."""
 
@@ -210,31 +222,31 @@ class McpChat:
 
 
     def mcp_instruction(self, mcp_servers):
-        all_tools = []
+        tools_description = ''
+        for server_name in mcp_servers:
+            tools_description += f"\n\n## Tools of mcp server {server_name}:"
+            tools = self.server_tools.get(server_name,[])
+            tools_description += "\n".join([tool.format_for_llm() for tool in tools])
 
-        # 如果指定了只使用哪些mcp server
-        if mcp_servers is not None:
-            for server_name in mcp_servers:
-                tools = self.server_tools.get(server_name,[])
-                all_tools.extend(tools)
-        else:
-            for name in self.server_tools:
-                tools = self.server_tools.get(name)
-                all_tools.extend(tools)
+            config = self.server_config["mcpServers"].get(server_name,{})
+            system_prompt = config.get("system")
+            if system_prompt:
+                tools_description += f"\n### Suggestion or extra information of mcp server {server_name}:\n{system_prompt}"
 
-        tools_description = "\n".join([tool.format_for_llm() for tool in all_tools])
+        today_desc = get_current_time_with_weekday()
         instruction = f"""
 You are a helpful assistant with access to these tools:
 
 {tools_description}
 
+## Todo:
 Choose the appropriate tool based on the user's question. If no tool is needed, reply directly
 If you need to access database,use a tool.
 If you are not clear about table name or table structure, use a tool.
 if the table does not exist,dont try to create a new table, just list tables of the database to find an appropriate table.
 
 CRITICAL: When you need to use a tool, you must ONLY Respond strictly in **JSON** and nothing else.The response should adhere to the following JSON schema:
-## Response Format:
+### Response Format:
 {{
 "tool": "string"
 "arguments": "dict"
@@ -246,13 +258,13 @@ After receiving a tool's response:
 3. Focus on the most relevant information
 4. Use appropriate context from the user's question
 5. Avoid simply repeating the raw data
-
+6. today is {today_desc}
 Please use only the tools that are explicitly defined above.
 """
         return instruction
 
 
-    async def process_llm_response(self, llm_response: str, msg_queue = None) -> str:
+    async def process_llm_response(self, dia_mcp_servers, llm_response: str, msg_queue = None) -> str:
         """分析llm的回答，如果需要则调用MCP工具.
 
         Args:
@@ -277,13 +289,14 @@ Please use only the tools that are explicitly defined above.
                 # tool_desc = f"调用工具:\n\n```json\n{tool_json}\n```"
 
                 for server in self.servers:
-                    if any(tool.name == tool_call["tool"] for tool in server.tools):
+                    if server.name in dia_mcp_servers and any(tool.name == tool_call["tool"] for tool in server.tools):
                         try:
                             result = await server.execute_tool(
                                 tool_call["tool"], tool_call["arguments"], msg_queue
                             )
 
-                            result = result.encode('latin-1', errors='replace').decode('unicode_escape', errors='replace')
+                            # result = result.encode('latin-1', errors='replace').decode('unicode_escape', errors='replace')
+                            result = self.convert_mixed_utf_string(result)
                             return f"\n\n工具执行结果:\n\n```\n{result}\n```"
                         except Exception as e:
                             error_msg = f"工具执行出错: {str(e)}"
@@ -408,10 +421,10 @@ Please use only the tools that are explicitly defined above.
 
         # 将每个mcp server的独有系统提示词附加到此次问答的系统提示词中
         system_prompt = prompt_config["system"]
-        for server_name in dia_mcp_servers:
-            config = self.server_config["mcpServers"].get(server_name,{})
-            if config.get("system"):
-                system_prompt += "\n\n" + config.get("system")
+        # for server_name in dia_mcp_servers:
+        #     config = self.server_config["mcpServers"].get(server_name,{})
+        #     if config.get("system"):
+        #         system_prompt += "\n\n" + config.get("system")
 
         # 枚举当前对话助手所配置所有的mcp servers，生成tools desc
         mcp_instruction = self.mcp_instruction(dia_mcp_servers)
@@ -444,7 +457,7 @@ Please use only the tools that are explicitly defined above.
 
             async def run_async_func():
                 # 执行异步函数B并获取结果
-                result = await self.process_llm_response(response_content, msg_queue)
+                result = await self.process_llm_response(dia_mcp_servers, response_content, msg_queue)
                 result_container[0] = result
                 # 执行结束标记
                 msg_queue.put(None)

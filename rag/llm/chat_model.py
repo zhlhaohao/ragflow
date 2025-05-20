@@ -54,11 +54,11 @@ LENGTH_NOTIFICATION_EN = "...\nThe answer is truncated by your chosen LLM due to
 
 # F8080
 def clear_gen_conf(gen_conf):
-    if gen_conf.get("mcp_servers"):
-        gen_conf.pop("mcp_servers")
-
-    if gen_conf.get("enable_cot"):
+    if "enable_cot" in gen_conf:
         gen_conf.pop("enable_cot")
+
+    if "mcp_servers" in gen_conf:
+        gen_conf.pop("mcp_servers")
 
 
 class Base(ABC):

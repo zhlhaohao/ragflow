@@ -54,8 +54,7 @@ async def generate_query(query, stream=False):
     """
     将问题生成N个不同的问题
     """
-    query_count = ["one", "two", "three", "four", "five", "six"][args.query_count - 1]
-    prompt = f"""You are an expert research assistant. Given the user's query, generate up to {query_count} distinct, precise search queries in chinese that would help gather comprehensive information on the topic.
+    prompt = f"""You are an expert research assistant. Given the user's query, generate up to {args.query_count} distinct, precise search queries in chinese that would help gather comprehensive information on the topic.
     Return only a Python list of strings, for example: ['query1', 'query2', 'query3']."""
 
     response = await client.chat.completions.create(
@@ -112,7 +111,7 @@ async def if_useful(query: str, page_text: str):
 
 # 返回网页内容上与问题有关的片段
 async def extract_relevant_context(query, search_query, page_text):
-    prompt = f"""你是一位专业的信息提取专家。根据用户查询从网页内容中提取和摘要出对回答用户查询有帮助的相关信息。只返回相关的上下文作为纯文本，最多{args.context_length}字，不添加任何评论."""
+    prompt = f"""你是一位专业的信息提取专家。根据用户查询从网页内容中提取和摘要出对回答用户查询有帮助的相关信息。只返回相关的上下文作为纯文本，最多{args.context_length}字，不添加任何评论,如何你发现该网页并不能解答用户的问题，请直接返回：网页内容无关。"""
 
     response = await client.chat.completions.create(
         model=model_name,
@@ -141,6 +140,8 @@ async def get_new_search_queries(user_query, previous_search_queries, all_contex
     If further research is needed, provide up to four new search queries as a Python list (for example, ['new query1', 'new query2']). If you believe no further research is needed, respond with exactly .
     Output only a Python list or the token  without any additional text."""
 
+    content = f"User Query: {user_query}\nPrevious Search Queries: {previous_search_queries}\n\nExtracted Relevant Contexts:\n{context_combined}\n\n{prompt}"
+    # logger.info(f"content: {content}")
     response = await client.chat.completions.create(
         model=model_name,
         messages=[
@@ -150,7 +151,7 @@ async def get_new_search_queries(user_query, previous_search_queries, all_contex
             },
             {
                 "role": "user",
-                "content": f"User Query: {user_query}\nPrevious Search Queries: {previous_search_queries}\n\nExtracted Relevant Contexts:\n{context_combined}\n\n{prompt}",
+                "content": content,
             },
         ],
         extra_body={"chat_template_kwargs": {"enable_thinking": False}},
@@ -159,11 +160,12 @@ async def get_new_search_queries(user_query, previous_search_queries, all_contex
     response = response.choices[0].message.content
     if response:
         cleaned = response.strip()
-        if cleaned == "":
+        if cleaned == "" or cleaned == "[]":
             return ""
         try:
             new_queries = eval(cleaned)
             if isinstance(new_queries, list):
+                logger.info(f"new_queries:{new_queries}")
                 return new_queries
             else:
                 logger.info(
@@ -180,9 +182,10 @@ async def web_search(query: str):
     """通过searxng在互联网异步搜索用户的问题，返回前web_search个url
     http://127.0.0.1:8088/search?format=json&q=广州天气&language=zh-CN&time_range=&safesearch=0&categories=general   
     http://10.119.101.20:9860/search?format=json&q=广州天气&language=zh-CN&time_range=&safesearch=0&categories=general   
-    
-    
+
+
     """
+    logger.info(f"searxng_search:{query}")
     links = []
     try:
         async with aiohttp.ClientSession(
@@ -192,6 +195,7 @@ async def web_search(query: str):
                 f"{args.searxng_url}search?format=json&q={query}&language=zh-CN&time_range=&safesearch=0&categories=general"
             ) as response:
                 results = (await response.json())["results"]
+                logger.info(f"searxng_search results:{results}")
                 links = [result["url"] for result in results[: args.max_results]]
     except Exception as e:
         logger.error(f"Web search error: {e}")
@@ -240,7 +244,7 @@ curl -X POST http://10.119.101.21:9860/v1/scrape \
                     resp = await resp.text()
                     result = json.loads(resp)
                     content = result.get("data").get("markdown")
-                    logger.info(f"content:{content}")
+                    # logger.info(f"content:{content}")
                     return content
                 else:
                     text = await resp.text()
@@ -265,28 +269,27 @@ async def process_link(link, query, search_query, ctx):
         _type_: 返回网页上与用户提问相关的片段(200字符)
     """
     page_text = None
-    if link and not link.endswith(".pdf"):
+    if link:  # and not link.endswith(".pdf"):
         logger.info(f"爬取网页内容: {link}")
-        # await ctx.sample(f"正在爬取 {link}")
         page_text = await fetch_webpage_text(link, ctx)
 
     if page_text is None:
         return None
 
-    # 判断内容是否能够解答问题
-    if args.deep_research:
-        usefulness = await if_useful(query, page_text)
-        logger.info(f"网页是否能够解答问题: {usefulness}")
-    else:
-        usefulness = "Yes"
+    # # 判断内容是否能够解答问题
+    # if args.deep_research:
+    #     usefulness = await if_useful(query, page_text)
+    #     logger.info(f"网页是否能够解答问题: {usefulness}")
+    # else:
+    #     usefulness = "Yes"
 
     # 提取网页内容上与用户提问相关的片段
-    if usefulness == "Yes":
-        logger.info("提炼摘要")
-        context = await extract_relevant_context(query, search_query, page_text)
-        if context:
-            await ctx.sample(f"摘要:\n{context}\n\n")
-            return context
+    # if usefulness == "Yes":
+    logger.info("提炼摘要")
+    context = await extract_relevant_context(query, search_query, page_text)
+    if context:
+        await ctx.sample(f"摘要:\n{context}\n\n")
+        return context
     return None
 
 
@@ -334,7 +337,7 @@ async def search(query: str, ctx: Context) -> str:
             new_search_queries = all_search_queries = [query]
 
         while iteration < iteration_limit:
-            # logger.info(f"\n=== 第{iteration + 1}次循环 ===")
+            logger.info(f"\n=== 第{iteration + 1}次循环 ===")
             # await ctx.sample(f"\n=== 第{iteration + 1}次循环 ===")
 
             iteration_contexts = []
@@ -355,9 +358,13 @@ async def search(query: str, ctx: Context) -> str:
 
             await ctx.sample(f"共搜索出{len(unique_links)}个网页.")
 
+            # link_results = [
+            #     await process_link(link, query, unique_links[link], ctx) for link in unique_links
+            # ]
+
             # firecrawl爬取url的内容，询问大模型词网页是否有用，有用则返回与用户提问相关的片段
             # 创建信号量限制并发数为3,一个批次启动3个任务
-            semaphore = asyncio.Semaphore(3)
+            semaphore = asyncio.Semaphore(5)
 
             async def process_link_with_sem(link, query, search_query, ctx):
                 async with semaphore:
@@ -402,7 +409,7 @@ async def search(query: str, ctx: Context) -> str:
                 if new_search_queries == "":
                     logger.info("资料已经收集完成，结束搜索\n\n")
                     break
-                elif new_search_queries:
+                elif len(new_search_queries) > 0:
                     # 大模型说还不够，然后给出了新的问题
                     logger.info(
                         f"由于对结果不满意，LLM提供了新的问题:{new_search_queries}"
@@ -414,9 +421,9 @@ async def search(query: str, ctx: Context) -> str:
                     break
 
             iteration += 1
-            ans = "\n\n".join(aggregated_contexts)
-            await ctx.sample(f"从网上得到{len(ans)}字的回答: {ans[0:100]}...")
-            return ans
+        ans = "\n\n".join(aggregated_contexts)
+        await ctx.sample(f"从网上得到{len(ans)}字的回答: {ans[0:100]}...")
+        return ans
 
     except Exception as e:
         logger.error(f"Error occurred: {e}")

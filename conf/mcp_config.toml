@@ -9,6 +9,22 @@ command = "uv"
 args = [
   "run",
   "mcps/servers/web_search/mcp_web_search.py",
+  "--max-results", "10",
+  "--firecrawl-url", "http://gpu2:9860/",
+  "--searxng-url", "http://127.0.0.1:9863/"
+]
+
+[mcpServers.deep_research]
+desc = "深度研究"
+command = "uv"
+args = [
+  "run",
+  "mcps/servers/web_search/mcp_web_search.py",
+  "--deep-research",
+  "--iteration-limit", "3",
+  "--query-count", "3",
+  "--max-results", "5",
+  "--context-length", "2000",
   "--firecrawl-url", "http://gpu2:9860/",
   "--searxng-url", "http://127.0.0.1:9863/"
 ]
