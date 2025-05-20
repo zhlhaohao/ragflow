@@ -1,10 +1,12 @@
 {
   "mcpServers": {
     "time": {
+      "desc": "时间日期查询",
       "command": "uv",
       "args": ["run", "mcp-server-time", "--local-timezone=Asia/Shanghai"]
     },
     "web-search": {
+      "desc": "联网查询",
       "command": "uv",
       "args": [
         "run", 
@@ -14,7 +16,9 @@
       ]
     },
     "mysql-mcp-server":{
-      "url": "http://132.120.194.217:9500/sse"
+      "desc": "员工数据库问答",
+      "url": "http://132.120.194.217:9500/sse",
+      "system": "### 数据库表结构的说明\n\n \ #### t_users - 用户表\n\ndesc t_users; \ CREATE TABLE `t_users` ( ", 
     }
   }
 }

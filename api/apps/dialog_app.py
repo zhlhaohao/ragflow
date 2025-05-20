@@ -29,6 +29,7 @@ from api.utils import ic
 
 # F8080
 from api.db.services.llm_service import LLMType,LLMService, TenantLLMService, LLMBundle
+from mcps.client import mcp_chat
 
 @manager.route('/set', methods=['POST'])  # type: ignore # noqa: F821
 @login_required
@@ -269,5 +270,17 @@ def list_admin_dialogs():
         else:
             # 返回空数组
             return get_json_result(data=[])
+    except Exception as e:
+        return server_error_response(e)
+
+
+
+@manager.route('/list_mcp_servers', methods=['GET'])  # type: ignore # noqa: F821
+@login_required
+def list_mcp_servers():
+    "F8080 - 列出系统所有的mcp servers的配置"
+    try:
+        server_config = mcp_chat.MCP_CHAT.server_config
+        return get_json_result(data=server_config)
     except Exception as e:
         return server_error_response(e)

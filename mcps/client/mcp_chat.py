@@ -14,6 +14,7 @@ from api import settings
 from mcps.client.lite_llm_json import LiteLLMJson
 from api.db.services.llm_service import TenantLLMService, LLMBundle
 from api.db import LLMType
+import mcp
 from fastmcp import Client
 from fastmcp.client.sampling import RequestContext, SamplingMessage, SamplingParams
 import re
@@ -75,7 +76,7 @@ class Server:
         if "command" in self.config:
             config =  {"mcpServers": { self.name : self.config}}
         if "url" in self.config:
-            config =  {"mcpServers": self.config}
+            config =  {"mcpServers": {"url": self.config["url"]}}
 
         if sampling_handler:
             client = Client(config, sampling_handler = sampling_handler)
@@ -126,9 +127,17 @@ class Server:
 
                 # logger.info(f"89- 调用工具:{tool_name}, 参数是:{tool_args}\n")
                 async with client:
-                    result = await client.call_tool(tool_name, arguments)
+                    """
+                       list[
+                            mcp.types.TextContent | mcp.types.ImageContent | mcp.types.EmbeddedResource
+                        ]
+                    """
+                    resp = await client.call_tool(tool_name, arguments)
+                    result = resp[0]
+                    if isinstance(result, mcp.types.TextContent):
+                        data = result.text
                     # logger.info(f"101- 工具返回结果:\n{result}")
-                    return result
+                    return data
 
             except Exception as e:
                 attempt += 1
@@ -186,20 +195,32 @@ class McpChat:
         )
 
         config = Configuration()
-        server_config = config.load_config("conf/servers_config.json")
+        self.server_config = config.load_config("conf/servers_config.json")
 
         self.servers = [
             Server(name, srv_config)
-            for name, srv_config in server_config["mcpServers"].items()
+            for name, srv_config in self.server_config["mcpServers"].items()
         ]
 
-        all_tools = []
+        self.server_tools = {}
         for server in self.servers:
             tools = await server.list_tools()
-            all_tools.extend(tools)
+            self.server_tools[server.name] = tools
+
+
+    def get_system_message(self, mcp_servers):
+        all_tools = []
+        if mcp_servers is not None:
+            for server in mcp_servers:
+                tools = self.server_tools.get(server,[])
+                all_tools.extend(tools)
+        else:
+            for name in self.server_tools:
+                tools = self.server_tools.get(name)
+                all_tools.extend(tools)
 
         tools_description = "\n".join([tool.format_for_llm() for tool in all_tools])
-        self.system_message = (
+        instruction = (
             "You are a helpful assistant with access to these tools:\n\n"
             f"{tools_description}\n"
             "Choose the appropriate tool based on the user's question. "
@@ -222,6 +243,8 @@ class McpChat:
             "5. Avoid simply repeating the raw data\n\n"
             "Please use only the tools that are explicitly defined above.\n"
         )
+        return instruction
+
 
     async def process_llm_response(self, llm_response: str, msg_queue = None) -> str:
         """分析llm的回答，如果需要则调用MCP工具.
@@ -254,7 +277,7 @@ class McpChat:
                                 tool_call["tool"], tool_call["arguments"], msg_queue
                             )
 
-                            # logging.info(f"工具返回结果:\n{result}")
+                            result = result.encode('latin-1', errors='replace').decode('unicode_escape', errors='replace')
                             return f"\n\n工具执行结果:\n\n```\n{result}\n```"
                         except Exception as e:
                             error_msg = f"工具执行出错: {str(e)}"
@@ -373,9 +396,11 @@ class McpChat:
         if not chat_mdl:
             raise LookupError("LLM(%s) not found" % dialog.llm_id)
 
-        prompt_config = dialog.prompt_config
         gen_conf = dialog.llm_setting
-        mcp_messages = [{"role": "system", "content": self.system_message}]
+        prompt_config = dialog.prompt_config
+        mcp_instruction = self.get_system_message(gen_conf.get("mcp_servers"))
+
+        mcp_messages = [{"role": "system", "content": mcp_instruction}]
         mcp_messages.extend(messages)
         ans = ""
         # 强制关闭本地qwen3的思维链输出
@@ -432,7 +457,7 @@ class McpChat:
             thread.join()
             result = result_container[0]
             result = result.replace(r'\\u', r'\u')
-            result = self.convert_mixed_utf_string(result)
+            # result = self.convert_mixed_utf_string(result)
 
             # 如果使用了tool
             if result != response_content:

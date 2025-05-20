@@ -126,6 +126,9 @@ class Base(ABC):
         if gen_conf.get("internet"):
             gen_conf.pop("internet")
 
+        if gen_conf.get("mcp_servers"):
+            gen_conf.pop("mcp_servers")
+
         # Implement exponential backoff retry strategy
         for attempt in range(self.max_retries):
             try:
@@ -1755,7 +1758,7 @@ class UniinChat(Base):
 
     def chat(self, system, history, gen_conf):
         if "qwen3" in self.model_name.lower() or "qwq" in self.model_name.lower():
-            return self.chat_unsing_stream(system, history, gen_conf)
+            return self.chat_using_stream(system, history, gen_conf)
 
         exp_seconds = 3600000
 
@@ -1796,7 +1799,7 @@ class UniinChat(Base):
 
 
 
-    def chat_unsing_stream(self, system, history, gen_conf):
+    def chat_using_stream(self, system, history, gen_conf):
         """用流式方法调用，但是一次性返回回答
 
         Args:
@@ -1809,6 +1812,14 @@ class UniinChat(Base):
         """
         exp_seconds = 3600000
 
+        last_msg = history[-1]
+        last_msg_content = last_msg["content"]
+        if "qwen3" in self.model_name.lower() or "qwq" in self.model_name.lower():
+            if gen_conf.get("enable_cot", False):
+                last_msg["content"] = last_msg["content"] + "/think"
+            else:
+                last_msg["content"] = last_msg["content"] + "/no_think"
+
         if system:
             history.insert(0, {"role": "system", "content": system})
 
@@ -1817,6 +1828,7 @@ class UniinChat(Base):
 
         try:
             response = cniin_llm.stream_completions(settings.UNIIN_APP_KEY, settings.UNIIN_APP_SECRET, exp_seconds, self.model_name, history, **gen_conf)
+            last_msg["content"] = last_msg_content
 
             has_reasoning = False
             for chunk in response.iter_lines():
@@ -1851,20 +1863,21 @@ class UniinChat(Base):
     def chat_streamly(self, system, history, gen_conf):
         exp_seconds = 3600000
 
-        if system:
-            if not gen_conf.get("enable_cot"):
-                system = system + "/no_think"
+        last_msg = history[-1]
+        last_msg_content = last_msg["content"]
+        if "qwen3" in self.model_name.lower() or "qwq" in self.model_name.lower():
+            if gen_conf.get("enable_cot", False):
+                last_msg["content"] = last_msg["content"] + "/think"
             else:
-                system = system + "/think"
+                last_msg["content"] = last_msg["content"] + "/no_think"
 
-            history.insert(0, {"role": "system", "content": system})
-
+        history.insert(0, {"role": "system", "content": system})
         ans = ""
         reasoning = ""
         total_tokens = 0
-
         try:
             response = cniin_llm.stream_completions(settings.UNIIN_APP_KEY, settings.UNIIN_APP_SECRET, exp_seconds, self.model_name, history, **gen_conf)
+            last_msg["content"] = last_msg_content
 
             has_reasoning = False
             for chunk in response.iter_lines():
