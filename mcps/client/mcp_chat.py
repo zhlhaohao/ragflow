@@ -113,7 +113,7 @@ class Server:
         tool_name: str,
         arguments: dict[str, Any],
         msg_queue = None,
-        retries: int = 1,
+        retries: int = 2,
         delay: float = 2,
     ) -> Any:
         """带重试机制的调用工具.
@@ -264,7 +264,7 @@ Please use only the tools that are explicitly defined above.
         return instruction
 
 
-    async def process_llm_response(self, dia_mcp_servers, llm_response: str, msg_queue = None) -> str:
+    async def mcp_tool_call(self, server, tool_call, msg_queue = None) -> str:
         """分析llm的回答，如果需要则调用MCP工具.
 
         Args:
@@ -274,41 +274,18 @@ Please use only the tools that are explicitly defined above.
             工具执行结果或者是入参
         """
 
+        logging.info(f"Executing tool: {tool_call['tool']}")
+        logging.info(f"With arguments: {tool_call['arguments']}")
         try:
-            # 提取json string并解析出tool调用命令，如果不包含，那么抛出异常
-            tool_call = llm_json.parse_response(llm_response)
-
-            if "tool" in tool_call:
-                if "arguments" not in tool_call:
-                    tool_call["arguments"] = {}
-
-                logging.info(f"Executing tool: {tool_call['tool']}")
-                logging.info(f"With arguments: {tool_call['arguments']}")
-
-                # tool_json = json.dumps(tool_call, ensure_ascii=False)
-                # tool_desc = f"调用工具:\n\n```json\n{tool_json}\n```"
-
-                for server in self.servers:
-                    if server.name in dia_mcp_servers and any(tool.name == tool_call["tool"] for tool in server.tools):
-                        try:
-                            result = await server.execute_tool(
-                                tool_call["tool"], tool_call["arguments"], msg_queue
-                            )
-
-                            # result = result.encode('latin-1', errors='replace').decode('unicode_escape', errors='replace')
-                            result = self.convert_mixed_utf_string(result)
-                            return f"\n\n工具执行结果:\n\n```\n{result}\n```"
-                        except Exception as e:
-                            error_msg = f"工具执行出错: {str(e)}"
-                            logging.error(error_msg)
-                            return error_msg
-
-                return f"找不到工具对应的MCP服务: {tool_call['tool']}"
-            return llm_response
-        except json.JSONDecodeError:
-            return llm_response
-        except jsonschema.exceptions.ValidationError:
-            return llm_response
+            result = await server.execute_tool(
+                tool_call["tool"], tool_call["arguments"], msg_queue
+            )
+            result = self.convert_mixed_utf_string(result)
+            return f"\n\n工具执行结果:\n\n```\n{result}\n```"
+        except Exception as e:
+            error_msg = f"工具执行出错: {str(e)}"
+            logging.error(error_msg)
+            return error_msg
 
 
     async def start(self) -> None:
@@ -340,21 +317,7 @@ Please use only the tools that are explicitly defined above.
                     )
                     response_content = response.choices[0].message.content
                     logging.info("\nAssistant: %s", response_content)
-
-                    # 根据llm_response判断是否需要调用tool,并调用tool，然后返回结果
-                    # 如果不使用tool，那么则原样返回
-
-                    # 接收到工具中间结果输出
-                    async def sampling_handler(
-                        messages: list[SamplingMessage],
-                        params: SamplingParams,
-                        ctx: RequestContext,
-                    ) -> str:
-                        logging.info(f"\n{messages[0].content.text}")
-                        return ""
-
-                    result = await self.process_llm_response(response_content)
-
+                    result = await self.mcp_tool_call(response_content)
 
                     # 如果使用了tool
                     if result != response_content:
@@ -442,53 +405,61 @@ Please use only the tools that are explicitly defined above.
             response_content = chat_mdl.chat(system_prompt, mcp_messages, gen_conf)
             logging.info("\nAssistant: %s", response_content)
 
+            mcp_server = None
             try:
+                # 解析出工具调用对象
                 tool_call = llm_json.parse_response(response_content)
+                # 如果llm要求使用工具
                 if "tool" in tool_call:
-                    tool_json = json.dumps(tool_call, ensure_ascii=False)
-                    ans  += f"调用工具:\n\n```json\n{tool_json}\n```\n\n"
-                    yield {"answer": ans}
-                    # 根据llm_response判断是否需要调用tool,并调用tool，然后返回结果
-                    # 如果不使用tool，那么则原样返回
-            except Exception as e:
-                pass
+                    # 遍历查找工具所对应的mcp server
+                    for server in self.servers:
+                        if server.name in dia_mcp_servers and any(tool.name == tool_call["tool"] for tool in server.tools):
+                            mcp_server = server
+                            if "arguments" not in tool_call:
+                                tool_call["arguments"] = {}
 
-            # result = asyncio.run(self.process_llm_response(response_content, sampling_handler))
+                            tool_json = json.dumps(tool_call, ensure_ascii=False)
+                            ans  += f"call mcp server {server.name}:\n\n```json\n{tool_json}\n```\n\n"
+                            yield {"answer": ans}
+            except Exception as ex:
+                error_msg = f"parse_response error: {str(ex)}"
+                logging.error(error_msg)
 
-            async def run_async_func():
-                # 执行异步函数B并获取结果
-                result = await self.process_llm_response(dia_mcp_servers, response_content, msg_queue)
-                result_container[0] = result
-                # 执行结束标记
-                msg_queue.put(None)
+            # result = asyncio.run(self.mcp_tool_call(response_content, sampling_handler))
 
-            def start_event_loop():
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                loop.run_until_complete(run_async_func())
+            # 如果要求使用tool
+            if mcp_server is not None:
+                async def run_async_func():
+                    # 执行异步函数B并获取结果
+                    result = await self.mcp_tool_call(mcp_server, tool_call, msg_queue)
+                    result_container[0] = result
+                    # 执行结束标记
+                    msg_queue.put(None)
+
+                def start_event_loop():
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    loop.run_until_complete(run_async_func())
 
 
-            # 启动异步事件循环的线程
-            thread = threading.Thread(target=start_event_loop)
-            thread.start()
+                # 启动异步事件循环的线程
+                thread = threading.Thread(target=start_event_loop)
+                thread.start()
 
-            while True:
-                try:
-                    msg = msg_queue.get(timeout=0.1)
-                    if msg is None:
-                        break  # 收到结束信号
-                    yield {"answer": f"{ans}, {msg}"}
-                except queue.Empty:
-                    if not thread.is_alive():
-                        break
+                while True:
+                    try:
+                        msg = msg_queue.get(timeout=0.1)
+                        if msg is None:
+                            break  # 收到结束信号
+                        yield {"answer": f"{ans}, {msg}"}
+                    except queue.Empty:
+                        if not thread.is_alive():
+                            break
 
-            thread.join()
-            result = result_container[0]
-            result = result.replace(r'\\u', r'\u')
-            # result = self.convert_mixed_utf_string(result)
+                thread.join()
+                result = result_container[0]
+                result = result.replace(r'\\u', r'\u')
 
-            # 如果使用了tool
-            if result != response_content:
                 # 去掉思维链的内容
                 response_content = re.sub(r'<think>.*?</think>', '', response_content, flags=re.DOTALL)
 
@@ -503,6 +474,7 @@ Please use only the tools that are explicitly defined above.
                 #     ans += '<think>'
                 ans += result + "\n\n"
                 yield {"answer": ans}
+
             # 没有使用tool，表示是最终回答
             else:
                 logging.info("\nFinal response: %s", response_content)
