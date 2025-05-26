@@ -238,9 +238,7 @@ def completion():
         # 流式响应函数
         def stream():
             nonlocal dia, msg, req, conv
-
-            # ic(msg)
-
+            yield(" ")
             try:
                 # 调用chat函数生成答案，stream模式为True
                 for ans in chat(dia, msg, True, **req):
@@ -498,6 +496,7 @@ def completion_nokb():
         def stream():
             nonlocal dia, messages, conv
             try:
+                yield(" ")
                 # 调用chat函数生成答案，stream模式为True
                 final_ans = None
                 for ans in chat_nokb(dia, messages, True):
@@ -600,6 +599,7 @@ def completion_mcp():
         def stream():
             nonlocal dia, messages, conv
             try:
+                yield(" ")
                 # 调用chat函数生成答案，stream模式为True
                 final_ans = None
                 for ans in mcp_chat.MCP_CHAT.chat(dia, messages):

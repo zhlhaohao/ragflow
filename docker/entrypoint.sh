@@ -10,6 +10,8 @@ done < /ragflow/conf/service_conf.yaml.template
 /usr/sbin/nginx
 
 export LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu/
+# npm config set registry https://registry.npmmirror.com
+npm config set proxy http://10.119.80.110:17890
 
 PY=python3
 if [[ -z "$WS" || $WS -lt 1 ]]; then

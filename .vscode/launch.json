@@ -13,7 +13,10 @@
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}",
       "env": {
-        "OPENAI_PROXY": "http://10.119.80.110:17890"
+        "OPENAI_PROXY": "http://10.119.80.110:17890",
+        // "HTTP_PROXY": "http://10.119.80.110:17890",
+        // "HTTPS_PROXY": "http://10.119.80.110:17890",
+        // "NO_PROXY": "localhost,127.0.0.1,host.docker.internal,132.120.194.217,10.0.0.0/8,172.0.0.0/8"
       },      
       "justMyCode": false
     },

@@ -6,7 +6,6 @@ import threading
 import json
 import logging
 from typing import Any
-import jsonschema
 from dotenv import load_dotenv
 from pydantic import BaseModel
 from openai import OpenAI
@@ -148,7 +147,10 @@ class Server:
                     result = resp[0]
                     if isinstance(result, mcp.types.TextContent):
                         data = result.text
-                    # logger.info(f"101- 工具返回结果:\n{result}")
+                    if isinstance(result, mcp.types.ImageContent):
+                        data = f"""![](data:image/{result.mimeType};base64,{result.data})"""
+
+                    logging.info(f"101- 工具返回结果:\n{data}")
                     return data
 
             except Exception as e:
@@ -280,8 +282,11 @@ Please use only the tools that are explicitly defined above.
             result = await server.execute_tool(
                 tool_call["tool"], tool_call["arguments"], msg_queue
             )
-            result = self.convert_mixed_utf_string(result)
-            return f"\n\n工具执行结果:\n\n```\n{result}\n```"
+            if "data:image" in result:
+                return f"\n\n{result}"
+            else:
+                result = self.convert_mixed_utf_string(result)
+                return f"\n\n工具执行结果:\n\n```\n{result}\n```"
         except Exception as e:
             error_msg = f"工具执行出错: {str(e)}"
             logging.error(error_msg)
@@ -419,7 +424,7 @@ Please use only the tools that are explicitly defined above.
                                 tool_call["arguments"] = {}
 
                             tool_json = json.dumps(tool_call, ensure_ascii=False)
-                            ans  += f"call mcp server {server.name}:\n\n```json\n{tool_json}\n```\n\n"
+                            ans  += f"调用MCP插件{server.name}:\n\n```json\n{tool_json}\n```\n\n"
                             yield {"answer": ans}
             except Exception as ex:
                 error_msg = f"parse_response error: {str(ex)}"
