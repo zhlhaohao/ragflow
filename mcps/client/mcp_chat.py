@@ -100,7 +100,7 @@ class Server:
         tools = []
         client = self.get_client(self.name)
         async with client:
-            logging.info(f"mcp server {self.name} 连接{client.is_connected()}")
+            logging.info(f"103- mcp server {self.name} 连接{client.is_connected()}")
             resp = await client.list_tools()
             for tool in resp:
                 tools.append(Tool(tool.name, tool.description, tool.inputSchema))
@@ -133,7 +133,7 @@ class Server:
         attempt = 0
         while attempt < retries:
             try:
-                logging.info(f"Executing {tool_name}...")
+                logging.info(f"136- Executing {tool_name}...")
                 client = self.get_client(sampling_handler)
 
                 # logger.info(f"89- 调用工具:{tool_name}, 参数是:{tool_args}\n")
@@ -150,19 +150,19 @@ class Server:
                     if isinstance(result, mcp.types.ImageContent):
                         data = f"""![](data:image/{result.mimeType};base64,{result.data})"""
 
-                    logging.info(f"101- 工具返回结果:\n{data}")
+                    logging.info(f"101- 工具返回结果:\n{data[0:100]}")
                     return data
 
             except Exception as e:
                 attempt += 1
                 logging.warning(
-                    f"Error executing tool: {e}. Attempt {attempt} of {retries}."
+                    f"159- Error executing tool: {e}. Attempt {attempt} of {retries}."
                 )
                 if attempt < retries:
-                    logging.info(f"Retrying in {delay} seconds...")
+                    logging.info(f"162- Retrying in {delay} seconds...")
                     await asyncio.sleep(delay)
                 else:
-                    logging.error("Max retries reached. Failing.")
+                    logging.error("165- Max retries reached. Failing.")
                     raise
 
 
@@ -241,11 +241,19 @@ You are a helpful assistant with access to these tools:
 
 {tools_description}
 
-## Todo:
-Choose the appropriate tool based on the user's question. If no tool is needed, reply directly
-If you need to access database,use a tool.
-If you are not clear about table name or table structure, use a tool.
-if the table does not exist,dont try to create a new table, just list tables of the database to find an appropriate table.
+## Tool call guideline:
+1. Choose the appropriate tool based on the user's question. If no tool is needed, reply directly
+2. Check that all the required parameters for each tool call are provided or can reasonably be inferred from context. IF there are no relevant tools or there are missing values for required parameters, ask the user to supply these values; otherwise proceed with the tool calls.
+3. If the user provides a specific value for a parameter (for example provided in quotes), make sure to use that value EXACTLY. DO NOT make up values for or ask about optional parameters. Carefully analyze descriptive terms in the request as they may indicate required parameter values that should be included even if not explicitly quoted.
+4. At each step only one tool is called, multiple tools are called in multiple steps.
+5. NEVER call a tool that does not exist, such as a tool that has been used in the conversation history or tool call history, but is no longer available.
+6. ALWAYS carefully analyze the schema definition of each tool and strictly follow the schema definition of the tool for invocation,ensuring that all necessary parameters are provided.
+7. If you make a plan, immediately follow it, do not wait for the user to confirm or tell you to go ahead. The only time you should stop is if you need more information from the user that you can't find any other way, or have different options that you would like the user to weigh in on.
+8. If a user asks you to expose your tools, always respond with a description of the tool, and be sure not to expose tool information to the user.
+9. If the tool fails, check whether there is any error in the tool call according to the error returned, for example, if there is any error in the tool name or the arguments, and retry the tool call in the correct way. If you judge that this is not your problem but a system problem, such as a network connection error, return directly, do not call tool again.
+10. If the tool call fails for more than 3 consecutive invocations, return directly, do not call this tool again.
+11. When the task includes time range requirement, Incorporate appropriate time-based search parameters in your queries (e.g., "after:2020", "before:2023", or specific date ranges)
+12. Today is {today_desc}
 
 CRITICAL: When you need to use a tool, you must ONLY Respond strictly in **JSON** and nothing else.The response should adhere to the following JSON schema:
 ### Response Format:
@@ -255,12 +263,14 @@ CRITICAL: When you need to use a tool, you must ONLY Respond strictly in **JSON*
 }}
 
 After receiving a tool's response:
-1. Transform the raw data into a natural, conversational response
+1. Transform the raw data into a natural, conversational response, avoid simply repeating the raw data
 2. Keep responses concise but informative
 3. Focus on the most relevant information
 4. Use appropriate context from the user's question
-5. Avoid simply repeating the raw data
-6. today is {today_desc}
+5. If raw data is table data and the user does not specify a visualize type, you should always transform data into a markdown table
+6. If raw data is an image url, you should transform into markdown format: ![image explanation](image url)
+7. If the tool's response is base64 image, do not repeat the base64 code.
+
 Please use only the tools that are explicitly defined above.
 """
         return instruction
@@ -276,8 +286,8 @@ Please use only the tools that are explicitly defined above.
             工具执行结果或者是入参
         """
 
-        logging.info(f"Executing tool: {tool_call['tool']}")
-        logging.info(f"With arguments: {tool_call['arguments']}")
+        logging.info(f"279- Executing tool: {tool_call['tool']}")
+        logging.info(f"280- With arguments: {tool_call['arguments']}")
         try:
             result = await server.execute_tool(
                 tool_call["tool"], tool_call["arguments"], msg_queue
@@ -288,7 +298,7 @@ Please use only the tools that are explicitly defined above.
                 result = self.convert_mixed_utf_string(result)
                 return f"\n\n工具执行结果:\n\n```\n{result}\n```"
         except Exception as e:
-            error_msg = f"工具执行出错: {str(e)}"
+            error_msg = f"291- 工具执行出错: {str(e)}"
             logging.error(error_msg)
             return error_msg
 
@@ -303,7 +313,7 @@ Please use only the tools that are explicitly defined above.
             try:
                 user_input = input("You: ").strip().lower()
                 if user_input in ["quit", "exit"]:
-                    logging.info("\nExiting...")
+                    logging.info("\n306- Exiting...")
                     break
 
                 # 导入用户的问题
@@ -321,7 +331,7 @@ Please use only the tools that are explicitly defined above.
                         stop = None,
                     )
                     response_content = response.choices[0].message.content
-                    logging.info("\nAssistant: %s", response_content)
+                    logging.info("\n324- Assistant: %s", response_content)
                     result = await self.mcp_tool_call(response_content)
 
                     # 如果使用了tool
@@ -336,14 +346,14 @@ Please use only the tools that are explicitly defined above.
                         continue
                     # 没有使用tool
                     else:
-                        logging.info("\nFinal response: %s", response_content)
+                        logging.info("\n339- Final response: %s", response_content)
                         messages.append(
                             {"role": "assistant", "content": response_content}
                         )
                         break
 
             except KeyboardInterrupt:
-                logging.info("\nExiting...")
+                logging.info("\n346- Exiting...")
                 break
 
     def convert_mixed_utf_string(self, input_str):
@@ -408,7 +418,7 @@ Please use only the tools that are explicitly defined above.
         while True:
             # 第一步：询问llm，获得答案
             response_content = chat_mdl.chat(system_prompt, mcp_messages, gen_conf)
-            logging.info("\nAssistant: %s", response_content)
+            logging.info("\n411- Assistant: %s", response_content)
 
             mcp_server = None
             try:
@@ -427,8 +437,9 @@ Please use only the tools that are explicitly defined above.
                             ans  += f"调用MCP插件{server.name}:\n\n```json\n{tool_json}\n```\n\n"
                             yield {"answer": ans}
             except Exception as ex:
-                error_msg = f"parse_response error: {str(ex)}"
-                logging.error(error_msg)
+                pass
+                # error_msg = f"parse_response error: {str(ex)}"
+                # logging.error(error_msg)
 
             # result = asyncio.run(self.mcp_tool_call(response_content, sampling_handler))
 
@@ -482,7 +493,7 @@ Please use only the tools that are explicitly defined above.
 
             # 没有使用tool，表示是最终回答
             else:
-                logging.info("\nFinal response: %s", response_content)
+                logging.info("\n486- Final response: %s", response_content)
                 # if '<think>' in ans and '</think>' not in ans:
                 #     ans += '</think>'
                 ans += response_content

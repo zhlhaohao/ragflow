@@ -1789,6 +1789,11 @@ class UniinChat(Base):
 
 
     def chat(self, system, history, gen_conf):
+        # 遍历history，如果内容包含 data:image ，那么就截断到30字符
+        for i, msg in enumerate(history):
+            if "data:image" in msg["content"]:
+                history[i]["content"] = msg["content"][:30]
+
         if "qwen3" in self.model_name.lower() or "qwq" in self.model_name.lower():
             return self.chat_using_stream(system, history, gen_conf)
 

@@ -10,7 +10,7 @@ args = [
   "run",
   "mcps/servers/web_search/mcp_web_search.py",
   "--max-results", "10",
-  "--firecrawl-url", "http://gpu2:9860/",
+  "--firecrawl-url", "http://172.24.12.149:9860/",
   "--searxng-url", "http://127.0.0.1:9863/"
 ]
 
@@ -25,7 +25,7 @@ args = [
   "--query-count", "3",
   "--max-results", "5",
   "--context-length", "2000",
-  "--firecrawl-url", "http://gpu2:9860/",
+  "--firecrawl-url", "http://172.24.12.149:9860/",
   "--searxng-url", "http://127.0.0.1:9863/"
 ]
 
@@ -56,7 +56,16 @@ CREATE TABLE `team` (
   `desc` varchar(45) DEFAULT '' COMMENT '团队职责描述',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+### 约束:
+1. 生成sql的select字段必须有描述性的别名
+2. 如果用户没有指定具体数据行数，则将查询结果限制为最多50条
+3. 只能使用上面的表结构信息来生成sql，如果无法生成sql，请说："提供的表结构信息不足以生成 sql 查询",禁止随意捏造信息
+4. 你必须用相关列对结果进行排序
+5. 如果用户的提问跟数据库的表无关,只需回答"我不知道".
+
 """
+
 
 [mcpServers.mcp-server-chart]
 desc = "数据可视化插件"
@@ -66,6 +75,22 @@ args = [
     "@antv/mcp-server-chart"
 ]
 # url = "http://172.24.12.149:1122/sse"
+
+
+# [mcpServers.datavis]
+# command = "uv"
+# args = [
+#   "--directory",
+#   "mcps/servers/mcp-vegalite-server",  
+#   "run",
+#   "mcp_server_vegalite",
+#   "--output-type",
+#   "png"
+
+# ]
+# env.http_proxy = "http://10.119.80.110:17890"
+# env.https_proxy = "http://10.119.80.110:17890"  
+
 
 # [mcpServers.baidu-maps]
 # desc = "百度地图"
