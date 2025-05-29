@@ -733,7 +733,7 @@ def set_tenant_info():
         return server_error_response(e)
 
 # F8080 - 复位任意用户的密码
-@manager.route("/reset_password", methods=["POST"])
+@manager.route("/reset_password", methods=["POST"])  # type: ignore # noqa: F821
 def reset_password():
     update_dict = {}
     request_data = request.json
@@ -760,7 +760,7 @@ def reset_password():
 
 
 # F8080 - 这个是自己加上的，注意不要覆盖: 判断用户(email)是否存在
-@manager.route("/exist", methods=["POST"])
+@manager.route("/exist", methods=["POST"])  # type: ignore # noqa: F821
 def user_exist():
     email = request.json.get("email", "")
     users = UserService.query(email=email)
