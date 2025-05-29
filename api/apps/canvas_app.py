@@ -85,11 +85,10 @@ def save():
  
 
 
-@manager.route('/get/<canvas_id>', methods=['GET'])  # type: ignore # noqa: F821
+@manager.route('/get/<canvas_id>', methods=['GET'])  # noqa: F821
 @login_required
 def get(canvas_id):
     e, c = UserCanvasService.get_by_tenant_id(canvas_id)
-    logging.info(f"get canvas_id: {canvas_id} c: {c}")
     if not e:
         return get_data_error_result(message="canvas not found.")
     return get_json_result(data=c)
@@ -115,6 +114,7 @@ def getsse(canvas_id):
 def run():
     req = request.json
     stream = req.get("stream", True)
+    running_hint_text = req.get("running_hint_text", "")
     e, cvs = UserCanvasService.get_by_id(req["id"])
     if not e:
         return get_data_error_result(message="canvas not found.")
@@ -140,7 +140,7 @@ def run():
         def sse():
             nonlocal answer, cvs
             try:
-                for ans in canvas.run(stream=True):
+                for ans in canvas.run(running_hint_text = running_hint_text, stream=True):
                     if ans.get("running_status"):
                         yield "data:" + json.dumps({"code": 0, "message": "",
                                                     "data": {"answer": ans["content"],
@@ -178,7 +178,7 @@ def run():
         resp.headers.add_header("Content-Type", "text/event-stream; charset=utf-8")
         return resp
 
-    for answer in canvas.run(stream=False):
+    for answer in canvas.run(running_hint_text = running_hint_text, stream=False):
         if answer.get("running_status"):
             continue
         final_ans["content"] = "\n".join(answer["content"]) if "content" in answer else ""
@@ -292,7 +292,7 @@ def test_db_connect():
     except Exception as e:
         return server_error_response(e)
 #api get list version dsl of canvas
-@manager.route('/getlistversion/<canvas_id>', methods=['GET'])  # type: ignore # noqa: F821
+@manager.route('/getlistversion/<canvas_id>', methods=['GET'])  # noqa: F821
 @login_required
 def getlistversion(canvas_id):
     try:
@@ -301,7 +301,7 @@ def getlistversion(canvas_id):
     except Exception as e:
         return get_data_error_result(message=f"Error getting history files: {e}")
 #api get version dsl of canvas
-@manager.route('/getversion/<version_id>', methods=['GET'])  # type: ignore # noqa: F821
+@manager.route('/getversion/<version_id>', methods=['GET'])  # noqa: F821
 @login_required
 def getversion( version_id):
     try:
@@ -311,7 +311,7 @@ def getversion( version_id):
             return get_json_result(data=version.to_dict())
     except Exception as e:
         return get_json_result(data=f"Error getting history file: {e}")
-@manager.route('/listteam', methods=['GET'])  # type: ignore # noqa: F821
+@manager.route('/listteam', methods=['GET'])  # noqa: F821
 @login_required
 def list_kbs():
     keywords = request.args.get("keywords", "")
@@ -327,7 +327,7 @@ def list_kbs():
         return get_json_result(data={"kbs": kbs, "total": total})
     except Exception as e:
         return server_error_response(e)
-@manager.route('/setting', methods=['POST'])  # type: ignore # noqa: F821
+@manager.route('/setting', methods=['POST'])  # noqa: F821
 @validate_request("id", "title", "permission")
 @login_required
 def setting():

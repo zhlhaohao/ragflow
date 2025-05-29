@@ -19,6 +19,7 @@
 # beartype_all(conf=BeartypeConf(violation_type=UserWarning))    # <-- emit warnings from all code
 
 from api.utils.log_utils import initRootLogger
+from plugin import GlobalPluginManager
 initRootLogger("ragflow_server")
 
 import logging
@@ -29,6 +30,7 @@ import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 import threading
+import uuid
 import uuid
 
 from werkzeug.serving import run_simple
@@ -50,12 +52,20 @@ import asyncio
 
 stop_event = threading.Event()
 
+RAGFLOW_DEBUGPY_LISTEN = int(os.environ.get('RAGFLOW_DEBUGPY_LISTEN', "0"))
+
 def update_progress():
+    lock_value = str(uuid.uuid4())
+    redis_lock = RedisDistributedLock("update_progress", lock_value=lock_value, timeout=60)
+    logging.info(f"update_progress lock_value: {lock_value}")
     lock_value = str(uuid.uuid4())
     redis_lock = RedisDistributedLock("update_progress", lock_value=lock_value, timeout=60)
     logging.info(f"update_progress lock_value: {lock_value}")
     while not stop_event.is_set():
         try:
+            if redis_lock.acquire():
+                DocumentService.update_progress()
+                redis_lock.release()
             if redis_lock.acquire():
                 DocumentService.update_progress()
                 redis_lock.release()
@@ -92,6 +102,11 @@ async def main() -> None:
     await mcp_chat.init_mcp()
 
 
+    if RAGFLOW_DEBUGPY_LISTEN > 0:
+        logging.info(f"debugpy listen on {RAGFLOW_DEBUGPY_LISTEN}")
+        import debugpy
+        debugpy.listen(("0.0.0.0", RAGFLOW_DEBUGPY_LISTEN))
+
     # init db
     init_web_db()
     init_web_data()
@@ -116,6 +131,8 @@ async def main() -> None:
 
     RuntimeConfig.init_env()
     RuntimeConfig.init_config(JOB_SERVER_HOST=settings.HOST_IP, HTTP_PORT=settings.HOST_PORT)
+
+    GlobalPluginManager.load_plugins()
 
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)

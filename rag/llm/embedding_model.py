@@ -59,9 +59,7 @@ class Base(ABC):
 
 
 class DefaultEmbedding(Base):
-    """默认的嵌入模型：BAAI/bge-large-zh-v1.5，BAAI模型是由北京智源人工智能研究院（Beijing Academy of Artificial Intelligence, BAAI）开发的一系列人工智能模型
-    """
-    # _model 是在类定义的顶部定义的，因此它是一个类变量。实例变量（即在方法内部使用 self 定义的变量）则是每个实例独有的
+    os.environ['CUDA_VISIBLE_DEVICES'] = '0'
     _model = None
     _model_name = ""
     # _model_lock 是一个线程锁，确保在某个线程正在初始化 _model 时，其他线程必须等待，直到初始化完成    
@@ -312,7 +310,8 @@ class ZhipuEmbed(Base):
 
 class OllamaEmbed(Base):
     def __init__(self, key, model_name, **kwargs):
-        self.client = Client(host=kwargs["base_url"])
+        self.client = Client(host=kwargs["base_url"]) if not key or key == "x" else \
+            Client(host=kwargs["base_url"], headers={"Authorization": f"Bear {key}"})
         self.model_name = model_name
 
     def encode(self, texts: list):
@@ -891,9 +890,8 @@ class GPUStackEmbed(OpenAIEmbed):
     def __init__(self, key, model_name, base_url):
         if not base_url:
             raise ValueError("url cannot be None")
-        if base_url.split("/")[-1] != "v1-openai":
-            base_url = os.path.join(base_url, "v1-openai")
+        if base_url.split("/")[-1] != "v1":
+            base_url = os.path.join(base_url, "v1")
 
-        print(key,base_url)
         self.client = OpenAI(api_key=key, base_url=base_url)
         self.model_name = model_name

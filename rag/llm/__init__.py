@@ -108,6 +108,9 @@ from .cv_model import (
     TogetherAICV,
     YiCV,
     HunyuanCV,
+    AnthropicCV,
+    SILICONFLOWCV,
+    GPUStackCV,
 )
 
 from .rerank_model import (
@@ -145,7 +148,7 @@ from .tts_model import (
     SparkTTS,
     XinferenceTTS,
     GPUStackTTS,
-    SILICONFLOWTTS
+    SILICONFLOWTTS,
 )
 
 # 定义了各类嵌入模型、LLM对话模型的实现模块
@@ -201,6 +204,9 @@ CvModel = {
     "TogetherAI": TogetherAICV,
     "01.AI": YiCV,
     "Tencent Hunyuan": HunyuanCV,
+    "Anthropic": AnthropicCV,
+    "SILICONFLOW": SILICONFLOWCV,
+    "GPUStack": GPUStackCV,
 }
 
 ChatModel = {
@@ -231,7 +237,7 @@ ChatModel = {
     "TogetherAI": TogetherAIChat,
     "PerfXCloud": PerfXCloudChat,
     "Upstage": UpstageChat,
-    "novita.ai": NovitaAIChat,
+    "NovitaAI": NovitaAIChat,
     "SILICONFLOW": SILICONFLOWChat,
     "PPIO": PPIOChat,
     "01.AI": YiChat,

@@ -27,9 +27,7 @@ RUN --mount=type=bind,from=infiniflow/ragflow_deps:latest,source=/huggingface.co
     if [ "$LIGHTEN" != "1" ]; then \
         (tar -cf - \
             /huggingface.co/BAAI/bge-large-zh-v1.5 \
-            /huggingface.co/BAAI/bge-reranker-v2-m3 \
             /huggingface.co/maidalun1020/bce-embedding-base_v1 \
-            /huggingface.co/maidalun1020/bce-reranker-base_v1 \
             | tar -xf - --strip-components=2 -C /root/.ragflow) \
     fi
 
@@ -52,7 +50,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 # 构建 C 扩展：libpython3-dev libgtk-4-1 libnss3 xdg-utils libgbm-dev
 RUN --mount=type=cache,id=ragflow_apt,target=/var/cache/ragflow/apt,sharing=locked \
     if [ "$NEED_MIRROR" == "1" ]; then \
-        sed -i 's|http://archive.ubuntu.com|https://mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list; \
+        sed -i 's|http://ports.ubuntu.com|http://mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list; \
+        sed -i 's|http://archive.ubuntu.com|http://mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list; \
     fi; \
     rm -f /etc/apt/apt.conf.d/docker-clean && \
     echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache && \
@@ -66,7 +65,8 @@ RUN --mount=type=cache,id=ragflow_apt,target=/var/cache/ragflow/apt,sharing=lock
     apt install -y libatk-bridge2.0-0 && \
     apt install -y libpython3-dev libgtk-4-1 libnss3 xdg-utils libgbm-dev && \
     apt install -y libjemalloc-dev && \
-    apt install -y python3-pip pipx nginx unzip curl wget git vim less
+    apt install -y python3-pip pipx nginx unzip curl wget git vim less && \
+    apt install -y ghostscript
 
 # 如果需要使用镜像源，则配置 pip 使用清华大学的镜像源，并安装 uv 工具
 RUN if [ "$NEED_MIRROR" == "1" ]; then \
@@ -210,10 +210,12 @@ COPY graphrag graphrag
 COPY mcps mcps
 COPY agentic_reasoning agentic_reasoning
 COPY pyproject.toml uv.lock ./
+COPY mcp mcp
+COPY plugin plugin
 
 # 复制服务配置模板和入口脚本
 COPY docker/service_conf.yaml.template ./conf/service_conf.yaml.template
-COPY docker/entrypoint.sh docker/entrypoint-parser.sh ./
+COPY docker/entrypoint.sh ./
 RUN chmod +x ./entrypoint*.sh
 
 # 复制编译后的网页文件

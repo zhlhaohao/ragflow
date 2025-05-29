@@ -61,7 +61,11 @@ export const FlowSettingModal = ({
   return (
     <Modal
       confirmLoading={loading}
+<<<<<<< HEAD
       title={'Agent Setting'}
+=======
+      title={t('agentSetting')}
+>>>>>>> temp-branch
       open={visible}
       onCancel={hideModal}
       onOk={handleSubmit}
@@ -77,7 +81,11 @@ export const FlowSettingModal = ({
       >
         <Form.Item
           name="title"
+<<<<<<< HEAD
           label="Title"
+=======
+          label={t('title')}
+>>>>>>> temp-branch
           rules={[{ required: true, message: 'Please input a title!' }]}
         >
           <Input />
@@ -100,7 +108,11 @@ export const FlowSettingModal = ({
             </button>
           </Upload>
         </Form.Item>
+<<<<<<< HEAD
         <Form.Item name="description" label="Description">
+=======
+        <Form.Item name="description" label={t('description')}>
+>>>>>>> temp-branch
           <Input.TextArea rows={4} />
         </Form.Item>
 

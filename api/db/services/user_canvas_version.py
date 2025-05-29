@@ -31,8 +31,16 @@ class UserCanvasVersionService(CommonService):
         try:
             user_canvas_version = cls.model.select().where(cls.model.user_canvas_id == user_canvas_id).order_by(cls.model.create_time.desc())
             if user_canvas_version.count() > 20:
+<<<<<<< HEAD
                 for i in range(20, user_canvas_version.count()):
                     cls.delete(user_canvas_version[i].id)
+=======
+                delete_ids = []
+                for i in range(20, user_canvas_version.count()):
+                    delete_ids.append(user_canvas_version[i].id)
+                
+                cls.delete_by_ids(delete_ids)
+>>>>>>> temp-branch
             return True
         except DoesNotExist:
             return None

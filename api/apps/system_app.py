@@ -37,7 +37,7 @@ from timeit import default_timer as timer
 
 from rag.utils.redis_conn import REDIS_CONN
 
-@manager.route("/version", methods=["GET"])  # type: ignore # noqa: F821
+@manager.route("/version", methods=["GET"])  # noqa: F821
 @login_required
 def version():
     """
@@ -299,7 +299,7 @@ def rm(token):
     return get_json_result(data=True)
 
 
-@manager.route('/config', methods=['GET'])  # type: ignore # noqa: F821
+@manager.route('/config', methods=['GET'])  # noqa: F821
 def get_config():
     """
     Get system configuration.

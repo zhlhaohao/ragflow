@@ -27,7 +27,7 @@ def beAdoc(d, q, a, eng, row_num=-1):
     d["content_with_weight"] = q
     d["content_ltks"] = rag_tokenizer.tokenize(q)
     d["content_sm_ltks"] = rag_tokenizer.fine_grained_tokenize(d["content_ltks"])
-    d["tag_kwd"] = [t.strip() for t in a.split(",") if t.strip()]
+    d["tag_kwd"] = [t.strip().replace(".", "_") for t in a.split(",") if t.strip()]
     if row_num >= 0:
         d["top_int"] = [row_num]
     return d
@@ -134,7 +134,7 @@ def label_question(question, kbs):
         all_tags = get_tags_from_cache(tag_kb_ids)
         if not all_tags:
             all_tags = settings.retrievaler.all_tags_in_portion(kb.tenant_id, tag_kb_ids)
-            set_tags_to_cache(all_tags, tag_kb_ids)
+            set_tags_to_cache(tags=all_tags, kb_ids=tag_kb_ids)
         else:
             all_tags = json.loads(all_tags)
         tag_kbs = KnowledgebaseService.get_by_ids(tag_kb_ids)
