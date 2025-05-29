@@ -37,13 +37,18 @@
 		"editor.formatOnSave": false,
 	},
 
-  "terminal.integrated.defaultProfile.windows": "Command Prompt",
-	"python.testing.pytestArgs": [
-		"tests"
-	],
+  "workbench.tree.indent": 16, // 可根据需求调整缩进
+  "workbench.sidebar.fontSize": 18, // 这里的14是字体大小，可按需修改
+
+  // "terminal.integrated.defaultProfile.windows": "Command Prompt",
+	// "python.testing.pytestArgs": [
+	// 	"tests"
+	// ],
 	"python.testing.unittestEnabled": false,
 	"python.testing.pytestEnabled": true,
 	"peacock.color": "#e0a61c",
   "peacock.remoteColor": "#777bd7",
   "bookmarkX.sort": "manual",
+  "editor.fontSize": 18,
+  "debug.console.fontSize": 18,
 }

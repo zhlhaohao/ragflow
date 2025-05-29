@@ -1,0 +1,24 @@
+{
+  "mcpServers": {
+    "time": {
+      "desc": "时间日期查询",
+      "command": "uv",
+      "args": ["run", "mcp-server-time", "--local-timezone=Asia/Shanghai"]
+    },
+    "web-search": {
+      "desc": "联网查询",
+      "command": "uv",
+      "args": [
+        "run", 
+        "mcps/servers/web_search/mcp_web_search.py",
+        "--firecrawl-url", "http://gpu2:9860/",
+        "--searxng-url", "http://127.0.0.1:9863/"
+      ]
+    },
+    "mysql-mcp-server":{
+      "desc": "员工数据库问答",
+      "url": "http://132.120.194.217:9500/sse",
+      "system": "hahaahahahah"
+    }
+  }
+}

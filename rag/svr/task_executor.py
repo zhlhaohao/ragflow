@@ -467,7 +467,8 @@ async def embedding(docs, mdl, parser_config=None, callback=None):
     # 处理内容嵌入,解释同上
     cnts_ = np.array([])
     for i in range(0, len(cnts), batch_size):
-        vts, c = await trio.to_thread.run_sync(lambda: mdl.encode([truncate(c, mdl.max_length-10) for c in cnts[i: i + batch_size]]))
+        # F8080 truncate后再次进行max_length长度截断，避免embeddding 模型处理过长的文本
+        vts, c = await trio.to_thread.run_sync(lambda: mdl.encode([truncate(c, mdl.max_length)[:mdl.max_length-10] for c in cnts[i: i + batch_size]]))
         if len(cnts_) == 0:
             cnts_ = vts
         else:

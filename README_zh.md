@@ -1,3 +1,13 @@
+docker pull searxng/searxng:2025.5.7-f52cd3f00
+docker tag searxng/searxng:2025.5.7-f52cd3f00 10.119.101.20:9869/searxng:2025.5.7-f52cd3f00
+docker push 10.119.101.20:9869/searxng:2025.5.7-f52cd3f00
+
+
+docker pull ghcr.io/intergalacticalvariable/reader:latest
+docker tag ghcr.io/intergalacticalvariable/reader:latest 10.119.101.20:9869/jina-reader:2025.5.7
+docker push 10.119.101.20:9869/jina-reader:2025.5.7
+
+
 ## 此项目的配置文件详细说明
 
 ### docker/.env

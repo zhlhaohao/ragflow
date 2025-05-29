@@ -4,12 +4,19 @@ read img_ver
 echo -n '是否构建镜像 (y/n)'
 read flag
 if [ "$flag" = "y" -o "$flag" = "Y" ] ; then
-  docker build --build-arg NEED_MIRROR=1 -f /home/lianghao/github/ragflow/Dockerfile -t ragflow:$img_ver /home/lianghao/github/ragflow
+  docker build \
+    --build-arg NEED_MIRROR=0 \
+    --build-arg "HTTP_PROXY=http://10.119.80.110:17890/" \
+    --build-arg "HTTPS_PROXY=http://10.119.80.110:17890/" \
+    -f /home/lianghao/github/ragflow/Dockerfile \
+    -t ragflow:cheetah-$img_ver \
+    /home/lianghao/github/ragflow
+
 fi
 
-echo -n '是否上传到pot (y/n)'
-read flag
-if [ "$flag" = "y" -o "$flag" = "Y" ] ; then
-  docker tag ragflow:$img_ver 132.120.194.217:9201/ragflow:$img_ver
-  docker push 132.120.194.217:9201/ragflow:$img_ver
-fi
+# echo -n '是否上传到pot (y/n)'
+# read flag
+# if [ "$flag" = "y" -o "$flag" = "Y" ] ; then
+#   docker tag ragflow:cheetah-$img_ver 172.24.12.148:9869/ragflow:cheetah-$img_ver
+#   docker push 172.24.12.148:9869/ragflow:cheetah-$img_ver
+# fi

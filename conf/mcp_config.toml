@@ -1,0 +1,107 @@
+# [mcpServers.time]
+# desc = "时间日期查询"
+# command = "uv"
+# args = ["run", "mcp-server-time", "--local-timezone=Asia/Shanghai"]
+
+[mcpServers.web_search]
+desc = "联网查询"
+command = "uv"
+args = [
+  "run",
+  "mcps/servers/web_search/mcp_web_search.py",
+  "--max-results", "10",
+  "--firecrawl-url", "http://172.24.12.149:9860/",
+  "--searxng-url", "http://127.0.0.1:9863/"
+]
+
+[mcpServers.deep_research]
+desc = "深度研究"
+command = "uv"
+args = [
+  "run",
+  "mcps/servers/web_search/mcp_web_search.py",
+  "--deep-research",
+  "--iteration-limit", "3",
+  "--query-count", "3",
+  "--max-results", "5",
+  "--context-length", "2000",
+  "--firecrawl-url", "http://172.24.12.149:9860/",
+  "--searxng-url", "http://127.0.0.1:9863/"
+]
+
+[mcpServers.mysql_mcp_server]
+desc = "员工数据库问答"
+url = "http://132.120.194.217:9500/sse"
+system = """### 用户表的表结构的说明
+#### staff - 员工表
+CREATE TABLE `staff` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(45) NOT NULL COMMENT '姓名',
+  `sex` varchar(45) DEFAULT NULL COMMENT '性别: 男,女',
+  `team_id` int DEFAULT NULL COMMENT '所属团队id, 外键到team表',
+  `job` varchar(45) DEFAULT '' COMMENT '职位',
+  `mobile` varchar(45) NOT NULL COMMENT '手机号码',
+  `email` varchar(45) NOT NULL COMMENT '邮箱',
+  `note` varchar(500) DEFAULT '' COMMENT '备注',
+  `ability` varchar(500) DEFAULT '' COMMENT '技能',
+  `status` int DEFAULT '1' COMMENT '状态： 0: 已删除  1: 正常',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=124 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='中国联通广东网络研发中心员工表';
+
+#### team - 团队表的表结构说明
+CREATE TABLE `team` (
+  `id` int NOT NULL,
+  `name` varchar(45) NOT NULL COMMENT '团队或者科室的名称\n',
+  `manager` varchar(45) NOT NULL COMMENT '团队经理、团队负责人',
+  `desc` varchar(45) DEFAULT '' COMMENT '团队职责描述',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+### 约束:
+1. 生成sql的select字段必须有描述性的别名
+2. 如果用户没有指定具体数据行数，则将查询结果限制为最多50条
+3. 只能使用上面的表结构信息来生成sql，如果无法生成sql，请说："提供的表结构信息不足以生成 sql 查询",禁止随意捏造信息
+4. 你必须用相关列对结果进行排序
+5. 如果用户的提问跟数据库的表无关,只需回答"我不知道".
+
+"""
+
+
+[mcpServers.mcp-server-chart]
+desc = "数据可视化插件"
+command = "npx"
+args = [
+    "-y",
+    "@antv/mcp-server-chart"
+]
+# url = "http://172.24.12.149:1122/sse"
+
+
+# [mcpServers.datavis]
+# command = "uv"
+# args = [
+#   "--directory",
+#   "mcps/servers/mcp-vegalite-server",  
+#   "run",
+#   "mcp_server_vegalite",
+#   "--output-type",
+#   "png"
+
+# ]
+# env.http_proxy = "http://10.119.80.110:17890"
+# env.https_proxy = "http://10.119.80.110:17890"  
+
+
+# [mcpServers.baidu-maps]
+# desc = "百度地图"
+# command = "uvx"
+# args = [
+#   "mcp-server-baidu-maps"
+# ]
+# env.BAIDU_MAPS_API_KEY = "cDegYKJ8dKCl98GmWKCoqxY9dzrqneWA"
+# env.http_proxy = "http://10.119.80.110:17890"
+# env.https_proxy = "http://10.119.80.110:17890"
+
+# [mcpServers.bing-cn-mcp-server]
+# desc = "必应搜索中文-有问题sse连接报错"
+# url = "https://mcp.api-inference.modelscope.cn/sse/deac8c08dbbd4b"

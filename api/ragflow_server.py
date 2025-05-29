@@ -45,6 +45,9 @@ from api.utils import show_configs
 from rag.settings import print_rag_settings
 from rag.utils.redis_conn import RedisDistributedLock
 
+from mcps.client import mcp_chat
+import asyncio
+
 stop_event = threading.Event()
 
 def update_progress():
@@ -66,7 +69,7 @@ def signal_handler(sig, frame):
     time.sleep(1)
     sys.exit(0)
 
-if __name__ == '__main__':
+async def main() -> None:
     logging.info(r"""
         ____   ___    ______ ______ __               
        / __ \ /   |  / ____// ____// /____  _      __
@@ -84,6 +87,10 @@ if __name__ == '__main__':
     show_configs()
     settings.init_settings()
     print_rag_settings()
+
+    # 初始化mcp服务器
+    await mcp_chat.init_mcp()
+
 
     # init db
     init_web_db()
@@ -132,3 +139,6 @@ if __name__ == '__main__':
         stop_event.set()
         time.sleep(1)
         os.kill(os.getpid(), signal.SIGKILL)
+
+if __name__ == '__main__':
+    asyncio.run(main())

@@ -35,9 +35,9 @@ from api.utils.api_utils import server_error_response, get_data_error_result, va
 from graphrag.general.mind_map_extractor import MindMapExtractor
 from api.utils import ic 
 from rag.app.tag import label_question
+from mcps.client import mcp_chat
 
-
-@manager.route('/set', methods=['POST'])    # noqa: F821
+@manager.route('/set', methods=['POST'])    # type: ignore # noqa: F821
 @login_required
 def set_conversation():
     req = request.json
@@ -74,7 +74,7 @@ def set_conversation():
         return server_error_response(e)
 
 
-@manager.route('/get', methods=['GET'])  # noqa: F821
+@manager.route('/get', methods=['GET'])  # type: ignore # noqa: F821
 @login_required
 def get():
     conv_id = request.args["conversation_id"]
@@ -117,7 +117,7 @@ def get():
     except Exception as e:
         return server_error_response(e)
 
-@manager.route('/getsse/<dialog_id>', methods=['GET'])  # type: ignore # noqa: F821
+@manager.route('/getsse/<dialog_id>', methods=['GET'])  #noqa: F821
 def getsse(dialog_id):
 
     token = request.headers.get('Authorization').split()
@@ -138,7 +138,7 @@ def getsse(dialog_id):
     except Exception as e:
         return server_error_response(e)
 
-@manager.route('/rm', methods=['POST'])  # noqa: F821
+@manager.route('/rm', methods=['POST'])  # type: ignore # noqa: F821
 @login_required
 def rm():
     conv_ids = request.json["conversation_ids"]
@@ -161,7 +161,7 @@ def rm():
         return server_error_response(e)
 
 
-@manager.route('/list', methods=['GET'])  # noqa: F821
+@manager.route('/list', methods=['GET'])  # type: ignore # noqa: F821
 @login_required
 def list_convsersation():
     dialog_id = request.args["dialog_id"]
@@ -181,7 +181,7 @@ def list_convsersation():
         return server_error_response(e)
 
 
-@manager.route('/completion', methods=['POST'])  # noqa: F821
+@manager.route('/completion', methods=['POST'])  # type: ignore # noqa: F821
 @login_required
 @validate_request("conversation_id", "messages")
 def completion():
@@ -238,9 +238,7 @@ def completion():
         # 流式响应函数
         def stream():
             nonlocal dia, msg, req, conv
-
-            # ic(msg)
-
+            yield(" ")
             try:
                 # 调用chat函数生成答案，stream模式为True
                 for ans in chat(dia, msg, True, **req):
@@ -279,7 +277,7 @@ def completion():
         return server_error_response(e)
 
 
-@manager.route('/tts', methods=['POST'])  # noqa: F821
+@manager.route('/tts', methods=['POST'])  # type: ignore # noqa: F821
 @login_required
 def tts():
     req = request.json
@@ -313,7 +311,7 @@ def tts():
     return resp
 
 
-@manager.route('/delete_msg', methods=['POST'])  # noqa: F821
+@manager.route('/delete_msg', methods=['POST'])  # type: ignore # noqa: F821
 @login_required
 @validate_request("conversation_id", "message_id")
 def delete_msg():
@@ -336,7 +334,7 @@ def delete_msg():
     return get_json_result(data=conv)
 
 
-@manager.route('/thumbup', methods=['POST'])  # noqa: F821
+@manager.route('/thumbup', methods=['POST'])  # type: ignore # noqa: F821
 @login_required
 @validate_request("conversation_id", "message_id")
 def thumbup():
@@ -363,7 +361,7 @@ def thumbup():
     return get_json_result(data=conv)
 
 
-@manager.route('/ask', methods=['POST'])  # noqa: F821
+@manager.route('/ask', methods=['POST'])  # type: ignore # noqa: F821
 @login_required
 @validate_request("question", "kb_ids")
 def ask_about():
@@ -389,7 +387,7 @@ def ask_about():
     return resp
 
 
-@manager.route('/mindmap', methods=['POST'])  # noqa: F821
+@manager.route('/mindmap', methods=['POST'])  # type: ignore # noqa: F821
 @login_required
 @validate_request("question", "kb_ids")
 def mindmap():
@@ -414,7 +412,7 @@ def mindmap():
     return get_json_result(data=mind_map)
 
 
-@manager.route('/related_questions', methods=['POST'])  # noqa: F821
+@manager.route('/related_questions', methods=['POST'])  # type: ignore # noqa: F821
 @login_required
 @validate_request("question")
 def related_questions():
@@ -451,7 +449,7 @@ Related search terms:
     """}], {"temperature": 0.9})
     return get_json_result(data=[re.sub(r"^[0-9]\. ", "", a) for a in ans.split("\n") if re.match(r"^[0-9]\. ", a)])
 
-@manager.route('/add_messages', methods=['POST'])  # noqa: F821
+@manager.route('/add_messages', methods=['POST'])  # type: ignore # noqa: F821
 @login_required
 @validate_request("conversation_id", "messages")
 def add_messages():
@@ -474,7 +472,7 @@ def add_messages():
         return server_error_response(e)
 
 
-@manager.route('/completion_nokb', methods=['POST'])  # noqa: F821
+@manager.route('/completion_nokb', methods=['POST'])  # type: ignore # noqa: F821
 @login_required
 @validate_request("conversation_id", "messages")
 def completion_nokb():
@@ -498,6 +496,7 @@ def completion_nokb():
         def stream():
             nonlocal dia, messages, conv
             try:
+                yield(" ")
                 # 调用chat函数生成答案，stream模式为True
                 final_ans = None
                 for ans in chat_nokb(dia, messages, True):
@@ -551,7 +550,7 @@ def completion_nokb():
 
 
 
-@manager.route('/list_lite', methods=['GET'])  # noqa: F821
+@manager.route('/list_lite', methods=['GET'])  # type: ignore # noqa: F821
 @login_required
 def list_convsersation_lite():
     """F8080 为节省流量，不返回对话内容，只返回对话列表
@@ -576,3 +575,66 @@ def list_convsersation_lite():
         return server_error_response(e)
 
 
+@manager.route('/completion_mcp', methods=['POST'])  # type: ignore # noqa: F821
+@login_required
+@validate_request("conversation_id", "messages")
+def completion_mcp():
+    """F8080 MCP能力加强的对话
+    """
+    req = request.json
+    messages = req["messages"]
+    message_id = messages[-1].get("id")
+
+    try:
+        # 获取聊天对象
+        e, conv = ConversationService.get_by_id(req["conversation_id"])
+        if not e:
+            return get_data_error_result(message="Conversation not found!")
+
+        # 获取助理对象
+        e, dia = DialogService.get_by_id(conv.dialog_id)
+        if not e:
+            return get_data_error_result(message="Dialog not found!")
+
+        def stream():
+            nonlocal dia, messages, conv
+            try:
+                yield(" ")
+                # 调用chat函数生成答案，stream模式为True
+                final_ans = None
+                for ans in mcp_chat.MCP_CHAT.chat(dia, messages):
+                    ans["id"] = message_id
+                    ans["session_id"] = conv.id
+                    final_ans = ans
+                    yield "data:" + json.dumps({"code": 0, "message": "", "data": ans}, ensure_ascii=False) + "\n\n"
+
+                # 将最后一条用户提问和助理的回答保存到对话记录中
+                if final_ans is None:
+                    err_msg = "大模型返回空回答"
+                    yield "data:" + json.dumps({"code": 500, "message": err_msg,
+                                            "data": {"answer": "**ERROR**: " + err_msg, "reference": []}},
+                                           ensure_ascii=False) + "\n\n"
+                else:
+                    conv.message.append(messages[-1])
+                    conv.message.append({"role": "assistant", "content":
+                        final_ans['answer'], "id": message_id})
+                    ConversationService.update_by_id(conv.id, conv.to_dict())
+            except Exception as e:
+                traceback.print_exc()
+                yield "data:" + json.dumps({"code": 500, "message": str(e),
+                                            "data": {"answer": "**ERROR**: " + str(e), "reference": []}},
+                                           ensure_ascii=False) + "\n\n"
+
+            # 全部回答完成
+            yield "data:" + json.dumps({"code": 0, "message": "", "data": True}, ensure_ascii=False) + "\n\n"
+
+        if req.get("stream", True):
+            resp = Response(stream(), mimetype="text/event-stream")
+            resp.headers.add_header("Cache-control", "no-cache")
+            resp.headers.add_header("Connection", "keep-alive")
+            resp.headers.add_header("X-Accel-Buffering", "no")
+            resp.headers.add_header("Content-Type", "text/event-stream; charset=utf-8")
+            return resp
+
+    except Exception as e:
+        return server_error_response(e)

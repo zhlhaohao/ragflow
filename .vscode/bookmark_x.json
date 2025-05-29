@@ -342,7 +342,7 @@
           "line": 51,
           "col": 2,
           "name": "端点：上传文件",
-          "lineText": "@manager.route('/upload', methods=['POST'])  # noqa: F821",
+          "lineText": "@manager.route('/upload', methods=['POST'])  # type: ignore # noqa: F821",
           "uri": "其它"
         }
       ]

@@ -44,6 +44,17 @@ HOST_PORT = None
 SECRET_KEY = None
 FACTORY_LLM_INFOS = None
 
+MCP_CHAT_MDL = ""
+MCP_CHAT_URL = ""
+MCP_CHAT_KEY = ""
+MCP_VL_MDL = ""
+MCP_VL_URL = ""
+MCP_VL_KEY = ""
+MCP_CHAT = None
+
+UNIIN_APP_KEY = ""
+UNIIN_APP_SECRET = ""
+
 DATABASE_TYPE = os.getenv("DB_TYPE", 'mysql')
 DATABASE = decrypt_database_config(name=DATABASE_TYPE)
 
@@ -68,6 +79,8 @@ REGISTER_ENABLED = 1
 
 def init_settings():
     global LLM, LLM_FACTORY, LLM_BASE_URL, LIGHTEN, DATABASE_TYPE, DATABASE, FACTORY_LLM_INFOS, REGISTER_ENABLED
+    global MCP_CHAT_MDL, MCP_CHAT_URL, MCP_CHAT_KEY, MCP_VL_MDL, MCP_VL_URL, MCP_VL_KEY, UNIIN_APP_KEY, UNIIN_APP_SECRET
+
     LIGHTEN = int(os.environ.get('LIGHTEN', "0"))
     DATABASE_TYPE = os.getenv("DB_TYPE", 'mysql')
     DATABASE = decrypt_database_config(name=DATABASE_TYPE)
@@ -76,11 +89,20 @@ def init_settings():
     LLM_DEFAULT_MODELS = LLM.get("default_models", {})
     LLM_FACTORY = LLM.get("factory", "Tongyi-Qianwen")
     LLM_BASE_URL = LLM.get("base_url")
+    MCP_CHAT_MDL = LLM.get("mcp_chat_model", "")
+    MCP_CHAT_URL = LLM.get("mcp_chat_url", "")
+    MCP_CHAT_KEY = LLM.get("mcp_chat_key", "")
+    MCP_VL_MDL = LLM.get("mcp_vl_model", "")
+    MCP_VL_URL = LLM.get("mcp_vl_url", "")
+    MCP_VL_KEY = LLM.get("mcp_vl_key", "")
+    UNIIN_APP_KEY = LLM.get("uniin_app_key", "")
+    UNIIN_APP_SECRET = LLM.get("uniin_app_secret", "")
+
     try:
         REGISTER_ENABLED = int(os.environ.get("REGISTER_ENABLED", "1"))
     except Exception:
-        pass  
-    
+        pass
+
     try:
         with open(os.path.join(get_project_base_directory(), "conf", "llm_factories.json"), "r") as f:
             FACTORY_LLM_INFOS = json.load(f)["factory_llm_infos"]

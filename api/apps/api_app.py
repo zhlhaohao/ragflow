@@ -47,7 +47,7 @@ from agent.canvas import Canvas
 from functools import partial
 
 
-@manager.route('/new_token', methods=['POST'])  # noqa: F821
+@manager.route('/new_token', methods=['POST'])  # type: ignore # noqa: F821
 @login_required
 def new_token():
     req = request.json
@@ -77,7 +77,7 @@ def new_token():
         return server_error_response(e)
 
 
-@manager.route('/token_list', methods=['GET'])  # noqa: F821
+@manager.route('/token_list', methods=['GET'])  # type: ignore # noqa: F821
 @login_required
 def token_list():
     try:
@@ -92,7 +92,7 @@ def token_list():
         return server_error_response(e)
 
 
-@manager.route('/rm', methods=['POST'])  # noqa: F821
+@manager.route('/rm', methods=['POST'])  # type: ignore # noqa: F821
 @validate_request("tokens", "tenant_id")
 @login_required
 def rm():
@@ -106,7 +106,7 @@ def rm():
         return server_error_response(e)
 
 
-@manager.route('/stats', methods=['GET'])  # noqa: F821
+@manager.route('/stats', methods=['GET'])  # type: ignore # noqa: F821
 @login_required
 def stats():
     try:
@@ -137,7 +137,7 @@ def stats():
         return server_error_response(e)
 
 
-@manager.route('/new_conversation', methods=['GET'])  # noqa: F821
+@manager.route('/new_conversation', methods=['GET'])  # type: ignore # noqa: F821
 def set_conversation():
     token = request.headers.get('Authorization').split()[1]
     objs = APIToken.query(token=token)
@@ -177,7 +177,7 @@ def set_conversation():
         return server_error_response(e)
 
 
-@manager.route('/completion', methods=['POST'])  # noqa: F821
+@manager.route('/completion', methods=['POST'])  # type: ignore # noqa: F821
 @validate_request("conversation_id", "messages")
 def completion():
     token = request.headers.get('Authorization').split()[1]
@@ -343,7 +343,7 @@ def completion():
         return server_error_response(e)
 
 
-@manager.route('/conversation/<conversation_id>', methods=['GET'])  # noqa: F821
+@manager.route('/conversation/<conversation_id>', methods=['GET'])  # type: ignore # noqa: F821
 # @login_required
 def get(conversation_id):
     token = request.headers.get('Authorization').split()[1]
@@ -374,7 +374,7 @@ def get(conversation_id):
         return server_error_response(e)
 
 
-@manager.route('/document/upload', methods=['POST'])  # noqa: F821
+@manager.route('/document/upload', methods=['POST'])  # type: ignore # noqa: F821
 @validate_request("kb_name")
 def upload():
     """
@@ -502,7 +502,7 @@ def upload():
     return get_json_result(data=doc_result.to_json())
 
 
-@manager.route('/document/upload_and_parse', methods=['POST'])  # noqa: F821
+@manager.route('/document/upload_and_parse', methods=['POST'])  # type: ignore # noqa: F821
 @validate_request("conversation_id")
 def upload_parse():
     token = request.headers.get('Authorization').split()[1]
@@ -525,7 +525,7 @@ def upload_parse():
     return get_json_result(data=doc_ids)
 
 
-@manager.route('/list_chunks', methods=['POST'])  # noqa: F821
+@manager.route('/list_chunks', methods=['POST'])  # type: ignore # noqa: F821
 # @login_required
 def list_chunks():
     token = request.headers.get('Authorization').split()[1]
@@ -565,7 +565,7 @@ def list_chunks():
     return get_json_result(data=res)
 
 
-@manager.route('/list_kb_docs', methods=['POST'])  # noqa: F821
+@manager.route('/list_kb_docs', methods=['POST'])  # type: ignore # noqa: F821
 # @login_required
 def list_kb_docs():
     token = request.headers.get('Authorization').split()[1]
@@ -605,7 +605,7 @@ def list_kb_docs():
         return server_error_response(e)
 
 
-@manager.route('/document/infos', methods=['POST'])  # noqa: F821
+@manager.route('/document/infos', methods=['POST'])  # type: ignore # noqa: F821
 @validate_request("doc_ids")
 def docinfos():
     token = request.headers.get('Authorization').split()[1]
@@ -619,7 +619,7 @@ def docinfos():
     return get_json_result(data=list(docs.dicts()))
 
 
-@manager.route('/document', methods=['DELETE'])  # noqa: F821
+@manager.route('/document', methods=['DELETE'])  # type: ignore # noqa: F821
 # @login_required
 def document_rm():
     token = request.headers.get('Authorization').split()[1]
@@ -678,7 +678,7 @@ def document_rm():
     return get_json_result(data=True)
 
 
-@manager.route('/completion_aibotk', methods=['POST'])  # noqa: F821
+@manager.route('/completion_aibotk', methods=['POST'])  # type: ignore # noqa: F821
 @validate_request("Authorization", "conversation_id", "word")
 def completion_faq():
     import base64
@@ -820,7 +820,7 @@ def completion_faq():
         return server_error_response(e)
 
 
-@manager.route('/retrieval', methods=['POST'])  # noqa: F821
+@manager.route('/retrieval', methods=['POST'])  # type: ignore # noqa: F821
 @validate_request("kb_id", "question")
 def retrieval():
     token = request.headers.get('Authorization').split()[1]

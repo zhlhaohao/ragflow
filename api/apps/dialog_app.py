@@ -29,8 +29,9 @@ from api.utils import ic
 
 # F8080
 from api.db.services.llm_service import LLMType,LLMService, TenantLLMService, LLMBundle
+from mcps.client import mcp_chat
 
-@manager.route('/set', methods=['POST'])  # noqa: F821
+@manager.route('/set', methods=['POST'])  # type: ignore # noqa: F821
 @login_required
 def set_dialog():
     req = request.json
@@ -129,7 +130,7 @@ def set_dialog():
         return server_error_response(e)
 
 
-@manager.route('/get', methods=['GET'])  # noqa: F821
+@manager.route('/get', methods=['GET'])  # type: ignore # noqa: F821
 @login_required
 def get():
     dialog_id = request.args["dialog_id"]
@@ -155,7 +156,7 @@ def get_kb_names(kb_ids):
     return ids, nms
 
 
-@manager.route('/list', methods=['GET'])  # noqa: F821
+@manager.route('/list', methods=['GET'])  # type: ignore # noqa: F821
 @login_required
 def list_dialogs():
     try:
@@ -172,7 +173,7 @@ def list_dialogs():
         return server_error_response(e)
 
 
-@manager.route('/rm', methods=['POST'])  # noqa: F821
+@manager.route('/rm', methods=['POST'])  # type: ignore # noqa: F821
 @login_required
 @validate_request("dialog_ids")
 def rm():
@@ -195,7 +196,7 @@ def rm():
         return server_error_response(e)
 
 
-@manager.route('/get_llm_config', methods=['GET'])  # noqa: F821
+@manager.route('/get_llm_config', methods=['GET'])  # type: ignore # noqa: F821
 @login_required
 def get_llm_config():
     """F8080 获取模型的参数，例如api key
@@ -242,5 +243,44 @@ def get_llm_config():
                     "api_key": api_key,
                     "base_url": base_url,
                     })
+    except Exception as e:
+        return server_error_response(e)
+
+
+
+
+@manager.route('/list_super', methods=['GET'])  # type: ignore # noqa: F821
+@login_required
+def list_admin_dialogs():
+    "F8080 - 列出超级用户所拥有的对话助手"
+    try:
+
+        super_tenants = UserTenantService.get_tenants_by_is_superuser()
+        if len(super_tenants) > 0:
+            super_tenant_id = super_tenants[0]['tenant_id']
+            diags = DialogService.query(
+                tenant_id=super_tenant_id,
+                status=StatusEnum.VALID.value,
+                reverse=True,
+                order_by=DialogService.model.create_time)
+            diags = [d.to_dict() for d in diags]
+            for d in diags:
+                d["kb_ids"], d["kb_names"] = get_kb_names(d["kb_ids"])
+            return get_json_result(data=diags)
+        else:
+            # 返回空数组
+            return get_json_result(data=[])
+    except Exception as e:
+        return server_error_response(e)
+
+
+
+@manager.route('/list_mcp_servers', methods=['GET'])  # type: ignore # noqa: F821
+@login_required
+def list_mcp_servers():
+    "F8080 - 列出系统所有的mcp servers的配置"
+    try:
+        server_config = mcp_chat.MCP_CHAT.server_config
+        return get_json_result(data=server_config)
     except Exception as e:
         return server_error_response(e)

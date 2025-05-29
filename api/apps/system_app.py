@@ -37,7 +37,7 @@ from timeit import default_timer as timer
 
 from rag.utils.redis_conn import REDIS_CONN
 
-@manager.route("/version", methods=["GET"])  # noqa: F821
+@manager.route("/version", methods=["GET"])  # type: ignore # noqa: F821
 @login_required
 def version():
     """
@@ -60,7 +60,7 @@ def version():
     return get_json_result(data=get_ragflow_version())
 
 
-@manager.route("/status", methods=["GET"])  # noqa: F821
+@manager.route("/status", methods=["GET"])  # type: ignore # noqa: F821
 @login_required
 def status():
     """
@@ -169,7 +169,7 @@ def status():
     return get_json_result(data=res)
 
 
-@manager.route("/new_token", methods=["POST"])  # noqa: F821
+@manager.route("/new_token", methods=["POST"])  # type: ignore # noqa: F821
 @login_required
 def new_token():
     """
@@ -219,7 +219,7 @@ def new_token():
         return server_error_response(e)
 
 
-@manager.route("/token_list", methods=["GET"])  # noqa: F821
+@manager.route("/token_list", methods=["GET"])  # type: ignore # noqa: F821
 @login_required
 def token_list():
     """
@@ -267,7 +267,7 @@ def token_list():
         return server_error_response(e)
 
 
-@manager.route("/token/<token>", methods=["DELETE"])  # noqa: F821
+@manager.route("/token/<token>", methods=["DELETE"])  # type: ignore # noqa: F821
 @login_required
 def rm(token):
     """
@@ -299,7 +299,7 @@ def rm(token):
     return get_json_result(data=True)
 
 
-@manager.route('/config', methods=['GET'])  # noqa: F821
+@manager.route('/config', methods=['GET'])  # type: ignore # noqa: F821
 def get_config():
     """
     Get system configuration.
