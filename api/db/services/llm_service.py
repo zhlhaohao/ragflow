@@ -534,16 +534,19 @@ class LLMBundle:
 
         for txt in chat_streamly(system, history, gen_conf):
             if isinstance(txt, int):
-                total_tokens = txt
-                if self.langfuse:
-                    generation.end(output={"output": ans})
-                break
+                # total_tokens = txt
+                # if self.langfuse:
+                #     generation.end(output={"output": ans})
+                # break
+                return
 
             if txt.endswith("</think>"):
                 ans = ans.rstrip("</think>")
 
             ans += txt
             yield ans
-        if total_tokens > 0:
-            if not TenantLLMService.increase_usage(self.tenant_id, self.llm_type, txt, self.llm_name):
-                logging.error("LLMBundle.chat_streamly can't update token usage for {}/CHAT llm_name: {}, content: {}".format(self.tenant_id, self.llm_name, txt))
+
+
+        # if total_tokens > 0:
+        #     if not TenantLLMService.increase_usage(self.tenant_id, self.llm_type, txt, self.llm_name):
+        #         logging.error("LLMBundle.chat_streamly can't update token usage for {}/CHAT llm_name: {}, content: {}".format(self.tenant_id, self.llm_name, txt))

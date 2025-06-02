@@ -56,17 +56,6 @@ MCP_CHAT = None
 UNIIN_APP_KEY = ""
 UNIIN_APP_SECRET = ""
 
-MCP_CHAT_MDL = ""
-MCP_CHAT_URL = ""
-MCP_CHAT_KEY = ""
-MCP_VL_MDL = ""
-MCP_VL_URL = ""
-MCP_VL_KEY = ""
-MCP_CHAT = None
-
-UNIIN_APP_KEY = ""
-UNIIN_APP_SECRET = ""
-
 DATABASE_TYPE = os.getenv("DB_TYPE", "mysql")
 DATABASE = decrypt_database_config(name=DATABASE_TYPE)
 

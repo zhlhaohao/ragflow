@@ -31,7 +31,6 @@ import traceback
 from concurrent.futures import ThreadPoolExecutor
 import threading
 import uuid
-import uuid
 
 from werkzeug.serving import run_simple
 from api import settings

@@ -60,9 +60,8 @@ def set_dialog():
     }
     default_prompt_no_dataset = {
         "system": """You are a helpful assistant.""",
-        "prologue": "您好，我是您的助手小樱，长得可爱又善良，can I help you?",
+        "prologue": "你好！我是你的问答小助手，有什么可以帮到你的吗？",
         "parameters": [
-           
         ],
         "empty_response": ""
     }
@@ -75,6 +74,8 @@ def set_dialog():
         if prompt_config['system'] == default_prompt_with_dataset['system'] or "{knowledge}" in prompt_config['system']:
             prompt_config = default_prompt_no_dataset
 
+
+    """   F8080 将提示词与自定义参数进行匹配,如果对不上,就返回错误信息,这里注释掉是因为我的界面暂时没有设置自定义参数的地方,可能会引起校验失败
     for p in prompt_config["parameters"]:
         if p["optional"]:
             continue

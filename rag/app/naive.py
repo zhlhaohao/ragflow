@@ -426,7 +426,7 @@ def chunk(filename, binary=None, from_page=0, to_page=100000,
     pdf_parser = None
     section_images = None
     if re.search(r"\.docx$", filename, re.IGNORECASE):
-        callback(0.1, "Start to parse.")
+        callback(0.1, "开始解析.")
 
         try:
             vision_model = LLMBundle(kwargs["tenant_id"], LLMType.IMAGE2TEXT)
@@ -527,7 +527,7 @@ def chunk(filename, binary=None, from_page=0, to_page=100000,
         callback(0.8, "Finish parsing.")
 
     elif re.search(r"\.(md|markdown)$", filename, re.IGNORECASE):
-        callback(0.1, "Start to parse.")
+        callback(0.1, "开始解析.")
         markdown_parser = Markdown(int(parser_config.get("chunk_token_num", 128)))
         sections, tables = markdown_parser(filename, binary)
         

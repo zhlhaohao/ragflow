@@ -438,13 +438,15 @@ class Base(ABC):
         if "internet" in gen_conf:
             gen_conf.pop("internet")
 
-        reasoning_start = False
         try:
             response = self.client.chat.completions.create(
                 model=self.model_name,
                 messages=history,
                 stream=True,
+                extra_body = extra_body,
                 **gen_conf)
+
+            has_reasoning = False
             for resp in response:
                 if not resp.choices:
                     continue
@@ -678,6 +680,9 @@ class QWenChat(Base):
 
         dashscope.api_key = key
         self.model_name = model_name
+        # F8080 - 这两个参数是给浏览器调用api用的
+        self.api_key = key
+        self.base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1/"        
         if self.is_reasoning_model(self.model_name) or self.model_name in ["qwen-vl-plus", "qwen-vl-plus-latest", "qwen-vl-max", "qwen-vl-max-latest"]:
             super().__init__(key, model_name, "https://dashscope.aliyuncs.com/compatible-mode/v1")
 

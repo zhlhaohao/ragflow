@@ -1,21 +1,6 @@
 {
 	"files": [
 		{
-			"path": "api/apps/document_app.py",
-			"bookmarks": [
-				{
-					"line": 343,
-					"column": 12,
-					"label": ""
-				},
-				{
-					"line": 381,
-					"column": 10,
-					"label": ""
-				}
-			]
-		},
-		{
 			"path": "rag/svr/task_executor.py",
 			"bookmarks": [
 				{
