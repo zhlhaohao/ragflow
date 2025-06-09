@@ -1,0 +1,6 @@
+
+#!/bin/bash
+export http_proxy=http://10.119.80.110:17890
+export https_proxy=http://10.119.80.110:17890
+echo $http_proxy
+echo $https_proxy
