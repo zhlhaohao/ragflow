@@ -62,6 +62,9 @@ def clear_gen_conf(gen_conf):
     if "mcp_servers" in gen_conf:
         gen_conf.pop("mcp_servers")
 
+    if "internet" in gen_conf:
+        gen_conf.pop("internet")
+
 def is_ip_address(base_url):
     try:
         # 尝试将字符串解析为IP地址

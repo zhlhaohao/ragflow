@@ -619,6 +619,10 @@ def completion_mcp():
                     conv.message.append({"role": "assistant", "content":
                         final_ans['answer'], "id": message_id})
                     ConversationService.update_by_id(conv.id, conv.to_dict())
+
+                    # F8080 这里很奇怪，需要重复最后一个回答，在前端才能显示出来，而completion_nokb就自动回重复一次
+                    yield "data:" + json.dumps({"code": 0, "message": "", "data": final_ans}, ensure_ascii=False) + "\n\n"
+
             except Exception as e:
                 traceback.print_exc()
                 yield "data:" + json.dumps({"code": 500, "message": str(e),

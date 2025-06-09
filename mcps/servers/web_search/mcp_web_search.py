@@ -178,7 +178,7 @@ async def get_new_search_queries(user_query, previous_search_queries, all_contex
     return []
 
 
-async def web_search(query: str):
+async def searxng_search(query: str):
     """通过searxng在互联网异步搜索用户的问题，返回前web_search个url
     http://127.0.0.1:8088/search?format=json&q=广州天气&language=zh-CN&time_range=&safesearch=0&categories=general   
     http://10.119.101.20:9860/search?format=json&q=广州天气&language=zh-CN&time_range=&safesearch=0&categories=general   
@@ -310,7 +310,7 @@ async def get_images_description(iamge_url):
 
 
 @mcp_server.tool()
-async def search(query: str, ctx: Context) -> str:
+async def web_search(query: str, ctx: Context) -> str:
     """互联网搜索用户的问题,返回搜索结果
 
     Args:
@@ -344,9 +344,9 @@ async def search(query: str, ctx: Context) -> str:
 
             # 调用searxng对4个扩展问题进行搜索，每个问题取前2个搜索结果，形成一个url数组
             # 这里可以并发处理
-            # search_tasks = [web_search(query) for query in new_search_queries]
+            # search_tasks = [searxng_search(query) for query in new_search_queries]
             # search_results = await asyncio.gather(*search_tasks)
-            search_results = [await web_search(query) for query in new_search_queries]
+            search_results = [await searxng_search(query) for query in new_search_queries]
 
             # 结果去重
             unique_links = {}

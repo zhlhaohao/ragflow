@@ -3,6 +3,11 @@
 # command = "uv"
 # args = ["run", "mcp-server-time", "--local-timezone=Asia/Shanghai"]
 
+[mcpServers.MainServer]
+desc = "主服务器"
+url = "http://127.0.0.1:9898/mcp/sse"
+transport = "sse"
+
 [mcpServers.web_search]
 desc = "联网查询"
 command = "uv"
@@ -32,6 +37,7 @@ args = [
 [mcpServers.mysql_mcp_server]
 desc = "员工数据库问答"
 url = "http://132.120.194.217:9500/sse"
+transport = "sse"
 system = """### 用户表的表结构的说明
 #### staff - 员工表
 CREATE TABLE `staff` (

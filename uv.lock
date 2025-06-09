@@ -1138,7 +1138,7 @@ wheels = [
 
 [[package]]
 name = "fastmcp"
-version = "2.3.3"
+version = "2.5.2"
 source = { registry = "https://mirrors.aliyun.com/pypi/simple" }
 dependencies = [
     { name = "exceptiongroup" },
@@ -1150,9 +1150,9 @@ dependencies = [
     { name = "typer" },
     { name = "websockets" },
 ]
-sdist = { url = "https://mirrors.aliyun.com/pypi/packages/ef/78/fd9f82886ecf04826ed3f5bbfe8c5e400ba77d2cee66258f8a19e3ea01c8/fastmcp-2.3.3.tar.gz", hash = "sha256:f13f87e180158e8176074c2a39a363bfd1ad4283a259377463c81c7735619106" }
+sdist = { url = "https://mirrors.aliyun.com/pypi/packages/20/cc/d2c0e63d2b34681bef4e077611dae662ea722add13a83dc4ae08b6e0fd23/fastmcp-2.5.2.tar.gz", hash = "sha256:761c92fb54f561136f631d7d98b4920152978f6f0a66a4cef689a7983fd05c8b" }
 wheels = [
-    { url = "https://mirrors.aliyun.com/pypi/packages/d3/25/d49eb31b653f8f6fcd496e5abaedef9bdd5b71fac102cb9220d5df4d016e/fastmcp-2.3.3-py3-none-any.whl", hash = "sha256:c4dcd809f4e058aea3fd158952ff51294f2392871de3a870183d61cde032787f" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/3e/ac/caa94ff747e2136829ac2fea33b9583e086ca5431451751bcb2f773e087f/fastmcp-2.5.2-py3-none-any.whl", hash = "sha256:4ea46ef35c1308b369eff7c8a10e4c9639bed046fd646449c1227ac7c3856d83" },
 ]
 
 [[package]]
@@ -2388,7 +2388,7 @@ wheels = [
 
 [[package]]
 name = "mcp"
-version = "1.8.1"
+version = "1.9.2"
 source = { registry = "https://mirrors.aliyun.com/pypi/simple" }
 dependencies = [
     { name = "anyio" },
@@ -2401,9 +2401,9 @@ dependencies = [
     { name = "starlette" },
     { name = "uvicorn", marker = "sys_platform != 'emscripten'" },
 ]
-sdist = { url = "https://mirrors.aliyun.com/pypi/packages/7c/13/16b712e8a3be6a736b411df2fc6b4e75eb1d3e99b1cd57a3a1decf17f612/mcp-1.8.1.tar.gz", hash = "sha256:ec0646271d93749f784d2316fb5fe6102fb0d1be788ec70a9e2517e8f2722c0e" }
+sdist = { url = "https://mirrors.aliyun.com/pypi/packages/ea/03/77c49cce3ace96e6787af624611b627b2828f0dca0f8df6f330a10eea51e/mcp-1.9.2.tar.gz", hash = "sha256:3c7651c053d635fd235990a12e84509fe32780cd359a5bbef352e20d4d963c05" }
 wheels = [
-    { url = "https://mirrors.aliyun.com/pypi/packages/1c/5d/91cf0d40e40ae9ecf8d4004e0f9611eea86085aa0b5505493e0ff53972da/mcp-1.8.1-py3-none-any.whl", hash = "sha256:948e03783859fa35abe05b9b6c0a1d5519be452fc079dc8d7f682549591c1770" },
+    { url = "https://mirrors.aliyun.com/pypi/packages/5d/a6/8f5ee9da9f67c0fd8933f63d6105f02eabdac8a8c0926728368ffbb6744d/mcp-1.9.2-py3-none-any.whl", hash = "sha256:bc29f7fd67d157fef378f89a4210384f5fecf1168d0feb12d22929818723f978" },
 ]
 
 [package.optional-dependencies]
@@ -3998,7 +3998,7 @@ requires-dist = [
     { name = "elasticsearch-dsl", specifier = "==8.12.0" },
     { name = "fastembed", marker = "(platform_machine != 'x86_64' and extra == 'full') or (sys_platform == 'darwin' and extra == 'full')", specifier = ">=0.3.6,<0.4.0" },
     { name = "fastembed-gpu", marker = "platform_machine == 'x86_64' and sys_platform != 'darwin' and extra == 'full'", specifier = ">=0.3.6,<0.4.0" },
-    { name = "fastmcp", specifier = ">=2.2.10" },
+    { name = "fastmcp", specifier = ">=2.5.2" },
     { name = "filelock", specifier = "==3.15.4" },
     { name = "flagembedding", marker = "extra == 'full'", specifier = "==1.2.10" },
     { name = "flasgger", specifier = ">=0.9.7.1,<0.10.0" },

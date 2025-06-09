@@ -128,7 +128,7 @@ dependencies = [
     "mcp-server-time>=0.6.2",
     "pyjwt>=2.8.0",
     "PyYAML",
-    "fastmcp>=2.2.10",
+    "fastmcp>=2.5.2",
     "openai==1.78.1",
     "toml",
 ]

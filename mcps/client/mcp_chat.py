@@ -85,9 +85,16 @@ class Server:
 
     def get_client(self, sampling_handler = None):
         if "command" in self.config:
-            config =  {"mcpServers": { self.name : self.config}}
+            config = {"mcpServers": {self.name: self.config}}
         if "url" in self.config:
-            config =  {"mcpServers": {"url": self.config["url"]}}
+            config = {
+                "mcpServers": {
+                    self.name: {
+                        "url": self.config["url"],
+                        "transport": self.config["transport"],
+                    }
+                }
+            }
 
         if sampling_handler:
             client = Client(config, sampling_handler = sampling_handler)
@@ -98,7 +105,7 @@ class Server:
 
     async def list_tools(self) -> list[Any]:
         tools = []
-        client = self.get_client(self.name)
+        client = self.get_client()
         async with client:
             logging.info(f"103- mcp server {self.name} 连接{client.is_connected()}")
             resp = await client.list_tools()
