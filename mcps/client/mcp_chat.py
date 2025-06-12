@@ -400,16 +400,21 @@ Please use only the tools that are explicitly defined above.
         if not chat_mdl:
             raise LookupError("LLM(%s) not found" % dialog.llm_id)
 
+        # chat_mdl_0是专用于mcp tool工具解析的模型，不是用于最终问题回答的模型，由于qwen3系列对tool解析较好，所以不用单独新建解析模型，共用对话模型即可
+        if "qwen3" in dialog.llm_id.lower():
+            chat_mdl_0 = chat_mdl
+        else:
+            # qwen3-32b@Uniin   Qwen3-14B___OpenAI-API@OpenAI-API-Compatible
+            chat_mdl_0 = LLMBundle(dialog.tenant_id, LLMType.CHAT, "qwen3-32b@Uniin")
+            if not chat_mdl_0:
+                chat_mdl_0 = chat_mdl
+
         gen_conf = dialog.llm_setting
         prompt_config = dialog.prompt_config
         dia_mcp_servers = gen_conf.get("mcp_servers")
 
         # 将每个mcp server的独有系统提示词附加到此次问答的系统提示词中
         system_prompt = prompt_config["system"]
-        # for server_name in dia_mcp_servers:
-        #     config = self.server_config["mcpServers"].get(server_name,{})
-        #     if config.get("system"):
-        #         system_prompt += "\n\n" + config.get("system")
 
         # 枚举当前对话助手所配置所有的mcp servers，生成tools desc
         mcp_instruction = self.mcp_instruction(dia_mcp_servers)
@@ -423,10 +428,20 @@ Please use only the tools that are explicitly defined above.
         msg_queue = queue.Queue()
         result_container = [None]  # 使用列表来共享结果，因为 nonlocal 在嵌套函数中可能有限制
         while True:
-            # 循环地询问llm
-            response_content = chat_mdl.chat(system_prompt, mcp_messages, gen_conf)
-            logging.info("\n411- Assistant: %s", response_content)
+            # 在提问前，要把mcp_messages复制一份再提问，因为chat会修改其内容
+            mcp_messages_0 = []
+            for message in mcp_messages:
+                # 由于chat_mdl_0的上下文长度不是太长，在长文精读的情况下，所以为了不影响其输出，这里将助理的messages.content进行截断(因为可能包含长文内容)
+                if chat_mdl != chat_mdl_0 and message["role"] == 'assistant':
+                    truncated_content = message["content"][:4096]
+                    mcp_messages_0.append({**message, "content": truncated_content})
+                else:
+                    mcp_messages_0.append({**message})
 
+            # 开始提问
+            response_content = chat_mdl_0.chat(system_prompt, mcp_messages_0, gen_conf)
+
+            logging.info("\n411- 助理回答: %s", response_content)
             mcp_server = None
             try:
                 # 解析出工具调用对象
@@ -488,27 +503,29 @@ Please use only the tools that are explicitly defined above.
                 # 去掉大模型在发出调用命令之前的思维链的内容
                 response_content = re.sub(r'<think>.*?</think>', '', response_content, flags=re.DOTALL)
 
-                # 将tool的调用命令作为助理消息加入到历史消息
+                # 将工具调用命令和结果附加到历史消息数组
                 mcp_messages.append(
                     {"role": "assistant", "content": f"{response_content}\n\n工具执行结果：\n\n{result}" }
                 )
+                # 把用户的问题再问一遍,很重要
+                mcp_messages.append(messages[-1])
 
-                # 将tool的调用结果加入到历史信息中
-                # mcp_messages.append({"role": "system", "content": result})
-
-                # 提取代码块里面的内容
-                if len(result)>500:
-                    ignoreLen = len(result)-500
-                    result = result[:500] + f"\n\n此处省略了{ignoreLen}字..."
+                # 提取```...```里面的内容
+                if len(result)>1024:
+                    ignoreLen = len(result)-1024
+                    result = result[:1024] + f"\n\n省略{ignoreLen}字..."
 
                 ans += f"\n\n工具执行结果:\n\n```\n{result}\n```\n\n"
                 yield {"answer": ans}
 
-            # 没有使用tool，表示是最终回答
+            # 没有使用tool，表示已经收集了足够的信息，可以回答用户问题了
             else:
-                logging.info("\n486- Final response: %s", response_content)
-                # if '<think>' in ans and '</think>' not in ans:
-                #     ans += '</think>'
+                # 用正式对话的模型重新问一次,由于第1条记录是mcp tools description需要丢弃
+                logging.info("529- 正式对话的模型开始回答")
+                if chat_mdl_0 != chat_mdl:
+                    response_content = chat_mdl.chat("you are helpful assistant", mcp_messages[1:], gen_conf)
+
+                logging.info("533- 最终答案为: %s", response_content)
                 ans += response_content
 
                 yield {"answer": ans}

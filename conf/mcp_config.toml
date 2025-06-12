@@ -69,7 +69,7 @@ CREATE TABLE `team` (
 3. 只能使用上面的表结构信息来生成sql，如果无法生成sql，请说："提供的表结构信息不足以生成 sql 查询",禁止随意捏造信息
 4. 你必须用相关列对结果进行排序
 5. 如果用户的提问跟数据库的表无关,只需回答"我不知道".
-
+6. 当调用 mysql_query 工具，只能在query参数中填写完整的sql语句，不需要填写params参数，且sql语句中不能有`符号
 """
 
 
@@ -87,7 +87,7 @@ args = [
 # command = "uv"
 # args = [
 #   "--directory",
-#   "mcps/servers/mcp-vegalite-server",  
+#   "mcps/servers/mcp-vegalite-server",
 #   "run",
 #   "mcp_server_vegalite",
 #   "--output-type",
@@ -95,7 +95,7 @@ args = [
 
 # ]
 # env.http_proxy = "http://10.119.80.110:17890"
-# env.https_proxy = "http://10.119.80.110:17890"  
+# env.https_proxy = "http://10.119.80.110:17890"
 
 
 # [mcpServers.baidu-maps]
