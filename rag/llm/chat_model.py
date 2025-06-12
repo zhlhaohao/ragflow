@@ -1772,7 +1772,7 @@ class HaoSuanChat(Base):
 
     Args:
         Base (_type_): _description_
-    """    
+    """
     def __init__(self, key, model_name, base_url="https://haosuan.com/api/cnud-llm/v1"):
         if not base_url:
             base_url = "https://haosuan.com/api/cnud-llm/v1"

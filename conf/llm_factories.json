@@ -2180,7 +2180,7 @@
                     "tags": "TEXT EMBEDDING,32000",
                     "max_tokens": 32000,
                     "model_type": "embedding"
-                },                
+                },
                 {
                     "llm_name": "rerank-1",
                     "tags": "RE-RANK, 8000",
@@ -2255,6 +2255,24 @@
             "status": "1",
             "llm": [
                 {
+                    "llm_name": "qwen-long-latest",
+                    "tags": "LLM,CHAT,64K,max_out_8192,max_in_57344",
+                    "max_tokens": 10000000,
+                    "model_type": "chat"
+                },
+                {
+                    "llm_name": "Doubao-1.5-pro-256k",
+                    "tags": "LLM,CHAT,64K,max_out_8192,max_in_57344",
+                    "max_tokens": 256000,
+                    "model_type": "chat"
+                },
+                {
+                    "llm_name": "Deepseek-r1-250528",
+                    "tags": "LLM,CHAT,64K,max_out_8192,max_in_57344",
+                    "max_tokens": 65792,
+                    "model_type": "chat"
+                },
+                {
                     "llm_name": "qwen3-235b-a22b",
                     "tags": "LLM,CHAT,64K,max_out_8192,max_in_57344",
                     "max_tokens": 65792,
@@ -2294,12 +2312,6 @@
                     "llm_name": "unicom-70b-chat",
                     "tags": "LLM,CHAT,64K,max_out_8192,max_in_57344",
                     "max_tokens": 65792,
-                    "model_type": "chat"
-                },
-                {
-                    "llm_name": "Doubao-pro-128k",
-                    "tags": "LLM,CHAT,128K,max_out_8192,max_in_57344",
-                    "max_tokens": 128000,
                     "model_type": "chat"
                 }
             ]

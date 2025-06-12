@@ -206,7 +206,7 @@ class Tool:
 {chr(10).join(args_desc)}
 """
 
-    
+
 class McpChat:
     """Orchestrates the interaction between user, LLM, and tools."""
 
@@ -303,7 +303,7 @@ Please use only the tools that are explicitly defined above.
                 return f"\n\n{result}"
             else:
                 result = self.convert_mixed_utf_string(result)
-                return f"\n\n工具执行结果:\n\n```\n{result}\n```"
+                return result
         except Exception as e:
             error_msg = f"291- 工具执行出错: {str(e)}"
             logging.error(error_msg)
@@ -423,7 +423,7 @@ Please use only the tools that are explicitly defined above.
         msg_queue = queue.Queue()
         result_container = [None]  # 使用列表来共享结果，因为 nonlocal 在嵌套函数中可能有限制
         while True:
-            # 第一步：询问llm，获得答案
+            # 循环地询问llm
             response_content = chat_mdl.chat(system_prompt, mcp_messages, gen_conf)
             logging.info("\n411- Assistant: %s", response_content)
 
@@ -445,57 +445,63 @@ Please use only the tools that are explicitly defined above.
                             yield {"answer": ans}
             except Exception as ex:
                 pass
-                # error_msg = f"parse_response error: {str(ex)}"
-                # logging.error(error_msg)
-
-            # result = asyncio.run(self.mcp_tool_call(response_content, sampling_handler))
 
             # 如果要求使用tool
             if mcp_server is not None:
+                # 异步执行mcp工具调用
                 async def run_async_func():
-                    # 执行异步函数B并获取结果
                     result = await self.mcp_tool_call(mcp_server, tool_call, msg_queue)
                     result_container[0] = result
                     # 执行结束标记
                     msg_queue.put(None)
 
+                # 新建事件循环（协程）中启动mcp调用
                 def start_event_loop():
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)
                     loop.run_until_complete(run_async_func())
 
 
-                # 启动异步事件循环的线程
+                # 在新的线程中，启动协程，这样就确保了同步函数中没有任何异步代码
                 thread = threading.Thread(target=start_event_loop)
                 thread.start()
 
+                # 循环获取中间结果队列
                 while True:
                     try:
                         msg = msg_queue.get(timeout=0.1)
                         if msg is None:
                             break  # 收到结束信号
-                        yield {"answer": f"{ans}, {msg}"}
+                        yield {"answer": f"{ans}\n{msg}"}
                     except queue.Empty:
+                        # 如果线程已经结束，则退出循环
                         if not thread.is_alive():
                             break
 
+                # 等待线程结束
                 thread.join()
+
+                # 获取工具调用返回的最终结果
                 result = result_container[0]
                 result = result.replace(r'\\u', r'\u')
 
-                # 去掉思维链的内容
+                # 去掉大模型在发出调用命令之前的思维链的内容
                 response_content = re.sub(r'<think>.*?</think>', '', response_content, flags=re.DOTALL)
 
-                # 将tool的调用结果加入到历史信息中
+                # 将tool的调用命令作为助理消息加入到历史消息
                 mcp_messages.append(
-                    {"role": "assistant", "content": response_content}
+                    {"role": "assistant", "content": f"{response_content}\n\n工具执行结果：\n\n{result}" }
                 )
-                mcp_messages.append({"role": "system", "content": result})
 
-                # 循环调用llm，获取最终的回复
-                # if '<think>' not in ans:
-                #     ans += '<think>'
-                ans += result + "\n\n"
+                # 将tool的调用结果加入到历史信息中
+                # mcp_messages.append({"role": "system", "content": result})
+
+                # 提取代码块里面的内容
+                if len(result)>500:
+                    ignoreLen = len(result)-500
+                    result = result[:500] + f"\n\n此处省略了{ignoreLen}字..."
+
+                ans += f"\n\n工具执行结果:\n\n```\n{result}\n```\n\n"
                 yield {"answer": ans}
 
             # 没有使用tool，表示是最终回答

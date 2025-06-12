@@ -180,8 +180,8 @@ async def get_new_search_queries(user_query, previous_search_queries, all_contex
 
 async def searxng_search(query: str):
     """通过searxng在互联网异步搜索用户的问题，返回前web_search个url
-    http://127.0.0.1:8088/search?format=json&q=广州天气&language=zh-CN&time_range=&safesearch=0&categories=general   
-    http://10.119.101.20:9860/search?format=json&q=广州天气&language=zh-CN&time_range=&safesearch=0&categories=general   
+    http://127.0.0.1:8088/search?format=json&q=广州天气&language=zh-CN&time_range=&safesearch=0&categories=general
+    http://10.119.101.20:9860/search?format=json&q=广州天气&language=zh-CN&time_range=&safesearch=0&categories=general
 
 
     """
@@ -239,7 +239,7 @@ curl -X POST http://10.119.101.21:9860/v1/scrape \
             async with session.post(full_url, json=param, timeout=30) as resp:
                 logger.info("爬取结束")
                 total_pages += 1
-                await ctx.sample(f"{total_pages}网页已读取")
+                await ctx.sample(f"🌍 {total_pages}已爬取")
                 if resp.status == 200:
                     resp = await resp.text()
                     result = json.loads(resp)
