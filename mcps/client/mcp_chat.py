@@ -405,7 +405,7 @@ Please use only the tools that are explicitly defined above.
             chat_mdl_0 = chat_mdl
         else:
             # qwen3-32b@Uniin   Qwen3-14B___OpenAI-API@OpenAI-API-Compatible
-            chat_mdl_0 = LLMBundle(dialog.tenant_id, LLMType.CHAT, "qwen3-32b@Uniin")
+            chat_mdl_0 = LLMBundle(dialog.tenant_id, LLMType.CHAT, settings.MCP_TOOL_MDL)
             if not chat_mdl_0:
                 chat_mdl_0 = chat_mdl
 
@@ -424,7 +424,7 @@ Please use only the tools that are explicitly defined above.
         ans = ""
         # 强制关闭本地qwen3的思维链输出
         gen_conf["enable_cot"] = False
-
+        last_tool_call = ""
         msg_queue = queue.Queue()
         result_container = [None]  # 使用列表来共享结果，因为 nonlocal 在嵌套函数中可能有限制
         while True:
@@ -433,15 +433,24 @@ Please use only the tools that are explicitly defined above.
             for message in mcp_messages:
                 # 由于chat_mdl_0的上下文长度不是太长，在长文精读的情况下，所以为了不影响其输出，这里将助理的messages.content进行截断(因为可能包含长文内容)
                 if chat_mdl != chat_mdl_0 and message["role"] == 'assistant':
-                    truncated_content = message["content"][:4096]
+                    truncated_content = message["content"]
                     mcp_messages_0.append({**message, "content": truncated_content})
                 else:
                     mcp_messages_0.append({**message})
 
             # 开始提问
-            response_content = chat_mdl_0.chat(system_prompt, mcp_messages_0, gen_conf)
+            try:
+                response_content = chat_mdl_0.chat(system_prompt, mcp_messages_0, gen_conf)
+            except Exception as e:
+                logging.error(f"**ERROR** {str(e)}")
 
-            logging.info("\n411- 助理回答: %s", response_content)
+            # 一般发生在token长度超出限制，切换回正式模型
+            if "**ERROR**" in response_content:
+                logging.info(f"449- chat_mdl_0从{settings.MCP_TOOL_MDL}切换到{dialog.llm_id}")
+                chat_mdl_0 = chat_mdl
+                response_content = chat_mdl_0.chat(system_prompt, mcp_messages_0, gen_conf)
+
+            logging.info(f"411- {settings.MCP_TOOL_MDL}: %s", response_content)
             mcp_server = None
             try:
                 # 解析出工具调用对象
@@ -456,10 +465,26 @@ Please use only the tools that are explicitly defined above.
                                 tool_call["arguments"] = {}
 
                             tool_json = json.dumps(tool_call, ensure_ascii=False)
-                            ans  += f"调用MCP插件{server.name}:\n\n```json\n{tool_json}\n```\n\n"
-                            yield {"answer": ans}
-            except Exception as ex:
-                pass
+                            if tool_json != last_tool_call:
+                                last_tool_call = tool_json
+
+                                logging.info(f"459- 调用MCP插件{server.name}:\n{tool_json}")
+                                ans  += f"调用MCP插件{server.name}:\n\n```json\n{tool_json}\n```\n\n"
+                                yield {"answer": ans}
+                            else:
+                                # 如果跟上次的工具调用一模一样，则不重复调用
+                                mcp_server = None
+                    else:
+                        logging.info("463- 无需调用工具")
+
+            except Exception:
+                # mcp_messages.append(
+                #     {"role": "assistant", "content": response_content}
+                # )
+                # mcp_messages.append(
+                #     {"role": "user", "content": "请继续回答"}
+                # )
+                logging.info("466- 无需调用工具")
 
             # 如果要求使用tool
             if mcp_server is not None:
@@ -503,12 +528,17 @@ Please use only the tools that are explicitly defined above.
                 # 去掉大模型在发出调用命令之前的思维链的内容
                 response_content = re.sub(r'<think>.*?</think>', '', response_content, flags=re.DOTALL)
 
+                logging.info(f"工具执行结果：\n{result[:1024]}")
+
                 # 将工具调用命令和结果附加到历史消息数组
                 mcp_messages.append(
                     {"role": "assistant", "content": f"{response_content}\n\n工具执行结果：\n\n{result}" }
                 )
                 # 把用户的问题再问一遍,很重要
                 mcp_messages.append(messages[-1])
+                # mcp_messages.append(
+                #     {"role": "user", "content": "请继续回答"}
+                # )
 
                 # 提取```...```里面的内容
                 if len(result)>1024:
@@ -521,11 +551,11 @@ Please use only the tools that are explicitly defined above.
             # 没有使用tool，表示已经收集了足够的信息，可以回答用户问题了
             else:
                 # 用正式对话的模型重新问一次,由于第1条记录是mcp tools description需要丢弃
-                logging.info("529- 正式对话的模型开始回答")
+                logging.info(f"529- {dialog.llm_id}开始最终回答用户问题")
                 if chat_mdl_0 != chat_mdl:
                     response_content = chat_mdl.chat("you are helpful assistant", mcp_messages[1:], gen_conf)
 
-                logging.info("533- 最终答案为: %s", response_content)
+                logging.info(f"533- {dialog.llm_id}回答: %s", response_content)
                 ans += response_content
 
                 yield {"answer": ans}

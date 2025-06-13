@@ -79,7 +79,7 @@ REGISTER_ENABLED = 1
 
 def init_settings():
     global LLM, LLM_FACTORY, LLM_BASE_URL, LIGHTEN, DATABASE_TYPE, DATABASE, FACTORY_LLM_INFOS, REGISTER_ENABLED
-    global MCP_CHAT_MDL, MCP_CHAT_URL, MCP_CHAT_KEY, MCP_VL_MDL, MCP_VL_URL, MCP_VL_KEY, UNIIN_APP_KEY, UNIIN_APP_SECRET
+    global MCP_TOOL_MDL, MCP_CHAT_MDL, MCP_CHAT_URL, MCP_CHAT_KEY, MCP_VL_MDL, MCP_VL_URL, MCP_VL_KEY, UNIIN_APP_KEY, UNIIN_APP_SECRET
 
     LIGHTEN = int(os.environ.get('LIGHTEN', "0"))
     DATABASE_TYPE = os.getenv("DB_TYPE", 'mysql')
@@ -89,6 +89,7 @@ def init_settings():
     LLM_DEFAULT_MODELS = LLM.get("default_models", {})
     LLM_FACTORY = LLM.get("factory", "Tongyi-Qianwen")
     LLM_BASE_URL = LLM.get("base_url")
+    MCP_TOOL_MDL = LLM.get("mcp_tool_model", "")
     MCP_CHAT_MDL = LLM.get("mcp_chat_model", "")
     MCP_CHAT_URL = LLM.get("mcp_chat_url", "")
     MCP_CHAT_KEY = LLM.get("mcp_chat_key", "")
