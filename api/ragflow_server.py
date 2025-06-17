@@ -71,11 +71,11 @@ def signal_handler(sig, frame):
 
 async def main() -> None:
     logging.info(r"""
-        ____   ___    ______ ______ __               
+        ____   ___    ______ ______ __
        / __ \ /   |  / ____// ____// /____  _      __
       / /_/ // /| | / / __ / /_   / // __ \| | /| / /
-     / _, _// ___ |/ /_/ // __/  / // /_/ /| |/ |/ / 
-    /_/ |_|/_/  |_|\____//_/    /_/ \____/ |__/|__/                             
+     / _, _// ___ |/ /_/ // __/  / // /_/ /| |/ |/ /
+    /_/ |_|/_/  |_|\____//_/    /_/ \____/ |__/|__/
 
     """)
     logging.info(
@@ -88,9 +88,22 @@ async def main() -> None:
     settings.init_settings()
     print_rag_settings()
 
-    # 初始化mcp服务器
-    await mcp_chat.init_mcp()
 
+    def run_init_mcp():
+        """F8080 在新开的线程中运行init_mcp(),失败则每隔60秒重试一次"""
+        while True:
+            result = asyncio.run(mcp_chat.init_mcp())
+            if result:
+                logging.info("MCP initialized successfully")
+                break
+            else :
+                logging.error("Error initializing MCP")
+                logging.info("Retrying in 30 seconds...")
+                time.sleep(30)
+
+    # Create and start a new thread
+    thread = threading.Thread(target=run_init_mcp)
+    thread.start()
 
     # init db
     init_web_db()

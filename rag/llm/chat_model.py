@@ -1814,7 +1814,11 @@ class UniinChat(Base):
             ans = ""
             has_reasoning = False
             # resp_str = response.decode('utf-8').replace('data:', '')
-            resp = json.loads(response).get("data")
+
+            result = json.loads(response)
+            if not result.get("success", False):
+                raise Exception(result.get("msg"))
+            resp = result.get("data")
 
             if not resp.get("choices") or not isinstance(resp.get("choices"), list) or len(resp.get("choices")) <= 0:
                 return ans, 0
@@ -1877,8 +1881,11 @@ class UniinChat(Base):
                     continue
 
                 resp_str = chunk.decode('utf-8').replace('data:', '')
-                resp = json.loads(resp_str).get("data")
+                result = json.loads(resp_str)
+                if not result.get("success", False):
+                    raise Exception(result.get("msg"))
 
+                resp = result.get("data")
                 if not resp.get("choices") or not isinstance(resp.get("choices"), list) or len(resp.get("choices")) <= 0:
                     continue
 

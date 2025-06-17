@@ -5,8 +5,8 @@
 
 [mcpServers.MainServer]
 desc = "主服务器"
-url = "http://127.0.0.1:9898/mcp/sse"
-transport = "sse"
+url = "http://127.0.0.1:9898/mcp-server/"
+transport = "streamable-http"
 
 [mcpServers.web_search]
 desc = "联网查询"

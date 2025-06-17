@@ -21,13 +21,16 @@ import queue
 import toml
 from api.utils import ic
 import datetime
+from copy import deepcopy
 
 MCP_CHAT = None
 
 async def init_mcp() -> None:
     global MCP_CHAT
-    MCP_CHAT = McpChat()
-    await MCP_CHAT.init_servers()
+    if  MCP_CHAT is None:
+        MCP_CHAT = McpChat()
+
+    return await MCP_CHAT.init_servers()
 
 def get_current_time_with_weekday() -> str:
     """
@@ -85,7 +88,12 @@ class Server:
 
     def get_client(self, sampling_handler = None):
         if "command" in self.config:
-            config = {"mcpServers": {self.name: self.config}}
+            config = {"mcpServers": {self.name: {
+                        "command": self.config["command"],
+                        "args": self.config["args"],
+                    }
+                }
+            }
         if "url" in self.config:
             config = {
                 "mcpServers": {
@@ -208,27 +216,32 @@ class Tool:
 
 
 class McpChat:
-    """Orchestrates the interaction between user, LLM, and tools."""
+    server_config = None
+    server_tools = {}
 
     async def init_servers(self):
-        self.openai_client = OpenAI(
-            base_url=settings.MCP_CHAT_URL,
-            api_key=settings.MCP_CHAT_KEY,
-        )
+        if self.server_config is None:
+            config = Configuration()
+            self.server_config = config.load_config("conf/mcp_config.toml")
 
-        config = Configuration()
-        self.server_config = config.load_config("conf/mcp_config.toml")
+            self.servers = [
+                Server(name, srv_config)
+                for name, srv_config in self.server_config["mcpServers"].items()
+            ]
 
-        self.servers = [
-            Server(name, srv_config)
-            for name, srv_config in self.server_config["mcpServers"].items()
-        ]
-
-        self.server_tools = {}
+        is_success = True
         for server in self.servers:
-            tools = await server.list_tools()
-            self.server_tools[server.name] = tools
+            if not self.server_tools.get(server.name, False):
+                try:
+                    tools = await server.list_tools()
+                    self.server_tools[server.name] = tools
+                    logging.error(f"Success loading tools for mcp server {server.name}")
+                except Exception as e:
+                    is_success = False
+                    logging.error(f"Error loading tools for mcp server {server.name}: {e}")
+                    continue
 
+        return is_success
 
     def mcp_instruction(self, mcp_servers):
         tools_description = ''
@@ -309,60 +322,6 @@ Please use only the tools that are explicitly defined above.
             logging.error(error_msg)
             return error_msg
 
-
-    async def start(self) -> None:
-        """
-        Main chat session handler.
-        """
-        messages = [{"role": "system", "content": self.system_message}]
-
-        while True:
-            try:
-                user_input = input("You: ").strip().lower()
-                if user_input in ["quit", "exit"]:
-                    logging.info("\n306- Exiting...")
-                    break
-
-                # 导入用户的问题
-                messages.append({"role": "user", "content": user_input})
-
-                while True:
-                    # 第一步：询问llm，获得答案
-                    response = self.openai_client.chat.completions.create(
-                        model = settings.MCP_CHAT_MDL,
-                        messages = messages,
-                        temperature = 0.7,
-                        max_tokens = 4096,
-                        top_p = 1.0,
-                        stream = False,
-                        stop = None,
-                    )
-                    response_content = response.choices[0].message.content
-                    logging.info("\n324- Assistant: %s", response_content)
-                    result = await self.mcp_tool_call(response_content)
-
-                    # 如果使用了tool
-                    if result != response_content:
-                        # 将tool的调用结果加入到历史信息中
-                        messages.append(
-                            {"role": "assistant", "content": response_content}
-                        )
-                        messages.append({"role": "system", "content": result})
-
-                        # 循环调用llm，获取最终的回复
-                        continue
-                    # 没有使用tool
-                    else:
-                        logging.info("\n339- Final response: %s", response_content)
-                        messages.append(
-                            {"role": "assistant", "content": response_content}
-                        )
-                        break
-
-            except KeyboardInterrupt:
-                logging.info("\n346- Exiting...")
-                break
-
     def convert_mixed_utf_string(self, input_str):
         """
         处理混杂了 UTF-8 和 UTF 转义字符的字符串，将其正确转换为 UTF-8 字符串
@@ -394,6 +353,7 @@ Please use only the tools that are explicitly defined above.
         """
         Main chat session handler.
         """
+        question = messages[-1]["content"]
         llm_id, model_provider = TenantLLMService.split_model_name_and_factory(dialog.llm_id)
         # 从TenantLLM表取出模型信息（包括api_key）,然后封装成对象返回，也包装了chat_streamly和chat方法
         chat_mdl = LLMBundle(dialog.tenant_id, LLMType.CHAT, dialog.llm_id)
@@ -429,14 +389,15 @@ Please use only the tools that are explicitly defined above.
         result_container = [None]  # 使用列表来共享结果，因为 nonlocal 在嵌套函数中可能有限制
         while True:
             # 在提问前，要把mcp_messages复制一份再提问，因为chat会修改其内容
-            mcp_messages_0 = []
-            for message in mcp_messages:
-                # 由于chat_mdl_0的上下文长度不是太长，在长文精读的情况下，所以为了不影响其输出，这里将助理的messages.content进行截断(因为可能包含长文内容)
-                if chat_mdl != chat_mdl_0 and message["role"] == 'assistant':
-                    truncated_content = message["content"]
-                    mcp_messages_0.append({**message, "content": truncated_content})
-                else:
-                    mcp_messages_0.append({**message})
+            mcp_messages_0 = deepcopy(mcp_messages)
+
+            # for message in mcp_messages:
+            #     # 由于chat_mdl_0的上下文长度不是太长，在长文精读的情况下，所以为了不影响其输出，这里将助理的messages.content进行截断(因为可能包含长文内容)
+            #     if chat_mdl != chat_mdl_0 and message["role"] == 'assistant':
+            #         truncated_content = message["content"]
+            #         mcp_messages_0.append({**message, "content": truncated_content})
+            #     else:
+            #         mcp_messages_0.append({**message})
 
             # 开始提问
             try:
@@ -446,11 +407,12 @@ Please use only the tools that are explicitly defined above.
 
             # 一般发生在token长度超出限制，切换回正式模型
             if "**ERROR**" in response_content:
-                logging.info(f"449- chat_mdl_0从{settings.MCP_TOOL_MDL}切换到{dialog.llm_id}")
-                chat_mdl_0 = chat_mdl
-                response_content = chat_mdl_0.chat(system_prompt, mcp_messages_0, gen_conf)
+                if  chat_mdl != chat_mdl_0:
+                    logging.info(f"449- chat_mdl_0从{chat_mdl_0.llm_name}切换到{chat_mdl.llm_name}")
+                    chat_mdl_0 = chat_mdl
+                    response_content = chat_mdl_0.chat(system_prompt, mcp_messages_0, gen_conf)
 
-            logging.info(f"411- {settings.MCP_TOOL_MDL}: %s", response_content)
+            logging.info(f"411- {chat_mdl_0.llm_name}: %s", response_content)
             mcp_server = None
             try:
                 # 解析出工具调用对象
@@ -459,31 +421,30 @@ Please use only the tools that are explicitly defined above.
                 if "tool" in tool_call:
                     # 遍历查找工具所对应的mcp server
                     for server in self.servers:
+
                         if server.name in dia_mcp_servers and any(tool.name == tool_call["tool"] for tool in server.tools):
                             mcp_server = server
                             if "arguments" not in tool_call:
                                 tool_call["arguments"] = {}
 
                             tool_json = json.dumps(tool_call, ensure_ascii=False)
+
                             if tool_json != last_tool_call:
                                 last_tool_call = tool_json
 
-                                logging.info(f"459- 调用MCP插件{server.name}:\n{tool_json}")
-                                ans  += f"调用MCP插件{server.name}:\n\n```json\n{tool_json}\n```\n\n"
+                                logging.info(f"459- 调用MCP工具{server.name}:\n{tool_json}")
+                                ans  += f"调用MCP工具{server.name}:\n\n```json\n{tool_json}\n```\n\n"
                                 yield {"answer": ans}
                             else:
                                 # 如果跟上次的工具调用一模一样，则不重复调用
                                 mcp_server = None
-                    else:
-                        logging.info("463- 无需调用工具")
+                                logging.warning("448- 重复调用相同工具，忽略")
+
+                            break
+                else:
+                    logging.info("463- 无需调用工具")
 
             except Exception:
-                # mcp_messages.append(
-                #     {"role": "assistant", "content": response_content}
-                # )
-                # mcp_messages.append(
-                #     {"role": "user", "content": "请继续回答"}
-                # )
                 logging.info("466- 无需调用工具")
 
             # 如果要求使用tool
@@ -534,30 +495,35 @@ Please use only the tools that are explicitly defined above.
                 mcp_messages.append(
                     {"role": "assistant", "content": f"{response_content}\n\n工具执行结果：\n\n{result}" }
                 )
-                # 把用户的问题再问一遍,很重要
-                mcp_messages.append(messages[-1])
-                # mcp_messages.append(
-                #     {"role": "user", "content": "请继续回答"}
-                # )
 
-                # 提取```...```里面的内容
-                if len(result)>1024:
-                    ignoreLen = len(result)-1024
-                    result = result[:1024] + f"\n\n省略{ignoreLen}字..."
+                # 如果是用户问了一个问题,那么把用户的问题再问一遍
+                if "**UPLOAD**" not in question:
+                    mcp_messages.append(messages[-1])
+                    # mcp_messages.append({"role": "user", "content": "Use tools if needed, or reply <FINISH>"})
 
-                ans += f"\n\n工具执行结果:\n\n```\n{result}\n```\n\n"
-                yield {"answer": ans}
+                    # 提取```...```里面的内容
+                    if len(result)>1024:
+                        ignoreLen = len(result)-1024
+                        result = result[:1024] + f"\n\n省略{ignoreLen}字..."
+
+                    ans += f"\n\n工具执行结果:\n\n```\n{result}\n```\n\n"
+                    yield {"answer": ans}
+                else:
+                    # 如果是用户上传文件，则返回上传结果给用户
+                    ans += f"\n{result}"
+                    yield {"answer": ans}
+                    break
 
             # 没有使用tool，表示已经收集了足够的信息，可以回答用户问题了
             else:
                 # 用正式对话的模型重新问一次,由于第1条记录是mcp tools description需要丢弃
-                logging.info(f"529- {dialog.llm_id}开始最终回答用户问题")
                 if chat_mdl_0 != chat_mdl:
-                    response_content = chat_mdl.chat("you are helpful assistant", mcp_messages[1:], gen_conf)
+                    logging.info(f"529- {chat_mdl.llm_name}最终回答:\n")
+                    final_prompt = system_prompt + "\n\n**CRITICAL**: REPLY DIRECTLY, DO NOT CALL TOOLS ANY MORE."
+                    response_content = chat_mdl.chat(final_prompt, mcp_messages[1:], gen_conf)
+                    logging.info(response_content)
 
-                logging.info(f"533- {dialog.llm_id}回答: %s", response_content)
                 ans += response_content
-
                 yield {"answer": ans}
                 break
 
