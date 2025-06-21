@@ -22,6 +22,7 @@ import toml
 from api.utils import ic
 import datetime
 from copy import deepcopy
+import time
 
 MCP_CHAT = None
 
@@ -389,28 +390,33 @@ Please use only the tools that are explicitly defined above.
         result_container = [None]  # 使用列表来共享结果，因为 nonlocal 在嵌套函数中可能有限制
         while True:
             # 在提问前，要把mcp_messages复制一份再提问，因为chat会修改其内容
-            mcp_messages_0 = deepcopy(mcp_messages)
-
-            # for message in mcp_messages:
-            #     # 由于chat_mdl_0的上下文长度不是太长，在长文精读的情况下，所以为了不影响其输出，这里将助理的messages.content进行截断(因为可能包含长文内容)
-            #     if chat_mdl != chat_mdl_0 and message["role"] == 'assistant':
-            #         truncated_content = message["content"]
-            #         mcp_messages_0.append({**message, "content": truncated_content})
-            #     else:
-            #         mcp_messages_0.append({**message})
-
-            # 开始提问
+            tps = 0
             try:
-                response_content = chat_mdl_0.chat(system_prompt, mcp_messages_0, gen_conf)
+                # 询问大模型，输出工具调用命令(当然也可能是最终回答)
+                start_time = time.time()
+                response_content = chat_mdl_0.chat(system_prompt, deepcopy(mcp_messages), gen_conf)
+                end_time = time.time()
+                duration = end_time - start_time
+                tps = len(response_content) / duration if duration > 0 else 0
+
             except Exception as e:
-                logging.error(f"**ERROR** {str(e)}")
+                logging.error(f"406- **ERROR** {str(e)}")
 
             # 一般发生在token长度超出限制，切换回正式模型
-            if "**ERROR**" in response_content:
-                if  chat_mdl != chat_mdl_0:
-                    logging.info(f"449- chat_mdl_0从{chat_mdl_0.llm_name}切换到{chat_mdl.llm_name}")
-                    chat_mdl_0 = chat_mdl
-                    response_content = chat_mdl_0.chat(system_prompt, mcp_messages_0, gen_conf)
+            # if "**ERROR**" in response_content:
+            #     if  chat_mdl != chat_mdl_0:
+            #         logging.info(f"449- chat_mdl_0从{chat_mdl_0.llm_name}切换到{chat_mdl.llm_name}")
+            #         # 重新发问
+            #         last_msg = mcp_messages[-1]
+            #         if "read_document" in last_msg["content"]:
+            #             mcp_messages.append({"role": "user", "content": question})
+
+            #         chat_mdl_0 = chat_mdl
+            #         start_time = time.time()
+            #         response_content = chat_mdl_0.chat(system_prompt, mcp_messages, gen_conf)
+            #         end_time = time.time()
+            #         duration = end_time - start_time
+            #         tps = len(response_content) / duration if duration > 0 else 0
 
             logging.info(f"411- {chat_mdl_0.llm_name}: %s", response_content)
             mcp_server = None
@@ -489,18 +495,19 @@ Please use only the tools that are explicitly defined above.
                 # 去掉大模型在发出调用命令之前的思维链的内容
                 response_content = re.sub(r'<think>.*?</think>', '', response_content, flags=re.DOTALL)
 
-                logging.info(f"工具执行结果：\n{result[:1024]}")
+                logging.info(f"492-工具执行结果：\n{result[:1024]}")
 
                 # 将工具调用命令和结果附加到历史消息数组
                 mcp_messages.append(
                     {"role": "assistant", "content": f"{response_content}\n\n工具执行结果：\n\n{result}" }
                 )
 
-                # 如果是用户问了一个问题,那么把用户的问题再问一遍
-                if "**UPLOAD**" not in question:
-                    mcp_messages.append(messages[-1])
-                    # mcp_messages.append({"role": "user", "content": "Use tools if needed, or reply <FINISH>"})
-
+                if "**UPLOAD**" in question:
+                    # 如果是用户上传文件，则返回上传结果给用户
+                    ans += f"\n{result}"
+                    yield {"answer": ans}
+                    break   # 退出会话
+                else:
                     # 提取```...```里面的内容
                     if len(result)>1024:
                         ignoreLen = len(result)-1024
@@ -508,24 +515,33 @@ Please use only the tools that are explicitly defined above.
 
                     ans += f"\n\n工具执行结果:\n\n```\n{result}\n```\n\n"
                     yield {"answer": ans}
-                else:
-                    # 如果是用户上传文件，则返回上传结果给用户
-                    ans += f"\n{result}"
-                    yield {"answer": ans}
-                    break
+                    # 不退出会话,继续下一个循环,LLM会继续选择合适的工具，或者直接回答
 
             # 没有使用tool，表示已经收集了足够的信息，可以回答用户问题了
             else:
-                # 用正式对话的模型重新问一次,由于第1条记录是mcp tools description需要丢弃
-                if chat_mdl_0 != chat_mdl:
-                    logging.info(f"529- {chat_mdl.llm_name}最终回答:\n")
-                    final_prompt = system_prompt + "\n\n**CRITICAL**: REPLY DIRECTLY, DO NOT CALL TOOLS ANY MORE."
-                    response_content = chat_mdl.chat(final_prompt, mcp_messages[1:], gen_conf)
-                    logging.info(response_content)
+                last_msg = mcp_messages[-1]
+                # 如果是调用了翻译pdf工具，就不需要重新问答了，直接返回翻译结果
+                if chat_mdl_0 != chat_mdl and "translate_pdf" not in last_msg["content"]:
+                        final_prompt = system_prompt + "\n\n**CRITICAL**: REPLY DIRECTLY, DO NOT CALL TOOLS ANY MORE."
 
-                ans += response_content
+                        # 如果是调用了阅读文档工具，那么重新把用户的问题放到最后
+                        if "read_document" in last_msg["content"]:
+                            mcp_messages.append({"role": "user", "content": question})
+
+                        start_time = time.time()
+                        # 用正式对话的模型重新问一次,由于第1条记录是mcp tools description需要丢弃
+                        response_content = chat_mdl.chat(final_prompt, mcp_messages[1:], gen_conf)
+                        end_time = time.time()
+                        duration = end_time - start_time
+                        tps = len(response_content) / duration if duration > 0 else 0
+                        logging.info(f"529- {chat_mdl.llm_name}最终回答:\n{response_content}")
+
+                if "ERROR" in response_content:
+                    response_content += "\n\n**有错误发生，可能是因为上下文长度超限**"
+
+                ans += f"{response_content}\n\n*一共输出{len(response_content)}字，{round(tps, 2)}tokens/s*"
                 yield {"answer": ans}
-                break
+                break   # 退出对话
 
 
 async def main() -> None:

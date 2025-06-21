@@ -8,6 +8,16 @@ desc = "主服务器"
 url = "http://127.0.0.1:9898/mcp-server/"
 transport = "streamable-http"
 
+
+[mcpServers.audit_filesystem]
+desc = "oo_audit工作目录文件系统"
+command = "npx"
+args = [
+  "-y",
+  "@modelcontextprotocol/server-filesystem",
+  "/home/lianghao/github/oo-audit",
+]
+
 [mcpServers.web_search]
 desc = "联网查询"
 command = "uv"
