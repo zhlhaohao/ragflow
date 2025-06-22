@@ -16,6 +16,7 @@ args = [
   "-y",
   "@modelcontextprotocol/server-filesystem",
   "/home/lianghao/github/oo-audit",
+  "/home/lianghao/github/ragflow",
 ]
 
 [mcpServers.web_search]

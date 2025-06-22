@@ -127,6 +127,9 @@ class Server:
         self,
         tool_name: str,
         arguments: dict[str, Any],
+        dialog = None,
+        history = None,
+        chat_mdl = None,
         msg_queue = None,
         retries: int = 2,
         delay: float = 2,
@@ -139,12 +142,50 @@ class Server:
             params: SamplingParams,
             ctx: RequestContext,
         ):
-            # yield {"answer": messages[0].content.text}
-            if msg_queue and messages[0].content.text:
-                msg_queue.put(messages[0].content.text)
-            # print(f"{messages[0].content.text}")
-            return ""
+            content = messages[0].content.text
+            try:
+                result = json.loads(content)
+            except Exception:
+                result = content
 
+            # 如果是log信息
+            if isinstance(result, str):
+                if msg_queue and result:
+                    msg_queue.put(result)
+                return ""
+
+            # 如果是协助mcp server调用llm
+            system_prompt = "you are a helpful assistant."
+            if result.get('keep_system'):
+                system_prompt = dialog.prompt_config['system']
+
+            messages = []
+            if result.get('system'):
+                messages.extend(result.get('system'))
+
+            if result.get('keep_history'):
+                if result.get('keep_system'):
+                    messages.extend(history)
+                else:
+                    filtered_history = [msg for msg in history if msg["role"] != "system"]
+                    messages.extend(filtered_history)
+
+            if result.get('messages'):
+                messages.extend(result.get('messages'))
+
+            gen_conf = dialog.llm_setting
+            if result.get('enable_json'):
+                if "deepseek-r1-250528" in chat_mdl.llm_name.lower():
+                    gen_conf['response_format'] = {
+                        'type': 'json_object'
+                    }
+
+            for ans in chat_mdl.chat_streamly(system_prompt, messages, gen_conf):
+                if msg_queue and len(ans)>0:
+                    msg_queue.put(ans)
+
+            logging.info(f"166- response_content: {ans}")
+            return ans
 
         attempt = 0
         while attempt < retries:
@@ -297,7 +338,14 @@ Please use only the tools that are explicitly defined above.
         return instruction
 
 
-    async def mcp_tool_call(self, server, tool_call, msg_queue = None) -> str:
+    async def mcp_tool_call(
+            self,
+            server,
+            tool_call,
+            dialog = None,
+            history = None,
+            chat_mdl = None,
+            msg_queue = None) -> str:
         """分析llm的回答，如果需要则调用MCP工具.
 
         Args:
@@ -311,7 +359,7 @@ Please use only the tools that are explicitly defined above.
         logging.info(f"280- With arguments: {tool_call['arguments']}")
         try:
             result = await server.execute_tool(
-                tool_call["tool"], tool_call["arguments"], msg_queue
+                tool_call["tool"], tool_call["arguments"], dialog, history, chat_mdl, msg_queue
             )
             if "data:image" in result:
                 return f"\n\n{result}"
@@ -402,22 +450,6 @@ Please use only the tools that are explicitly defined above.
             except Exception as e:
                 logging.error(f"406- **ERROR** {str(e)}")
 
-            # 一般发生在token长度超出限制，切换回正式模型
-            # if "**ERROR**" in response_content:
-            #     if  chat_mdl != chat_mdl_0:
-            #         logging.info(f"449- chat_mdl_0从{chat_mdl_0.llm_name}切换到{chat_mdl.llm_name}")
-            #         # 重新发问
-            #         last_msg = mcp_messages[-1]
-            #         if "read_document" in last_msg["content"]:
-            #             mcp_messages.append({"role": "user", "content": question})
-
-            #         chat_mdl_0 = chat_mdl
-            #         start_time = time.time()
-            #         response_content = chat_mdl_0.chat(system_prompt, mcp_messages, gen_conf)
-            #         end_time = time.time()
-            #         duration = end_time - start_time
-            #         tps = len(response_content) / duration if duration > 0 else 0
-
             logging.info(f"411- {chat_mdl_0.llm_name}: %s", response_content)
             mcp_server = None
             try:
@@ -427,7 +459,6 @@ Please use only the tools that are explicitly defined above.
                 if "tool" in tool_call:
                     # 遍历查找工具所对应的mcp server
                     for server in self.servers:
-
                         if server.name in dia_mcp_servers and any(tool.name == tool_call["tool"] for tool in server.tools):
                             mcp_server = server
                             if "arguments" not in tool_call:
@@ -457,7 +488,7 @@ Please use only the tools that are explicitly defined above.
             if mcp_server is not None:
                 # 异步执行mcp工具调用
                 async def run_async_func():
-                    result = await self.mcp_tool_call(mcp_server, tool_call, msg_queue)
+                    result = await self.mcp_tool_call(mcp_server, tool_call, dialog, mcp_messages, chat_mdl, msg_queue)
                     result_container[0] = result
                     # 执行结束标记
                     msg_queue.put(None)
@@ -502,8 +533,13 @@ Please use only the tools that are explicitly defined above.
                     {"role": "assistant", "content": f"{response_content}\n\n工具执行结果：\n\n{result}" }
                 )
 
-                if "**UPLOAD**" in question:
-                    # 如果是用户上传文件，则返回上传结果给用户
+                if dialog.description == 'DeepCoder':
+                    # 如果是编程助手，则返回上传结果给用户
+                    ans += f"\n{result}"
+                    yield {"answer": ans}
+                    break   # 退出会话
+                elif "**UPLOAD**" in question:
+                    # 如果是用户上传文件或者是编程助手，则返回上传结果给用户
                     ans += f"\n{result}"
                     yield {"answer": ans}
                     break   # 退出会话
@@ -540,7 +576,7 @@ Please use only the tools that are explicitly defined above.
                     response_content += "\n\n**有错误发生，可能是因为上下文长度超限**"
 
                 ans += f"{response_content}\n\n*一共输出{len(response_content)}字，{round(tps, 2)}tokens/s*"
-                yield {"answer": ans}
+                yield {"answer": f"<SPLIT>{ans}"}
                 break   # 退出对话
 
 
