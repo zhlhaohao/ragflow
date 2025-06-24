@@ -221,9 +221,7 @@ class Base(ABC):
         else:
             extra_body = {"chat_template_kwargs":{"enable_thinking": False}}
 
-        if "internet" in gen_conf:
-            gen_conf.pop("internet")
-
+        clear_gen_conf(gen_conf)  # F8080
         try:
             response = self.client.chat.completions.create(
                 model=self.model_name,

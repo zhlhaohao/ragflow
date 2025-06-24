@@ -160,22 +160,33 @@ class Server:
                 system_prompt = dialog.prompt_config['system']
 
             messages = []
+
             if result.get('system'):
                 messages.extend(result.get('system'))
 
+            # 如果需要保留历史对话
             if result.get('keep_history'):
+                # 把所有的历史消息（包括系统消息）添加到消息队列中
                 if result.get('keep_system'):
                     messages.extend(history)
                 else:
+                    # 剔除掉系统消息，把用户、助理的历史消息放到此次消息队列中
                     filtered_history = [msg for msg in history if msg["role"] != "system"]
                     messages.extend(filtered_history)
 
+            # 删除历史消息中的最后一条用户消息
+            if not result.get('keep_last_message'):
+                last_message = messages[-1]
+                if last_message["role"] == "user":
+                    messages.pop()
+
+            # 粘贴mcp server过来的用户、助理消息
             if result.get('messages'):
                 messages.extend(result.get('messages'))
 
             gen_conf = dialog.llm_setting
             if result.get('enable_json'):
-                if "deepseek-r1-250528" in chat_mdl.llm_name.lower():
+                if "deepseek-r1-250528" in chat_mdl.llm_name.lower() or "deepseek-reasoner" in chat_mdl.llm_name.lower():
                     gen_conf['response_format'] = {
                         'type': 'json_object'
                     }
@@ -535,7 +546,7 @@ Please use only the tools that are explicitly defined above.
 
                 if dialog.description == 'DeepCoder':
                     # 如果是编程助手，则返回上传结果给用户
-                    ans += f"\n{result}"
+                    ans = f"{result}"
                     yield {"answer": ans}
                     break   # 退出会话
                 elif "**UPLOAD**" in question:

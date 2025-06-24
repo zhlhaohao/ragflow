@@ -81,7 +81,7 @@ os.environ["TIKTOKEN_CACHE_DIR"] = tiktoken_cache_dir
 encoder = tiktoken.get_encoding("cl100k_base")
 
 
-def num_tokens_from_string(string: str) -> int:
+def num_tokens_from_string(string: str | None) -> int:
     """Returns the number of tokens in a text string."""
     try:
         return len(encoder.encode(string))
@@ -93,13 +93,13 @@ def truncate(string: str, max_len: int) -> str:
     """Returns truncated text if the length of text exceed max_len."""
     return encoder.decode(encoder.encode(string)[:max_len])
 
-  
+
 def clean_markdown_block(text):
     text = re.sub(r'^\s*```markdown\s*\n?', '', text)
     text = re.sub(r'\n?\s*```\s*$', '', text)
     return text.strip()
 
-  
+
 def get_float(v):
     if v is None:
         return float('-inf')
