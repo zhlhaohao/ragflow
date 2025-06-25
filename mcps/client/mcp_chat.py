@@ -80,7 +80,7 @@ class Configuration:
 
 class Server:
     """
-    Manages MCP server connections and tool execution.
+    管理单个 MCP server connections and tool execution.
     """
     def __init__(self, name: str, config: dict[str, Any]) -> None:
         self.name: str = name
@@ -111,6 +111,27 @@ class Server:
             client = Client(config)
 
         return client
+
+
+    def judge_permission(self, tool_name: str, user_email: str) -> bool:
+        """
+        检查用户是否有权限使用指定的工具。
+
+        参数:
+            tool_name (str): 工具名称。
+            user_email (str): 用户的电子邮件地址。
+
+        返回:
+            bool: 如果用户有权限，返回 True；否则返回 False。
+        """
+        # 获取 permission 字段，如果不存在则默认为空字典
+        permissions = self.config.get("permission", {})
+
+        # 检查工具名是否在 permissions 中，并且用户邮箱是否在对应的邮箱列表中
+        if tool_name in permissions and user_email not in permissions[tool_name]:
+            return False
+
+        return True
 
     async def list_tools(self) -> list[Any]:
         tools = []
@@ -273,6 +294,9 @@ class McpChat:
     server_tools = {}
 
     async def init_servers(self):
+        """
+        管理多个mcp server
+        """
         if self.server_config is None:
             config = Configuration()
             self.server_config = config.load_config("conf/mcp_config.toml")
@@ -296,12 +320,25 @@ class McpChat:
 
         return is_success
 
-    def mcp_instruction(self, mcp_servers):
+    def get_server(self, server_name):
+        for server in self.servers:
+            if server.name == server_name:
+                return server
+        return None
+
+
+    def mcp_instruction(self, mcp_servers, user_email):
+        """组装当前用户的当前可用mcp_servers的工具提示，检查了工具的权限"""
         tools_description = ''
         for server_name in mcp_servers:
             tools_description += f"\n\n## Tools of mcp server {server_name}:"
             tools = self.server_tools.get(server_name,[])
-            tools_description += "\n".join([tool.format_for_llm() for tool in tools])
+            server = self.get_server(server_name)
+            temp_list = []
+            for tool in tools:
+                if server.judge_permission(tool.name, user_email):
+                    temp_list.append(tool.format_for_llm())
+            tools_description += "\n".join(temp_list)
 
             config = self.server_config["mcpServers"].get(server_name,{})
             system_prompt = config.get("system")
@@ -351,7 +388,8 @@ Please use only the tools that are explicitly defined above.
 
     async def mcp_tool_call(
             self,
-            server,
+            current_user,
+            server: Server,
             tool_call,
             dialog = None,
             history = None,
@@ -369,6 +407,9 @@ Please use only the tools that are explicitly defined above.
         logging.info(f"279- Executing tool: {tool_call['tool']}")
         logging.info(f"280- With arguments: {tool_call['arguments']}")
         try:
+            if not server.judge_permission(tool_call["tool"], current_user.email):
+                raise Exception(f"{current_user.email} does not have permission to use tool {tool_call['tool']}")
+
             result = await server.execute_tool(
                 tool_call["tool"], tool_call["arguments"], dialog, history, chat_mdl, msg_queue
             )
@@ -409,7 +450,7 @@ Please use only the tools that are explicitly defined above.
             # 如果处理失败，返回原始字符串或进行其他错误处理
             return input_str
 
-    def chat(self, dialog, messages):
+    def chat(self, dialog, messages, current_user):
         """
         Main chat session handler.
         """
@@ -437,7 +478,7 @@ Please use only the tools that are explicitly defined above.
         system_prompt = prompt_config["system"]
 
         # 枚举当前对话助手所配置所有的mcp servers，生成tools desc
-        mcp_instruction = self.mcp_instruction(dia_mcp_servers)
+        mcp_instruction = self.mcp_instruction(dia_mcp_servers, current_user.email)
         mcp_messages = [{"role": "system", "content": mcp_instruction}]
         mcp_messages.extend(messages)
 
@@ -499,7 +540,7 @@ Please use only the tools that are explicitly defined above.
             if mcp_server is not None:
                 # 异步执行mcp工具调用
                 async def run_async_func():
-                    result = await self.mcp_tool_call(mcp_server, tool_call, dialog, mcp_messages, chat_mdl, msg_queue)
+                    result = await self.mcp_tool_call(current_user, mcp_server, tool_call, dialog, mcp_messages, chat_mdl, msg_queue)
                     result_container[0] = result
                     # 执行结束标记
                     msg_queue.put(None)

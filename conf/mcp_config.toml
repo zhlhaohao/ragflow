@@ -8,6 +8,9 @@ desc = "主服务器"
 url = "http://127.0.0.1:9898/mcp-server/"
 transport = "streamable-http"
 
+[mcpServers.MainServer.permission]
+ai_coder = ["zhlhao@163.com", "lianghao1@chinaunicom.cn"]
+apply_change = ["zhlhao@163.com", "lianghao1@chinaunicom.cn"]
 
 # [mcpServers.audit_filesystem]
 # desc = "oo_audit工作目录文件系统"

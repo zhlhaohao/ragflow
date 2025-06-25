@@ -33,7 +33,7 @@ from api import settings
 from api.utils.api_utils import get_json_result
 from api.utils.api_utils import server_error_response, get_data_error_result, validate_request
 from graphrag.general.mind_map_extractor import MindMapExtractor
-from api.utils import ic 
+from api.utils import ic
 from rag.app.tag import label_question
 from mcps.client import mcp_chat
 
@@ -439,9 +439,9 @@ Related search terms:
 
 Reason:
  - When searching, users often only use one or two keywords, making it difficult to fully express their information needs.
- - Generating related search terms can help users dig deeper into relevant information and improve search efficiency. 
+ - Generating related search terms can help users dig deeper into relevant information and improve search efficiency.
  - At the same time, related terms can also help search engines better understand user needs and return more accurate search results.
- 
+
 """
     ans = chat_mdl.chat(prompt, [{"role": "user", "content": f"""
 Keywords: {question}
@@ -584,6 +584,7 @@ def completion_mcp():
     req = request.json
     messages = req["messages"]
     message_id = messages[-1].get("id")
+    c_user = deepcopy(current_user)
 
     try:
         # 获取聊天对象
@@ -597,12 +598,12 @@ def completion_mcp():
             return get_data_error_result(message="Dialog not found!")
 
         def stream():
-            nonlocal dia, messages, conv
+            nonlocal dia, messages, conv, c_user
             try:
                 yield(" ")
                 # 调用chat函数生成答案，stream模式为True
                 final_ans = None
-                for ans in mcp_chat.MCP_CHAT.chat(dia, messages):
+                for ans in mcp_chat.MCP_CHAT.chat(dia, messages, c_user):
                     ans["id"] = message_id
                     ans["session_id"] = conv.id
                     final_ans = ans
