@@ -36,6 +36,8 @@ from graphrag.general.mind_map_extractor import MindMapExtractor
 from api.utils import ic
 from rag.app.tag import label_question
 from mcps.client import mcp_chat
+from mcps.client.lite_llm_json import LiteLLMJson
+
 
 @manager.route('/set', methods=['POST'])    # type: ignore # noqa: F821
 @login_required
@@ -471,6 +473,56 @@ def add_messages():
     except Exception as e:
         return server_error_response(e)
 
+def extract_think(text):
+    start_tag = "<think>"
+    end_tag = "</think>"
+    start_index = text.find(start_tag)
+    end_index = text.find(end_tag)
+
+    if start_index != -1 and end_index != -1 and start_index < end_index:
+        return (
+            "<think>"
+            + text[start_index + len(start_tag) : end_index].strip()
+            + "</think>"
+        )
+    return ""
+
+def remove_think(text):
+    start_tag = "<think>"
+    end_tag = "</think>"
+    start_index = text.find(start_tag)
+    end_index = text.find(end_tag)
+
+    if start_index != -1 and end_index != -1 and start_index < end_index:
+        return text[end_index + len(end_tag) :].strip()
+    return text
+
+def coder_json_format(json_str):
+    """对编程助理的响应进行格式化"""
+    json_schema = {
+        "type": "object",
+        "properties": {
+            "assistant_reply": {"type": "string"},
+            "files_to_create": {"type": "array"},
+            "files_to_edit": {"type": "array"},
+        },
+        "anyOf": [
+            {"required": ["assistant_reply"]},
+            {"required": ["files_to_create"]},
+            {"required": ["files_to_edit"]},
+        ],
+    }
+    llm_json = LiteLLMJson(json_schema)
+
+    try:
+        think_content = extract_think(json_str)
+        json_part = remove_think(json_str)
+        json_result = llm_json.parse_response(json_part)
+        json_text = json.dumps(json_result, ensure_ascii=False)
+        return f"{think_content}{json_text}"
+    except Exception as ex:
+        return json_str
+
 
 @manager.route('/completion_nokb', methods=['POST'])  # type: ignore # noqa: F821
 @login_required
@@ -505,11 +557,6 @@ def completion_nokb():
                     final_ans = ans
                     yield "data:" + json.dumps({"code": 0, "message": "", "data": ans}, ensure_ascii=False) + "\n\n"
 
-                # parsed_response = json.loads(final_ans['answer'])
-                # if "assistant_reply" not in parsed_response:
-                #     parsed_response["assistant_reply"] = ""
-                # answer = json.dumps(parsed_response)
-
                 # 将最后一条用户提问和助理的回答保存到对话记录中
                 if final_ans is None:
                     err_msg = "大模型返回空回答"
@@ -517,6 +564,10 @@ def completion_nokb():
                                             "data": {"answer": "**ERROR**: " + err_msg, "reference": []}},
                                            ensure_ascii=False) + "\n\n"
                 else:
+                    # 如果是编程助理，那么对响应进行json校验和格式化
+                    if dia.description == "CodeAssistant":
+                        final_ans["answer"] = coder_json_format(final_ans["answer"])
+
                     conv.message.append(messages[-1])
                     conv.message.append({"role": "assistant", "content":
                         final_ans['answer'], "id": message_id})
