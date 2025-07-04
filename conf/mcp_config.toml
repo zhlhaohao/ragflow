@@ -12,6 +12,14 @@ transport = "streamable-http"
 ai_coder = ["zhlhao@163.com", "lianghao1@chinaunicom.cn"]
 apply_change = ["zhlhao@163.com", "lianghao1@chinaunicom.cn"]
 
+
+[mcpServers.LocalDeepCoderServer]
+desc = "Local编程"
+url = "http://10.119.80.110:8001/mcp-server/"
+transport = "streamable-http"
+
+
+
 # [mcpServers.audit_filesystem]
 # desc = "oo_audit工作目录文件系统"
 # command = "npx"
@@ -29,7 +37,7 @@ args = [
   "run",
   "mcps/servers/web_search/mcp_web_search.py",
   "--max-results", "10",
-  "--firecrawl-url", "http://172.24.12.149:9860/",
+  "--firecrawl-url", "http://172.24.12.149:19860/",
   "--searxng-url", "http://127.0.0.1:9863/"
 ]
 
@@ -44,7 +52,7 @@ args = [
   "--query-count", "3",
   "--max-results", "5",
   "--context-length", "2000",
-  "--firecrawl-url", "http://172.24.12.149:9860/",
+  "--firecrawl-url", "http://172.24.12.149:19860/",
   "--searxng-url", "http://127.0.0.1:9863/"
 ]
 

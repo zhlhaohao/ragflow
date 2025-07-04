@@ -20,7 +20,7 @@ RUN --mount=type=bind,from=infiniflow/ragflow_deps:latest,source=/huggingface.co
     tar --exclude='.*' -cf - \
         /huggingface.co/InfiniFlow/text_concat_xgb_v1.0 \
         /huggingface.co/InfiniFlow/deepdoc \
-        | tar -xf - --strip-components=3 -C /ragflow/rag/res/deepdoc 
+        | tar -xf - --strip-components=3 -C /ragflow/rag/res/deepdoc
 
 # 将infiniflow/ragflow_deps:latest镜像里面保存的模型权重文件拷贝到 /root/.ragflow，这些是ntlk、embedding、reranking的模型权重文件
 RUN --mount=type=bind,from=infiniflow/ragflow_deps:latest,source=/huggingface.co,target=/huggingface.co \
@@ -201,13 +201,9 @@ ENV PYTHONPATH=/ragflow/
 
 # 复制项目代码
 COPY web web
-COPY api api
-COPY conf conf
 COPY deepdoc deepdoc
-COPY rag rag
 COPY agent agent
 COPY graphrag graphrag
-COPY mcps mcps
 COPY agentic_reasoning agentic_reasoning
 COPY pyproject.toml uv.lock ./
 
@@ -224,7 +220,11 @@ COPY --from=builder /ragflow/web/dist /ragflow/web/dist
 # COPY docker/nginx/ragflow.conf /etc/nginx/conf.d/ragflow.conf
 # COPY docker/nginx/ssl.cert /etc/nginx/conf.d/ssl.cert
 # COPY docker/nginx/ssl.key /etc/nginx/conf.d/ssl.key
-
 # 复制版本信息文件
 COPY --from=builder /ragflow/VERSION /ragflow/VERSION
+
+COPY conf conf
+COPY api api
+COPY rag rag
+COPY mcps mcps
 ENTRYPOINT ["./entrypoint.sh"]
