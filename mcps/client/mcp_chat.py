@@ -205,7 +205,7 @@ class Server:
             if result.get('messages'):
                 messages.extend(result.get('messages'))
 
-            gen_conf = dialog.llm_setting
+            gen_conf = deepcopy(dialog.llm_setting)
             if result.get('enable_json'):
                 if "deepseek-r1-250528" in chat_mdl.llm_name.lower() or "deepseek-reasoner" in chat_mdl.llm_name.lower():
                     gen_conf['response_format'] = {
@@ -463,14 +463,13 @@ Please use only the tools that are explicitly defined above.
         if not chat_mdl:
             raise LookupError("LLM(%s) not found" % dialog.llm_id)
 
-        # chat_mdl_0是专用于mcp tool工具解析的模型，不是用于最终问题回答的模型，由于qwen3系列对tool解析较好，所以不用单独新建解析模型，共用对话模型即可
-        if "qwen3" in dialog.llm_id.lower():
-            chat_mdl_0 = chat_mdl
-        else:
-            # qwen3-32b@Uniin   Qwen3-14B___OpenAI-API@OpenAI-API-Compatible
-            chat_mdl_0 = LLMBundle(dialog.tenant_id, LLMType.CHAT, settings.MCP_TOOL_MDL)
-            if not chat_mdl_0:
-                chat_mdl_0 = chat_mdl
+        # mcp_chat_mdl是专用于mcp tool工具解析的模型，不是用于最终问题回答的模型，由于qwen3系列对tool解析较好，所以不用单独新建解析模型，共用对话模型即可
+        # if "qwen3" in dialog.llm_id.lower():
+        #     mcp_chat_mdl = chat_mdl
+        # else:
+        mcp_chat_mdl = LLMBundle(dialog.tenant_id, LLMType.CHAT, settings.MCP_TOOL_MDL)
+        if not mcp_chat_mdl:
+            mcp_chat_mdl = chat_mdl
 
         gen_conf = dialog.llm_setting
         prompt_config = dialog.prompt_config
@@ -491,24 +490,42 @@ Please use only the tools that are explicitly defined above.
             {"role": "assistant", "content": "<NO_TOOL_CALL>"},
         ]
 
-        final_ans = ""
+        mcp_ans = ""
         # 强制关闭本地qwen3的思维链输出
-        gen_conf["enable_cot"] = False
         last_tool_call = ""
         msg_queue = queue.Queue()
         result_container = [None]  # 使用列表来共享结果，因为 nonlocal 在嵌套函数中可能有限制
+        first_call = True
         while True:
             # 在提问前，要把mcp_messages复制一份再提问，因为chat会修改其内容
             tps = 0
             try:
                 # 询问大模型，输出工具调用命令(当然也可能是最终回答)
                 start_time = time.time()
+                if first_call:
+                    chat_msgs = deepcopy(mcp_messages[:-1])
+                    chat_msgs.extend(mock_messages)
+                    chat_msgs.append(mcp_messages[-1])
+                    first_call = False
+                else:
+                    chat_msgs = deepcopy(mcp_messages)
+                    chat_msgs.append(
+                    {"role": "user", "content":
+                     """<THINK>
+1. 仔细分析是否还需要调用更多的工具才能回答用户的问题？
+2. 如果答案是肯定的，那么选择一个工具并调用
+3. 如果答案是否定的，那么直接返回<NO_TOOL_CALL>
+</THINK>"""
+                    }
+                )
 
-                chat_msgs = mcp_messages[:-1]
-                chat_msgs.extend(mock_messages)
-                chat_msgs.append(mcp_messages[-1])
-
-                response_content = chat_mdl_0.chat(system_prompt, chat_msgs, gen_conf)
+                mcp_gen_conf = {
+                    "temperature": 0.1,
+                    "top_p": 0.8,
+                    "top_k": 5,
+                    "enable_cot": False,
+                }
+                response_content = mcp_chat_mdl.chat(system_prompt, chat_msgs, mcp_gen_conf)
                 end_time = time.time()
                 duration = end_time - start_time
                 tps = len(response_content) / duration if duration > 0 else 0
@@ -516,7 +533,7 @@ Please use only the tools that are explicitly defined above.
             except Exception as e:
                 logging.error(f"406- **ERROR** {str(e)}")
 
-            logging.info(f"411- {chat_mdl_0.llm_name}: %s", response_content)
+            logging.info(f"411- {mcp_chat_mdl.llm_name}: %s", response_content)
             mcp_server = None
             try:
                 # 解析出工具调用对象
@@ -536,8 +553,8 @@ Please use only the tools that are explicitly defined above.
                                 last_tool_call = tool_json
 
                                 logging.info(f"459- 调用MCP工具{server.name}:\n{tool_json}")
-                                final_ans  += f"调用MCP工具{server.name}:\n\n```json\n{tool_json}\n```\n\n"
-                                yield {"answer": final_ans}
+                                mcp_ans  += f"调用MCP工具{server.name}:\n\n```json\n{tool_json}\n```\n\n"
+                                yield {"answer": mcp_ans}
                             else:
                                 # 如果跟上次的工具调用一模一样，则不重复调用
                                 mcp_server = None
@@ -576,7 +593,7 @@ Please use only the tools that are explicitly defined above.
                         msg = msg_queue.get(timeout=0.1)
                         if msg is None:
                             break  # 收到结束信号
-                        yield {"answer": f"{final_ans}\n{msg}"}
+                        yield {"answer": f"{mcp_ans}\n{msg}"}
                     except queue.Empty:
                         # 如果线程已经结束，则退出循环
                         if not thread.is_alive():
@@ -598,19 +615,16 @@ Please use only the tools that are explicitly defined above.
                 mcp_messages.append(
                     {"role": "assistant", "content": f"{response_content}\n\n工具执行结果：\n\n{result}" }
                 )
-                mcp_messages.append(
-                    {"role": "user", "content": """Choose the appropriate tool based on the user's question. When you don't need to use a tool, then answer <NO_TOOL_CALL>""" }
-                )
 
                 if dialog.description == 'DeepCoder':
                     # 如果是编程助手，则返回上传结果给用户
-                    final_ans = f"{result}"
-                    yield {"answer": final_ans}
+                    mcp_ans = f"{result}"
+                    yield {"answer": mcp_ans}
                     break   # 退出会话
                 elif "**UPLOAD**" in question:
                     # 如果是用户上传文件或者是编程助手，则返回上传结果给用户
-                    final_ans += f"\n{result}"
-                    yield {"answer": final_ans}
+                    mcp_ans += f"\n{result}"
+                    yield {"answer": mcp_ans}
                     break   # 退出会话
                 else:
                     # 提取```...```里面的内容
@@ -618,27 +632,27 @@ Please use only the tools that are explicitly defined above.
                         ignoreLen = len(result)-1024
                         result = result[:1024] + f"\n\n省略{ignoreLen}字..."
 
-                    final_ans += f"\n\n工具执行结果:\n\n```\n{result}\n```\n\n"
-                    yield {"answer": final_ans}
+                    mcp_ans += f"\n\n工具执行结果:\n\n```\n{result}\n```\n\n"
+                    yield {"answer": mcp_ans}
                     # 不退出会话,继续下一个循环,LLM会继续选择合适的工具，或者直接回答
 
             # 没有使用tool，表示已经收集了足够的信息，可以回答用户问题了
             else:
                 last_msg = mcp_messages[-1]
                 # 如果是调用了翻译pdf工具，就不需要重新问答了，直接返回翻译结果
-                if "<NO_TOOL_CALL>" in response_content or (chat_mdl_0 != chat_mdl and "translate_pdf" not in last_msg["content"]):
+                if ("<NO_TOOL_CALL>" in response_content or mcp_chat_mdl != chat_mdl) and "translate_pdf" not in last_msg["content"]:
                     final_prompt = system_prompt + "\n\n**CRITICAL**: REPLY DIRECTLY, DO NOT CALL TOOLS ANY MORE."
 
                     # 如果是调用了阅读文档工具，那么重新把用户的问题放到最后
                     if "read_document" in last_msg["content"]:
                         mcp_messages.append({"role": "user", "content": question})
 
-                    # 用正式对话的模型重新问一次,由于第1条记录是mcp tools description,还有一些临时插进去的消息需要丢弃
-                    final_messages = [msg for msg in mcp_messages[1:] if "<NO_TOOL_CALL>" not in msg.get("content", "")]
+                    # final_messages = [msg for msg in mcp_messages[1:] if "<NO_TOOL_CALL>" not in msg.get("content", "")]
 
+                    # 用正式对话的模型重新问一次,由于第1条记录是mcp tools description
                     start_time = time.time()
-                    for ans in chat_mdl.chat_streamly(final_prompt, final_messages, gen_conf):
-                        yield {"answer": ans}
+                    for ans in chat_mdl.chat_streamly(final_prompt, mcp_messages[1:], gen_conf):
+                        yield {"answer": f"{mcp_ans}\n{ans}"}
 
                     end_time = time.time()
                     duration = end_time - start_time
@@ -648,10 +662,9 @@ Please use only the tools that are explicitly defined above.
 
                 if "ERROR" in response_content:
                     response_content += "\n\n**有错误发生，可能是因为上下文长度超限**"
-                # final_ans += f"{response_content}\n\n*一共输出{len(response_content)}字，{round(tps, 2)}tokens/s*"
+                # mcp_ans += f"{response_content}\n\n*一共输出{len(response_content)}字，{round(tps, 2)}tokens/s*"
 
-                final_ans += response_content
-                yield {"answer": final_ans}
+                yield {"answer": f"{mcp_ans}\n{response_content}"}
                 break
 
 

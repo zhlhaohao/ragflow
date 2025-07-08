@@ -60,7 +60,8 @@ args = [
 desc = "员工数据库问答"
 url = "http://132.120.194.217:9500/sse"
 transport = "sse"
-system = """### 用户表的表结构的说明
+system = """Call mysql_query tool to query staff and team information.
+### 用户表的表结构的说明
 #### staff - 员工表
 CREATE TABLE `staff` (
   `id` int NOT NULL AUTO_INCREMENT,
