@@ -568,7 +568,9 @@ def completion_nokb():
                     if dia.description == "CodeAssistant":
                         final_ans["answer"] = coder_json_format(final_ans["answer"])
 
-                    conv.message.append(messages[-1])
+                    last_msg = messages[-1]
+                    last_msg["content"] = last_msg.get("content","").replace("[CODE MODE]", "").replace("[DEEP RESEARCH]", "")
+                    conv.message.append(last_msg)
                     conv.message.append({"role": "assistant", "content":
                         final_ans['answer'], "id": message_id})
                     ConversationService.update_by_id(conv.id, conv.to_dict())
@@ -667,7 +669,9 @@ def completion_mcp():
                                             "data": {"answer": "**ERROR**: " + err_msg, "reference": []}},
                                            ensure_ascii=False) + "\n\n"
                 else:
-                    conv.message.append(messages[-1])
+                    last_msg = messages[-1]
+                    last_msg["content"] = last_msg.get("content","").replace("[CODE MODE]", "").replace("[DEEP RESEARCH]", "")
+                    conv.message.append(last_msg)
                     conv.message.append({"role": "assistant", "content":
                         final_ans['answer'], "id": message_id})
                     ConversationService.update_by_id(conv.id, conv.to_dict())

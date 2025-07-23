@@ -169,11 +169,17 @@ class Server:
             except Exception:
                 result = content
 
-            # 如果是log信息
+            # 如果是字符串，可能是/开头的指令或者是logger message
             if isinstance(result, str):
-                if msg_queue and result:
-                    msg_queue.put(result)
-                return ""
+                if str.startswith(result, "/history"):
+                    if history:
+                        return json.dumps({"history": history},ensure_ascii=False)
+                    else:
+                        return "history not found"
+                else:
+                    if msg_queue and result:
+                        msg_queue.put(result)
+                    return ""
 
             # 如果是协助mcp server调用llm
             system_prompt = "you are a helpful assistant."
@@ -486,8 +492,6 @@ Please use only the tools that are explicitly defined above.
         mock_messages = [
             {"role": "user", "content": "When you don't need to use a tool, THEN ANSWER '<NO_TOOL_CALL>"},
             {"role": "assistant", "content": "OK"},
-            {"role": "user", "content": "请讲一个笑话"},
-            {"role": "assistant", "content": "<NO_TOOL_CALL>"},
         ]
 
         mcp_ans = ""
@@ -525,6 +529,7 @@ Please use only the tools that are explicitly defined above.
                     "top_k": 5,
                     "enable_cot": False,
                 }
+                logging.info(f"528- Ask {mcp_chat_mdl.llm_name}:\n{chat_msgs[-1]}")
                 response_content = mcp_chat_mdl.chat(system_prompt, chat_msgs, mcp_gen_conf)
                 end_time = time.time()
                 duration = end_time - start_time
