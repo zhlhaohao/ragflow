@@ -29,6 +29,9 @@ def completions(app_key: str, app_secret: str,exp_seconds: int, model: str,messa
         kwargs.pop("endpoint")
     else:
         endpoint = "https://openai.uniin.cn"
+        if os.environ.get("UNIIN_BASE_URL"):
+            endpoint = os.environ.get("UNIIN_BASE_URL")
+
     payload = json.dumps(
         {
             "model": model,
@@ -60,6 +63,9 @@ def stream_completions(app_key: str, app_secret: str,exp_seconds: int,  model_na
         kwargs.pop("endpoint")
     else:
         endpoint = "https://openai.uniin.cn"
+        if os.environ.get("UNIIN_BASE_URL"):
+            endpoint = os.environ.get("UNIIN_BASE_URL")
+
     payload = json.dumps(
         {
             "model": model_name,

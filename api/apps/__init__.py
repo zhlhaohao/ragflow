@@ -40,6 +40,7 @@ __all__ = ["app"]
 Request.json = property(lambda self: self.get_json(force=True, silent=True))
 
 app = Flask(__name__)
+app.json.ensure_ascii = False
 
 # Add this at the beginning of your file to configure Swagger UI
 swagger_config = {
@@ -165,9 +166,9 @@ def load_user(web_request):
             if 'access_token' in payload and 'exp' in payload and payload['exp'] > int(time.time()):
                 user = UserService.query(access_token=access_token, status=StatusEnum.VALID.value)
                 if user:
-                    return user[0]    
+                    return user[0]
                 else:
-                    return None                            
+                    return None
             """
             access_token = str(jwt.loads(authorization))
             user = UserService.query(

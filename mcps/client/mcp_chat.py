@@ -294,9 +294,14 @@ class Tool:
 {chr(10).join(args_desc)}
 """
 
+    def to_dict(self) -> dict:
+        return {
+            "name": self.name,
+            "description": self.description,
+        }
 
 class McpChat:
-    server_config = None
+    server_config = None    # 所有mcp server的配置
     server_tools = {}
 
     async def init_servers(self):
@@ -314,10 +319,12 @@ class McpChat:
 
         is_success = True
         for server in self.servers:
+            # 如果没有列出出工具，则尝试列出
             if not self.server_tools.get(server.name, False):
                 try:
                     tools = await server.list_tools()
                     self.server_tools[server.name] = tools
+                    server.config["tools"] = [tool.to_dict() for tool in tools]
                     logging.error(f"Success loading tools for mcp server {server.name}")
                 except Exception as e:
                     is_success = False
@@ -332,6 +339,12 @@ class McpChat:
                 return server
         return None
 
+    def get_visible_servers(self, email):
+        result = {}
+        for server in self.servers:
+            if "visible" not in server.config or email in server.config['visible']:
+                result[server.name] = server.config
+        return result
 
     def mcp_instruction(self, mcp_servers, user_email):
         """组装当前用户的当前可用mcp_servers的工具提示，检查了工具的权限"""

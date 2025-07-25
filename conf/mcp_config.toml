@@ -17,6 +17,7 @@ apply_change = ["zhlhao@163.com", "lianghao1@chinaunicom.cn"]
 desc = "Local编程"
 url = "http://127.0.0.1:10001/mcp-server/"
 transport = "streamable-http"
+visible = ["zhlhao@163.com", "lianghao1@chinaunicom.cn"]
 
 [mcpServers.Gpu1Coder.permission]
 ai_coder = ["zhlhao@163.com", "lianghao1@chinaunicom.cn"]
@@ -27,6 +28,7 @@ apply_change = ["zhlhao@163.com", "lianghao1@chinaunicom.cn"]
 desc = "Local编程"
 url = "http://10.119.80.110:10001/mcp-server/"
 transport = "streamable-http"
+visible = ["zhlhao@163.com", "lianghao1@chinaunicom.cn"]
 
 [mcpServers.T14Coder.permission]
 ai_coder = ["zhlhao@163.com", "lianghao1@chinaunicom.cn"]
