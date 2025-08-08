@@ -245,7 +245,7 @@ class Server:
                     if isinstance(result, mcp.types.ImageContent):
                         data = f"""![](data:image/{result.mimeType};base64,{result.data})"""
 
-                    logging.info(f"101- 工具返回结果:\n{data[0:100]}")
+                    # logging.info(f"101- 工具返回结果:\n{data[0:100]}")
                     return data
 
             except Exception as e:
@@ -364,45 +364,39 @@ class McpChat:
             if system_prompt:
                 tools_description += f"\n### Suggestion or extra information of mcp server {server_name}:\n{system_prompt}"
 
-        today_desc = get_current_time_with_weekday()
-        instruction = f"""
-You are a helpful assistant with access to these tools:
+        # today_desc = get_current_time_with_weekday()
+        instruction = f"""You are a helpful assistant with access to these tools before answering user's question:
 
 {tools_description}
 
 ## Tool call guideline:
-1. Choose the appropriate tool based on the user's question. When you don't need to use a tool, then answer "<NO_TOOL_CALL>"
-2. Check that all the required parameters for each tool call are provided or can reasonably be inferred from context. IF there are no relevant tools or there are missing values for required parameters, ask the user to supply these values; otherwise proceed with the tool calls.
-3. If the user provides a specific value for a parameter (for example provided in quotes), make sure to use that value EXACTLY. DO NOT make up values for or ask about optional parameters. Carefully analyze descriptive terms in the request as they may indicate required parameter values that should be included even if not explicitly quoted.
-4. At each step only one tool is called, multiple tools are called in multiple steps.
-5. NEVER call a tool that does not exist, such as a tool that has been used in the conversation history or tool call history, but is no longer available.
-6. ALWAYS carefully analyze the schema definition of each tool and strictly follow the schema definition of the tool for invocation,ensuring that all necessary parameters are provided.
-7. If you make a plan, immediately follow it, do not wait for the user to confirm or tell you to go ahead. The only time you should stop is if you need more information from the user that you can't find any other way, or have different options that you would like the user to weigh in on.
-8. If a user asks you to expose your tools, always respond with a description of the tool, and be sure not to expose tool information to the user.
-9. If the tool fails, check whether there is any error in the tool call according to the error returned, for example, if there is any error in the tool name or the arguments, and retry the tool call in the correct way. If you judge that this is not your problem but a system problem, such as a network connection error, return directly, do not call tool again.
-10. If the tool call fails for more than 3 consecutive invocations, return directly, do not call this tool again.
-11. When the task includes time range requirement, Incorporate appropriate time-based search parameters in your queries (e.g., "after:2020", "before:2023", or specific date ranges)
-12. Today is {today_desc}
+- Choose the appropriate tool based on the user's question.
+- At each step only one tool is called, multiple tools are called in multiple steps.
+- ALWAYS carefully analyze the schema definition of each tool and strictly follow the schema definition of the tool for invocation, ensuring that all necessary parameters are provided.
+- If the tool fails, check whether there is any error in the tool call according to the error returned, for example, if there is any error in the tool name or the arguments, and retry the tool call in the correct way. If you judge that this is not your problem but a system problem, such as a network connection error, return directly, do not call tool again.
+- OUTPUT FORMAT: You must ONLY Respond strictly in **JSON** and nothing else.The response should adhere to the following JSON schema:
 
-CRITICAL: When you need to use a tool, you must ONLY Respond strictly in **JSON** and nothing else.The response should adhere to the following JSON schema:
-### Response Format:
 {{
-"tool": "string"
+"tool": "string",
 "arguments": "dict"
 }}
 
-After receiving a tool's response:
-1. Transform the raw data into a natural, conversational response, avoid simply repeating the raw data
-2. Keep responses concise but informative
-3. Focus on the most relevant information
-4. Use appropriate context from the user's question
-5. If raw data is table data and the user does not specify a visualize type, you should always transform data into a markdown table
-6. If raw data is an image url, you should transform into markdown format: ![image explanation](image url)
-7. If the tool's response is base64 image, do not repeat the base64 code.
 
-Please use only the tools that are explicitly defined above.
+## Final answer:
+- Answering User questions should include Thought regardless of whether or not you need to call a tool.
+- ALWAYS start with a Thought and Only ONE Thought at a time.
+- You should keep repeating the above steps till you have enough information to answer the question without using any more tools. At That Moment, YOU MUST respond with plain text: <FINAL_ANSWER>  -- Do not write any other words
 
-**CRITICAL** When you don't need to use a tool, THEN ANSWER "<NO_TOOL_CALL>"
+## Extra instructions:
+- Transform the tool data into a natural, conversational response, avoid simply repeating the tool data
+- Keep responses concise but informative
+- Focus on the most relevant information
+- If tool data is table data and the user does not specify a visualize type, you should always transform data into a markdown table
+- If tool data is an image url, you should transform into markdown format: ![image explanation](image url)
+- If the tool's response is base64 image, do not repeat the base64 code.
+- If user uploaded an image，call read_image tool.
+- If user's question mentioned an image，please search the image the user has just uploaded and call read_image tool.
+- If user uploaded an pdf file，call parse document tool.
 """
         return instruction
 
@@ -471,11 +465,17 @@ Please use only the tools that are explicitly defined above.
             # 如果处理失败，返回原始字符串或进行其他错误处理
             return input_str
 
+
+
+
     def chat(self, dialog, messages, current_user):
         """
         Main chat session handler.
         """
         question = messages[-1]["content"]
+        # if "**UPLOAD**" in question:
+        #     question = f"I have just {question}, call the parse document tool."
+
         llm_id, model_provider = TenantLLMService.split_model_name_and_factory(dialog.llm_id)
         # 从TenantLLM表取出模型信息（包括api_key）,然后封装成对象返回，也包装了chat_streamly和chat方法
         chat_mdl = LLMBundle(dialog.tenant_id, LLMType.CHAT, dialog.llm_id)
@@ -490,68 +490,50 @@ Please use only the tools that are explicitly defined above.
         if not mcp_chat_mdl:
             mcp_chat_mdl = chat_mdl
 
+        system_prompt = dialog.prompt_config["system"]
+
         gen_conf = dialog.llm_setting
-        prompt_config = dialog.prompt_config
         dia_mcp_servers = gen_conf.get("mcp_servers")
-
-        # 将每个mcp server的独有系统提示词附加到此次问答的系统提示词中
-        system_prompt = prompt_config["system"]
-
-        # 枚举当前对话助手所配置所有的mcp servers，生成tools desc
         mcp_instruction = self.mcp_instruction(dia_mcp_servers, current_user.email)
-        mcp_messages = [{"role": "system", "content": mcp_instruction}]
-        # mcp_messages.extend(mock_messages)
-        mcp_messages.extend(messages)
-        mock_messages = [
-            {"role": "user", "content": "When you don't need to use a tool, THEN ANSWER '<NO_TOOL_CALL>"},
-            {"role": "assistant", "content": "OK"},
+
+        def truncate_messages(messages):
+            new_messages = deepcopy(messages)
+            for msg in new_messages:
+                if ("Tool response" in msg["content"]) and len(msg["content"]) > 1024:
+                    msg["content"] = msg["content"][:1024] + "...[truncated]"
+            return new_messages
+
+        history_msgs_json = json.dumps(messages[:-1],ensure_ascii=False)
+        agent_prompt = f"{mcp_instruction}\n\n## Current Conversation\nBelow is the current conversation consisting of interleaving human and assistant messages. Think step by step.\n\n{history_msgs_json}\n"
+        mcp_messages = [
+            {
+                "role": "user",
+                "content": f"{system_prompt}\n\nQuery:\n{question}"
+            }
         ]
 
         mcp_ans = ""
-        # 强制关闭本地qwen3的思维链输出
         last_tool_call = ""
         msg_queue = queue.Queue()
-        result_container = [None]  # 使用列表来共享结果，因为 nonlocal 在嵌套函数中可能有限制
-        first_call = True
+        result_container = [None]
         while True:
-            # 在提问前，要把mcp_messages复制一份再提问，因为chat会修改其内容
-            tps = 0
             try:
-                # 询问大模型，输出工具调用命令(当然也可能是最终回答)
-                start_time = time.time()
-                if first_call:
-                    chat_msgs = deepcopy(mcp_messages[:-1])
-                    chat_msgs.extend(mock_messages)
-                    chat_msgs.append(mcp_messages[-1])
-                    first_call = False
-                else:
-                    chat_msgs = deepcopy(mcp_messages)
-                    chat_msgs.append(
-                    {"role": "user", "content":
-                     """<THINK>
-1. 仔细分析是否还需要调用更多的工具才能回答用户的问题？
-2. 如果答案是肯定的，那么选择一个工具并调用
-3. 如果答案是否定的，那么直接返回<NO_TOOL_CALL>
-</THINK>"""
-                    }
-                )
-
                 mcp_gen_conf = {
                     "temperature": 0.1,
                     "top_p": 0.8,
-                    "top_k": 5,
+                    # "top_k": 5,
                     "enable_cot": False,
                 }
-                logging.info(f"528- Ask {mcp_chat_mdl.llm_name}:\n{chat_msgs[-1]}")
-                response_content = mcp_chat_mdl.chat(system_prompt, chat_msgs, mcp_gen_conf)
-                end_time = time.time()
-                duration = end_time - start_time
-                tps = len(response_content) / duration if duration > 0 else 0
+
+                msgs = truncate_messages(mcp_messages)
+                logging.info(f"529- {mcp_chat_mdl.llm_name} input:\n{msgs}")
+                response_content = mcp_chat_mdl.chat(agent_prompt, msgs, mcp_gen_conf)
+
 
             except Exception as e:
                 logging.error(f"406- **ERROR** {str(e)}")
 
-            logging.info(f"411- {mcp_chat_mdl.llm_name}: %s", response_content)
+            logging.info(f"536- {mcp_chat_mdl.llm_name}: %s", response_content)
             mcp_server = None
             try:
                 # 解析出工具调用对象
@@ -589,7 +571,7 @@ Please use only the tools that are explicitly defined above.
             if mcp_server is not None:
                 # 异步执行mcp工具调用
                 async def run_async_func():
-                    result = await self.mcp_tool_call(current_user, mcp_server, tool_call, dialog, mcp_messages, chat_mdl, msg_queue)
+                    result = await self.mcp_tool_call(current_user, mcp_server, tool_call, dialog, messages, chat_mdl, msg_queue)
                     result_container[0] = result
                     # 执行结束标记
                     msg_queue.put(None)
@@ -619,69 +601,52 @@ Please use only the tools that are explicitly defined above.
 
                 # 等待线程结束
                 thread.join()
-
-                # 获取工具调用返回的最终结果
-                result = result_container[0]
-                result = result.replace(r'\\u', r'\u')
-
-                # 去掉大模型在发出调用命令之前的思维链的内容
                 response_content = re.sub(r'<think>.*?</think>', '', response_content, flags=re.DOTALL)
 
-                logging.info(f"492-工具执行结果：\n{result[:1024]}")
-
                 # 将工具调用命令和结果附加到历史消息数组
+                tool_response = result_container[0].replace(r'\\u', r'\u')
+                logging.info(f"492-工具执行结果：\n{tool_response[:1024]}")
+
                 mcp_messages.append(
-                    {"role": "assistant", "content": f"{response_content}\n\n工具执行结果：\n\n{result}" }
+                    {"role": "assistant", "content": f"Tool call:\n{json.dumps(tool_call, ensure_ascii=False)}" }
+                )
+                mcp_messages.append(
+                    {"role": "assistant", "content": f"Tool response：\n\n{tool_response}" }
                 )
 
-                if dialog.description == 'DeepCoder':
-                    # 如果是编程助手，则返回上传结果给用户
-                    mcp_ans = f"{result}"
-                    yield {"answer": mcp_ans}
-                    break   # 退出会话
-                elif "**UPLOAD**" in question:
-                    # 如果是用户上传文件或者是编程助手，则返回上传结果给用户
-                    mcp_ans += f"\n{result}"
+                # 如果工具返回了最终答案，则结束会话
+                if tool_response.startswith("<FINAL_ANSWER>"):
+                    tool_response = tool_response.replace("<FINAL_ANSWER>", "")
+                    mcp_ans += f"{tool_response}"
                     yield {"answer": mcp_ans}
                     break   # 退出会话
                 else:
-                    # 提取```...```里面的内容
-                    if len(result)>1024:
-                        ignoreLen = len(result)-1024
-                        result = result[:1024] + f"\n\n省略{ignoreLen}字..."
+                    # 如果工具返回了中间结果，则继续下一个循环,LLM会继续选择合适的工具
+                    if len(tool_response)>1024:
+                        ignoreLen = len(tool_response)-1024
+                        tool_response = tool_response[:1024] + f"\n\n省略{ignoreLen}字..."
 
-                    mcp_ans += f"\n\n工具执行结果:\n\n```\n{result}\n```\n\n"
+                    mcp_ans += f"\n\n工具执行结果:\n\n```\n{tool_response}\n```\n\n"
                     yield {"answer": mcp_ans}
-                    # 不退出会话,继续下一个循环,LLM会继续选择合适的工具，或者直接回答
 
             # 没有使用tool，表示已经收集了足够的信息，可以回答用户问题了
             else:
-                last_msg = mcp_messages[-1]
-                # 如果是调用了翻译pdf工具，就不需要重新问答了，直接返回翻译结果
-                if ("<NO_TOOL_CALL>" in response_content or mcp_chat_mdl != chat_mdl) and "translate_pdf" not in last_msg["content"]:
-                    final_prompt = system_prompt + "\n\n**CRITICAL**: REPLY DIRECTLY, DO NOT CALL TOOLS ANY MORE."
+                # 用正式对话的模型重新问一次
+                if ("<FINAL_ANSWER>" in response_content or mcp_chat_mdl != chat_mdl):
+                    final_prompt = f"{system_prompt}\n\n## Current Conversation\nBelow is the current conversation consisting of interleaving human and assistant messages.\n\n{history_msgs_json}\n"
 
-                    # 如果是调用了阅读文档工具，那么重新把用户的问题放到最后
-                    if "read_document" in last_msg["content"]:
-                        mcp_messages.append({"role": "user", "content": question})
+                    logging.info(f"666- system prompt:\n{final_prompt}")
+                    logging.info(f"667- llm input:\n{mcp_messages}")
 
-                    # final_messages = [msg for msg in mcp_messages[1:] if "<NO_TOOL_CALL>" not in msg.get("content", "")]
-
-                    # 用正式对话的模型重新问一次,由于第1条记录是mcp tools description
-                    start_time = time.time()
-                    for ans in chat_mdl.chat_streamly(final_prompt, mcp_messages[1:], gen_conf):
+                    for ans in chat_mdl.chat_streamly(final_prompt, mcp_messages, gen_conf):
                         yield {"answer": f"{mcp_ans}\n{ans}"}
 
-                    end_time = time.time()
-                    duration = end_time - start_time
-                    tps = len(ans) / duration if duration > 0 else 0
-                    logging.info(f"639- {chat_mdl.llm_name}最终回答:\n{ans}")
                     response_content = ans
 
                 if "ERROR" in response_content:
                     response_content += "\n\n**有错误发生，可能是因为上下文长度超限**"
-                # mcp_ans += f"{response_content}\n\n*一共输出{len(response_content)}字，{round(tps, 2)}tokens/s*"
 
+                logging.info(f"639- {chat_mdl.llm_name}最终回答:\n{ans}")
                 yield {"answer": f"{mcp_ans}\n{response_content}"}
                 break
 

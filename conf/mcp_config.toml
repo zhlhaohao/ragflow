@@ -3,6 +3,13 @@
 # command = "uv"
 # args = ["run", "mcp-server-time", "--local-timezone=Asia/Shanghai"]
 
+[mcpServers.ExampleServer]
+desc = "MCP测试专用"
+url = "http://127.0.0.1:10002/mcp-server/"
+transport = "streamable-http"
+
+
+
 [mcpServers.MainServer]
 desc = "主服务器"
 url = "http://127.0.0.1:9898/mcp-server/"
@@ -45,6 +52,15 @@ apply_change = ["zhlhao@163.com", "lianghao1@chinaunicom.cn"]
 #   "/home/lianghao/github/ragflow",
 # ]
 
+
+
+[mcpServers.WebResearch]
+desc = "Web Research"
+url = "http://127.0.0.1:10001/mcp-server/"
+transport = "streamable-http"
+
+
+
 [mcpServers.web_search]
 desc = "联网查询"
 command = "uv"
@@ -53,8 +69,10 @@ args = [
   "mcps/servers/web_search/mcp_web_search.py",
   "--max-results", "10",
   "--firecrawl-url", "http://172.24.12.149:19860/",
-  "--searxng-url", "http://127.0.0.1:9863/"
+  "--searxng-url", "http://127.0.0.1:19863/"
 ]
+
+
 
 [mcpServers.deep_research]
 desc = "深度研究"
@@ -68,8 +86,10 @@ args = [
   "--max-results", "5",
   "--context-length", "2000",
   "--firecrawl-url", "http://172.24.12.149:19860/",
-  "--searxng-url", "http://127.0.0.1:9863/"
+  "--searxng-url", "http://127.0.0.1:19863/"
 ]
+
+
 
 [mcpServers.mysql_mcp_server]
 desc = "员工数据库问答"
@@ -118,22 +138,8 @@ args = [
     "-y",
     "@antv/mcp-server-chart"
 ]
-# url = "http://172.24.12.149:1122/sse"
 
 
-# [mcpServers.datavis]
-# command = "uv"
-# args = [
-#   "--directory",
-#   "mcps/servers/mcp-vegalite-server",
-#   "run",
-#   "mcp_server_vegalite",
-#   "--output-type",
-#   "png"
-
-# ]
-# env.http_proxy = "http://10.119.80.110:17890"
-# env.https_proxy = "http://10.119.80.110:17890"
 
 
 # [mcpServers.baidu-maps]

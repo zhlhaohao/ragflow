@@ -54,8 +54,22 @@ async def generate_query(query, stream=False):
     """
     将问题生成N个不同的问题
     """
-    prompt = f"""You are an expert research assistant. Given the user's query, generate up to {args.query_count} distinct, precise search queries in chinese that would help gather comprehensive information on the topic.
-    Return only a Python list of strings, for example: ['query1', 'query2', 'query3']."""
+    prompt = f"""You are an expert research assistant. Given the user's query, generate up to {args.query_count} distinct, precise search queries that would help gather  comprehensive information on the topic.
+
+- language: If the query requests a specific language, include it in the response, defaulting to zh-CN.
+- time_range: time_range=year when query contains "this year", time_range=month when query contains "this month", time_range=week when query contains "this week", time_range=day when query contains "today", time_range="" if query does not specify any time range.
+
+CRITICAL: You must answer in this JSON format
+EXAMPLE JSON OUTPUT:
+{{
+    "queries": [
+        "query1",
+        "query2"
+    ],
+    "language": "en",
+    "time_range": "month"
+}}
+"""
 
     response = await client.chat.completions.create(
         model=model_name,
@@ -64,7 +78,7 @@ async def generate_query(query, stream=False):
                 "role": "system",
                 "content": "You are a helpful and precise research assistant.",
             },
-            {"role": "user", "content": f"User Query: {query}\n\n{prompt}"},
+            {"role": "user", "content": f"{prompt}\n\nquery:\n{query}"},
         ],
         extra_body = {"chat_template_kwargs": {"enable_thinking": False}},
     )
@@ -88,7 +102,7 @@ async def if_useful(query: str, page_text: str):
             },
             {
                 "role": "user",
-                "content": f"User Query: {query}\n\nWebpage Content (first 20000 characters):\n{page_text[:20000]}\n\n{prompt}",
+                "content": f"<Start Of Page Content>\n\n{page_text[:20000]}\n\n<End Of Page Content>\n\n<User Query>\n\n{query}\n\n</User Query>\n\n<Instruction>{prompt}\n\n</Instruction>",
             },
         ],
         extra_body={"chat_template_kwargs": {"enable_thinking": False}},
@@ -111,24 +125,36 @@ async def if_useful(query: str, page_text: str):
 
 # 返回网页内容上与问题有关的片段
 async def extract_relevant_context(query, search_query, page_text):
-    prompt = f"""你是一位专业的信息提取专家。根据用户查询从网页内容中提取和摘要出对回答用户查询有帮助的相关信息。只返回相关的上下文作为纯文本，最多{args.context_length}字，不添加任何评论,如何你发现该网页并不能解答用户的问题，请直接返回：网页内容无关。"""
+    prompt = f"""You are a professional information extraction expert. Extract and summarize relevant information from the web page content that helps answer the user's query. Return only the relevant context as plain text in the language of the page content, min {args.context_length} characters, without adding any comments.
+- Read page text and page url; If you find the date of page is outside the user's queried date range, then return: Web content is irrelevant.
+- If you find that the web page cannot answer the user's question, return: Web content is irrelevant.
+"""
+    content = f"<Start Of Page Content>\n\n{page_text[:100000]}\n\n<End Of Page Content>\n\n<User query>\n\n{query}</User query>\n\n<Search query>\n\n{search_query}\n\n</Search query>\n\n<Instruction>\n\n{prompt}\n\n</Instruction>\n\n"
+    # logger.info(
+    #     f"134- extract_relevant_context:\n{content}"
+    # )
+
 
     response = await client.chat.completions.create(
         model=model_name,
         messages=[
             {
                 "role": "system",
-                "content": "你是一个摘要专家",
+                "content": "You are helpful assistant",
             },
             {
                 "role": "user",
-                "content": f"用户查询: {query}\n搜索关键词: {search_query}\n\n网页内容:\n{page_text[:20000]}\n\n{prompt}",
+                "content": content,
             },
         ],
         extra_body={"chat_template_kwargs": {"enable_thinking": False}},
     )
 
     response = response.choices[0].message.content
+    # logger.info(
+    #     f"155- extract_relevant_context response:\n{response}"
+    # )
+
     if response:
         return response.strip()
     return ""
@@ -136,11 +162,29 @@ async def extract_relevant_context(query, search_query, page_text):
 
 async def get_new_search_queries(user_query, previous_search_queries, all_contexts):
     context_combined = "\n".join(all_contexts)
-    prompt = """You are an analytical research assistant. Based on the original query, the search queries performed so far, and the extracted contexts from webpages, determine if further research is needed.
-    If further research is needed, provide up to four new search queries as a Python list (for example, ['new query1', 'new query2']). If you believe no further research is needed, respond with exactly .
-    Output only a Python list or the token  without any additional text."""
+    prompt = """You are an analytical research assistant.Based on the original query, the search queries performed so far, and the extracted contexts from webpages, determine if further research is needed.
+If further research is needed, provide up to four new search queries as a Python list (for example, ['new query1', 'new query2']). If you believe no further research is needed, respond with exactly .
+Output only a Python list or the token  without any additional text.
 
-    content = f"User Query: {user_query}\nPrevious Search Queries: {previous_search_queries}\n\nExtracted Relevant Contexts:\n{context_combined}\n\n{prompt}"
+**CRITICAL**  new query should keep the same language and the same time range as the original query. For example : if original query is 'give me this month paris news in english', the new query should be 'provide a brief summary of this month's Paris news in English'
+"""
+
+    content = f"""<Start Of Context>
+{context_combined}
+<End Of Context>
+
+<Query>
+{user_query}
+</Query>
+
+<Previous Queries>
+{previous_search_queries}
+</Previous Queries>
+
+<Instruction>
+{prompt}
+</Instruction>"""
+
     # logger.info(f"content: {content}")
     response = await client.chat.completions.create(
         model=model_name,
@@ -159,6 +203,7 @@ async def get_new_search_queries(user_query, previous_search_queries, all_contex
 
     response = response.choices[0].message.content
     if response:
+        logger.info(f"206-new_queries:\n\n{response}")
         cleaned = response.strip()
         if cleaned == "" or cleaned == "[]":
             return ""
@@ -178,7 +223,7 @@ async def get_new_search_queries(user_query, previous_search_queries, all_contex
     return []
 
 
-async def searxng_search(query: str):
+async def searxng_search(query: str, language: str, time_range: str):
     """通过searxng在互联网异步搜索用户的问题，返回前web_search个url
     http://127.0.0.1:8088/search?format=json&q=广州天气&language=zh-CN&time_range=&safesearch=0&categories=general
     http://10.119.101.20:9860/search?format=json&q=广州天气&language=zh-CN&time_range=&safesearch=0&categories=general
@@ -192,10 +237,10 @@ async def searxng_search(query: str):
             timeout=aiohttp.ClientTimeout(total=30)
         ) as session:
             async with session.get(
-                f"{args.searxng_url}search?format=json&q={query}&language=zh-CN&time_range=&safesearch=0&categories=general"
+                f"{args.searxng_url}search?format=json&q={query}&language={language}&time_range={time_range}&safesearch=0&categories=general"
             ) as response:
                 results = (await response.json())["results"]
-                logger.info(f"searxng_search results:{results}")
+                # logger.info(f"searxng_search results:{results}")
                 links = [result["url"] for result in results[: args.max_results]]
     except Exception as e:
         logger.error(f"Web search error: {e}")
@@ -277,20 +322,20 @@ async def process_link(link, query, search_query, ctx):
         return None
 
     # # 判断内容是否能够解答问题
-    # if args.deep_research:
-    #     usefulness = await if_useful(query, page_text)
-    #     logger.info(f"网页是否能够解答问题: {usefulness}")
-    # else:
-    #     usefulness = "Yes"
+    if args.deep_research:
+        usefulness = await if_useful(query, page_text)
+        logger.info(f"网页是否能够解答问题: {usefulness}")
+    else:
+        usefulness = "Yes"
 
     # 提取网页内容上与用户提问相关的片段
-    # if usefulness == "Yes":
-    logger.info("提炼摘要")
-    context = await extract_relevant_context(query, search_query, page_text)
-    if context:
-        await ctx.sample(f"摘要:\n{context}\n\n")
-        return context
-    return None
+    if usefulness == "Yes":
+        logger.info("提炼摘要")
+        context = await extract_relevant_context(query, search_query, page_text)
+        if context:
+            await ctx.sample(f"摘要:\n{context}\n\n")
+            return context
+    return "None"
 
 
 async def get_images_description(iamge_url):
@@ -327,11 +372,18 @@ async def web_search(query: str, ctx: Context) -> str:
     iteration = 0
 
     # logger.info(f"234- Searching for: {query}")
+    language = "zh-CN"
+    time_range = ""
 
     try:
         # 让大模型将用户的提问扩展为N个不同的问题
         if args.deep_research:
-            new_search_queries = eval(await generate_query(query))
+            response = await generate_query(query)
+            search_param = json.loads(response)
+            language = search_param.get("language","zh-CN")
+            time_range = search_param.get("time_range","")
+            new_search_queries = search_param.get("queries",[query])
+
             all_search_queries.extend(new_search_queries)
         else:
             new_search_queries = all_search_queries = [query]
@@ -346,7 +398,7 @@ async def web_search(query: str, ctx: Context) -> str:
             # 这里可以并发处理
             # search_tasks = [searxng_search(query) for query in new_search_queries]
             # search_results = await asyncio.gather(*search_tasks)
-            search_results = [await searxng_search(query) for query in new_search_queries]
+            search_results = [await searxng_search(query, language, time_range) for query in new_search_queries]
 
             # 结果去重
             unique_links = {}
