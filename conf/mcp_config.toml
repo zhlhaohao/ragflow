@@ -3,43 +3,41 @@
 # command = "uv"
 # args = ["run", "mcp-server-time", "--local-timezone=Asia/Shanghai"]
 
-[mcpServers.ExampleServer]
-desc = "MCP测试专用"
-url = "http://127.0.0.1:10002/mcp-server/"
+# 生产环境的web research
+[mcpServers.WebResearch]
+desc = "深度研究"
+url = "http://127.0.0.1:10010/mcp-server/"
 transport = "streamable-http"
-
 
 
 [mcpServers.MainServer]
-desc = "主服务器"
+desc = "长文精读"
 url = "http://127.0.0.1:9898/mcp-server/"
 transport = "streamable-http"
 
-[mcpServers.MainServer.permission]
-ai_coder = ["zhlhao@163.com", "lianghao1@chinaunicom.cn"]
-apply_change = ["zhlhao@163.com", "lianghao1@chinaunicom.cn"]
 
-
+# 10001端口是开发环境的deepcoder
 [mcpServers.Gpu1Coder]
-desc = "Local编程"
+desc = "GPU1编程"
 url = "http://127.0.0.1:10001/mcp-server/"
 transport = "streamable-http"
 visible = ["zhlhao@163.com", "lianghao1@chinaunicom.cn"]
 
-[mcpServers.Gpu1Coder.permission]
-ai_coder = ["zhlhao@163.com", "lianghao1@chinaunicom.cn"]
-apply_change = ["zhlhao@163.com", "lianghao1@chinaunicom.cn"]
+# [mcpServers.Gpu1Coder.permission]
+# ai_coder = ["zhlhao@163.com", "lianghao1@chinaunicom.cn"]
+# apply_change = ["zhlhao@163.com", "lianghao1@chinaunicom.cn"]
 
 
+# 10001端口是开发环境的deepcoder
 [mcpServers.T14Coder]
-desc = "Local编程"
+desc = "T14编程"
 url = "http://10.119.80.110:10001/mcp-server/"
 transport = "streamable-http"
 visible = ["zhlhao@163.com", "lianghao1@chinaunicom.cn"]
 
-[mcpServers.T14Coder.permission]
-ai_coder = ["zhlhao@163.com", "lianghao1@chinaunicom.cn"]
-apply_change = ["zhlhao@163.com", "lianghao1@chinaunicom.cn"]
+# [mcpServers.T14Coder.permission]
+# ai_coder = ["zhlhao@163.com", "lianghao1@chinaunicom.cn"]
+# apply_change = ["zhlhao@163.com", "lianghao1@chinaunicom.cn"]
 
 
 # [mcpServers.audit_filesystem]
@@ -54,40 +52,35 @@ apply_change = ["zhlhao@163.com", "lianghao1@chinaunicom.cn"]
 
 
 
-[mcpServers.WebResearch]
-desc = "Web Research"
-url = "http://127.0.0.1:10001/mcp-server/"
-transport = "streamable-http"
+
+
+# [mcpServers.web_search]
+# desc = "联网查询"
+# command = "uv"
+# args = [
+#   "run",
+#   "mcps/servers/web_search/mcp_web_search.py",
+#   "--max-results", "10",
+#   "--firecrawl-url", "http://172.24.12.149:19860/",
+#   "--searxng-url", "http://127.0.0.1:19863/"
+# ]
 
 
 
-[mcpServers.web_search]
-desc = "联网查询"
-command = "uv"
-args = [
-  "run",
-  "mcps/servers/web_search/mcp_web_search.py",
-  "--max-results", "10",
-  "--firecrawl-url", "http://172.24.12.149:19860/",
-  "--searxng-url", "http://127.0.0.1:19863/"
-]
-
-
-
-[mcpServers.deep_research]
-desc = "深度研究"
-command = "uv"
-args = [
-  "run",
-  "mcps/servers/web_search/mcp_web_search.py",
-  "--deep-research",
-  "--iteration-limit", "3",
-  "--query-count", "3",
-  "--max-results", "5",
-  "--context-length", "2000",
-  "--firecrawl-url", "http://172.24.12.149:19860/",
-  "--searxng-url", "http://127.0.0.1:19863/"
-]
+# [mcpServers.deep_research]
+# desc = "深度研究"
+# command = "uv"
+# args = [
+#   "run",
+#   "mcps/servers/web_search/mcp_web_search.py",
+#   "--deep-research",
+#   "--iteration-limit", "3",
+#   "--query-count", "3",
+#   "--max-results", "5",
+#   "--context-length", "2000",
+#   "--firecrawl-url", "http://172.24.12.149:19860/",
+#   "--searxng-url", "http://127.0.0.1:19863/"
+# ]
 
 
 
@@ -139,7 +132,11 @@ args = [
     "@antv/mcp-server-chart"
 ]
 
-
+[mcpServers.ExampleServer]
+desc = "MCP测试专用"
+url = "http://127.0.0.1:10002/mcp-server/"
+transport = "streamable-http"
+visible = ["zhlhao@163.com", "lianghao1@chinaunicom.cn"]
 
 
 # [mcpServers.baidu-maps]

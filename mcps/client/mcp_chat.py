@@ -178,6 +178,8 @@ class Server:
                         return "history not found"
                 else:
                     if msg_queue and result:
+                        if result.startswith("/log:"):
+                            result = result[5:]
                         msg_queue.put(result)
                     return ""
 

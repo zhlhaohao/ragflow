@@ -1957,3 +1957,17 @@ class UniinChat(Base):
             yield ans + "\n**ERROR**: " + str(e)
 
         yield total_tokens
+
+
+
+class Qwen3Chat(Base):
+    """ F8080 - Qwen3 OpenAI api兼容接口
+
+    Args:
+        Base (_type_): _description_
+    """
+    def __init__(self, key, model_name, base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"):
+        if not base_url:
+            base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+        super().__init__(key, model_name, base_url)
+
