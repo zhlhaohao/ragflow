@@ -23,6 +23,7 @@ from api.utils import ic
 import datetime
 from copy import deepcopy
 import time
+from api.db.services.dialog_service import retrieval
 
 MCP_CHAT = None
 
@@ -468,8 +469,6 @@ class McpChat:
             return input_str
 
 
-
-
     def chat(self, dialog, messages, current_user):
         """
         Main chat session handler.
@@ -608,6 +607,13 @@ class McpChat:
                 # 将工具调用命令和结果附加到历史消息数组
                 tool_response = result_container[0].replace(r'\\u', r'\u')
                 logging.info(f"492-工具执行结果：\n{tool_response[:1024]}")
+
+                # search_knowledgebase需要内部搜索知识库
+                if tool_call["tool"] == "search_knowledgebase":
+                    tool_response = retrieval(
+                        dialog,
+                        tool_call["arguments"]["query"],
+                    )
 
                 mcp_messages.append(
                     {"role": "assistant", "content": f"Tool call:\n{json.dumps(tool_call, ensure_ascii=False)}" }

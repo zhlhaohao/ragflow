@@ -250,6 +250,7 @@ def chat(dialog, messages, stream=True, **kwargs):
     kwargs["knowledge"] = "\n------\n" + "\n\n------\n\n".join(knowledges)
     gen_conf = dialog.llm_setting
 
+    # 至此获取了knowledge
     msg = [{"role": "system", "content": prompt_config["system"].format(**kwargs)}]
     prompt4citation = ""
     if knowledges and (prompt_config.get("quote", True) and kwargs.get("quote", True)):
@@ -450,11 +451,11 @@ Please write the SQL, only SQL, without any other explanations or text.
         Table name: {};
         Table of database fields are as follows:
         {}
-        
+
         Question are as follows:
         {}
         Please write the SQL, only SQL, without any other explanations or text.
-        
+
 
         The SQL error you provided last time is as follows:
         {}
@@ -645,3 +646,70 @@ def chat_nokb(dialog, messages, stream=True):
         answer = chat_mdl.chat(prompt_config["system"], messages, gen_conf)
         yield answer
 
+
+def retrieval(dialog, question):
+    """
+    F8080 从知识库检索question相关的chunks，返回结果chunks合并在一起的字符串
+    """
+    if not dialog.kb_ids:
+        return "未选择任何知识库"
+
+    try:
+        kbs = KnowledgebaseService.get_by_ids(dialog.kb_ids)
+        embedding_list = list(set([kb.embd_id for kb in kbs]))
+        if len(embedding_list) != 1:
+            return "**ERROR**: Knowledge bases use different embedding models."
+
+        embedding_model_name = embedding_list[0]
+        retriever = settings.retrievaler
+        embd_mdl = LLMBundle(dialog.tenant_id, LLMType.EMBEDDING, embedding_model_name)
+        if not embd_mdl:
+            return "Embedding model(%s) not found" % embedding_model_name
+
+        # 绑定LLM对话模型
+        if llm_id2llm_type(dialog.llm_id) == "image2text":
+            chat_mdl = LLMBundle(dialog.tenant_id, LLMType.IMAGE2TEXT, dialog.llm_id)
+        else:
+            chat_mdl = LLMBundle(dialog.tenant_id, LLMType.CHAT, dialog.llm_id)
+
+        if not chat_mdl:
+            return "LLM(%s) not found" % dialog.llm_id
+        max_tokens = chat_mdl.max_length
+
+        # 绑定重排序模型
+        rerank_mdl = None
+        if dialog.rerank_id:
+            rerank_mdl = LLMBundle(dialog.tenant_id, LLMType.RERANK, dialog.rerank_id)
+
+        kbinfos = {"total": 0, "chunks": [], "doc_aggs": []}
+
+        # 找到助手的所有知识库的tenant_id，并调用retriever.retrieval函数进行检索相关的chunks，返回结果为kbinfos。
+        tenant_ids = list(set([kb.tenant_id for kb in kbs]))
+        kbinfos = retriever.retrieval(
+            question,
+            embd_mdl,
+            tenant_ids,
+            dialog.kb_ids,
+            1,
+            dialog.top_n,
+            dialog.similarity_threshold,
+            dialog.vector_similarity_weight,
+            doc_ids=None,
+            top=dialog.top_k,
+            aggs=False,
+            rerank_mdl=rerank_mdl,
+            rank_feature=label_question(question, kbs)
+        )
+        knowledges = kb_prompt(kbinfos, max_tokens)
+
+        logging.debug(
+            "{}->{}".format(question, "\n->".join(knowledges)))
+
+        if not knowledges:
+            return "找不到知识库资料"
+
+        result = "\n\n------\n\n".join(knowledges)
+    except Exception:
+        return "知识库查询失败"
+
+    return result
