@@ -713,3 +713,33 @@ def retrieval(dialog, question):
         return "知识库查询失败"
 
     return result
+
+
+from api.db.services.user_service import UserTenantService
+
+def get_kb_names(kb_ids):
+    ids, nms = [], []
+    for kid in kb_ids:
+        e, kb = KnowledgebaseService.get_by_id(kid)
+        if not e or kb.status != StatusEnum.VALID.value:
+            continue
+        ids.append(kid)
+        nms.append(kb.name)
+    return ids, nms
+
+def get_superuser_dialogs():
+    "F8080 - 列出超级用户所拥有的对话助手"
+    super_tenants = UserTenantService.get_tenants_by_is_superuser()
+    if len(super_tenants) > 0:
+        super_tenant_id = super_tenants[0]['tenant_id']
+        diags = DialogService.query(
+            tenant_id=super_tenant_id,
+            status=StatusEnum.VALID.value,
+            reverse=True,
+            order_by=DialogService.model.create_time)
+        diags = [d.to_dict() for d in diags]
+        for d in diags:
+            d["kb_ids"], d["kb_names"] = get_kb_names(d["kb_ids"])
+        return diags
+    else:
+        return []

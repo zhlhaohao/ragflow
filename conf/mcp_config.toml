@@ -4,13 +4,23 @@
 # args = ["run", "mcp-server-time", "--local-timezone=Asia/Shanghai"]
 
 # 生产环境的web research
+[mcpServers.General]
+desc = "通用工具"
+url = "http://127.0.0.1:10013/mcp-server/"
+transport = "streamable-http"
+
 [mcpServers.WebResearch]
 desc = "深度研究"
 url = "http://127.0.0.1:10010/mcp-server/"
 transport = "streamable-http"
 
+[mcpServers.SearchKb]
+desc = "知识库检索"
+url = "http://127.0.0.1:10012/mcp-server/"
+transport = "streamable-http"
 
-[mcpServers.MainServer]
+
+[mcpServers.DeepReading]
 desc = "长文精读"
 url = "http://127.0.0.1:9898/mcp-server/"
 transport = "streamable-http"

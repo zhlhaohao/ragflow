@@ -591,7 +591,7 @@ class McpChat:
                 # 循环获取中间结果队列
                 while True:
                     try:
-                        msg = msg_queue.get(timeout=0.1)
+                        msg = msg_queue.get(timeout=0.5)
                         if msg is None:
                             break  # 收到结束信号
                         yield {"answer": f"{mcp_ans}\n{msg}"}

@@ -1157,25 +1157,34 @@ class RAGFlowPdfParser:
             bottom *= ZM
             for pn in pns[1:]:
                 bottom += self.page_images[pn - 1].size[1]
-            imgs.append(
-                self.page_images[pns[0]].crop((left * ZM, top * ZM,
-                                               right *
-                                               ZM, min(
-                                                   bottom, self.page_images[pns[0]].size[1])
-                                               ))
-            )
+
+            try:  #F8080
+                imgs.append(
+                    self.page_images[pns[0]].crop((left * ZM, top * ZM,
+                                                right *
+                                                ZM, min(
+                                                    bottom, self.page_images[pns[0]].size[1])
+                                                ))
+                )
+            except Exception:
+                pass
+
             if 0 < ii < len(poss) - 1:
                 positions.append((pns[0] + self.page_from, left, right, top, min(
                     bottom, self.page_images[pns[0]].size[1]) / ZM))
             bottom -= self.page_images[pns[0]].size[1]
             for pn in pns[1:]:
-                imgs.append(
-                    self.page_images[pn].crop((left * ZM, 0,
-                                               right * ZM,
-                                               min(bottom,
-                                                   self.page_images[pn].size[1])
-                                               ))
-                )
+                try:   #F8080
+                    imgs.append(
+                        self.page_images[pn].crop((left * ZM, 0,
+                                                right * ZM,
+                                                min(bottom,
+                                                    self.page_images[pn].size[1])
+                                                ))
+                    )
+                except Exception:
+                    pass
+
                 if 0 < ii < len(poss) - 1:
                     positions.append((pn + self.page_from, left, right, 0, min(
                         bottom, self.page_images[pn].size[1]) / ZM))

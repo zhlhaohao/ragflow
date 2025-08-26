@@ -248,13 +248,11 @@ def get_llm_config():
 
 
 
-
 @manager.route('/list_super', methods=['GET'])  # type: ignore # noqa: F821
 @login_required
 def list_admin_dialogs():
     "F8080 - 列出超级用户所拥有的对话助手"
     try:
-
         super_tenants = UserTenantService.get_tenants_by_is_superuser()
         if len(super_tenants) > 0:
             super_tenant_id = super_tenants[0]['tenant_id']
@@ -272,7 +270,6 @@ def list_admin_dialogs():
             return get_json_result(data=[])
     except Exception as e:
         return server_error_response(e)
-
 
 
 @manager.route('/list_mcp_servers', methods=['GET'])  # type: ignore # noqa: F821
