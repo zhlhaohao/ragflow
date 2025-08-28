@@ -24,6 +24,7 @@ import datetime
 from copy import deepcopy
 import time
 from api.db.services.dialog_service import retrieval
+from api.utils import colored_log_message
 
 MCP_CHAT = None
 
@@ -138,7 +139,8 @@ class Server:
         tools = []
         client = self.get_client()
         async with client:
-            logging.info(f"103- mcp server {self.name} 连接{client.is_connected()}")
+            if client.is_connected():
+                logging.info(colored_log_message(f"103- mcp server {self.name} 连接{client.is_connected()}","green"))
             resp = await client.list_tools()
             for tool in resp:
                 tools.append(Tool(tool.name, tool.description, tool.inputSchema))
@@ -257,7 +259,7 @@ class Server:
                     f"159- Error executing tool: {e}. Attempt {attempt} of {retries}."
                 )
                 if attempt < retries:
-                    logging.info(f"162- Retrying in {delay} seconds...")
+                    # logging.info(f"162- Retrying in {delay} seconds...")
                     await asyncio.sleep(delay)
                 else:
                     logging.error("165- Max retries reached. Failing.")
@@ -328,10 +330,10 @@ class McpChat:
                     tools = await server.list_tools()
                     self.server_tools[server.name] = tools
                     server.config["tools"] = [tool.to_dict() for tool in tools]
-                    logging.error(f"Success loading tools for mcp server {server.name}")
+                    # logging.error(f"Success loading tools for mcp server {server.name}")
                 except Exception as e:
                     is_success = False
-                    logging.error(f"Error loading tools for mcp server {server.name}: {e}")
+                    # logging.error(f"Error loading tools for mcp server {server.name}: {e}")
                     continue
 
         return is_success

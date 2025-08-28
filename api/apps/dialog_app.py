@@ -16,7 +16,7 @@
 
 from flask import request
 from flask_login import login_required, current_user
-from api.db.services.dialog_service import DialogService
+from api.db.services.dialog_service import DialogService, get_superuser_dialogs
 from api.db import StatusEnum
 from api.db.services.llm_service import TenantLLMService
 from api.db.services.knowledgebase_service import KnowledgebaseService
@@ -166,8 +166,15 @@ def list_dialogs():
             reverse=True,
             order_by=DialogService.model.create_time)
         diags = [d.to_dict() for d in diags]
+
+        superuser_diags = get_superuser_dialogs()
+        # ic(superuser_diags)
+
         for d in diags:
             d["kb_ids"], d["kb_names"] = get_kb_names(d["kb_ids"])
+            # F8080 对于非管理员用户，将超级用户的description相同的dialog的配置覆盖到本dialog
+            copy_superuser_dia_config(d, current_user.email, superuser_diags)
+
         return get_json_result(data=diags)
     except Exception as e:
         return server_error_response(e)
@@ -281,3 +288,23 @@ def list_mcp_servers():
         return get_json_result(data=server_config)
     except Exception as e:
         return server_error_response(e)
+
+
+def copy_superuser_dia_config(dia, email, superuser_diags):
+    """拷贝超级用户的对应的dialog的配置"""
+    if email not in [
+        "lianghao1@chinaunicom.cn",
+        "zhlhao@163.com",
+    ]:
+        for superuser_diag in superuser_diags:
+            if superuser_diag['description'] == dia['description']:
+                dia['llm_setting'] = superuser_diag.get('llm_setting', {})
+                dia['prompt_config'] = superuser_diag.get('prompt_config', {})
+                dia['llm_id'] = superuser_diag.get('llm_id')
+                dia['similarity_threshold'] = superuser_diag.get('similarity_threshold')
+                dia['rerank_id'] = superuser_diag.get('rerank_id')
+                dia['top_k'] = superuser_diag.get('top_k')
+                dia['top_n'] = superuser_diag.get('top_n')
+                dia['vector_similarity_weight'] = superuser_diag.get('vector_similarity_weight')
+                break
+

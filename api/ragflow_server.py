@@ -41,7 +41,7 @@ from api import utils
 from api.db.db_models import init_database_tables as init_web_db
 from api.db.init_data import init_web_data
 from api.versions import get_ragflow_version
-from api.utils import show_configs
+from api.utils import show_configs, colored_log_message
 from rag.settings import print_rag_settings
 from rag.utils.redis_conn import RedisDistributedLock
 
@@ -94,11 +94,11 @@ async def main() -> None:
         while True:
             result = asyncio.run(mcp_chat.init_mcp())
             if result:
-                logging.info("MCP initialized successfully")
+                logging.info(colored_log_message("MCP initialized successfully","green"))
                 break
             else :
-                logging.error("Error initializing MCP")
-                logging.info("Retrying in 30 seconds...")
+                # logging.error("Error initializing MCP")
+                # logging.info("Retrying in 30 seconds...")
                 time.sleep(30)
 
     # Create and start a new thread

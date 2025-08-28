@@ -81,7 +81,7 @@ def read_config(conf_name=SERVICE_CONF):
     - `conf_realpath` 应当返回给定配置文件名的实际路径，而 `file_utils.load_yaml_conf` 则负责从给定的路径加载 YAML 文件的内容。
     - `os.environ.get` 用于从环境变量中获取值，这是一个非常有用的功能，特别是在部署应用时，可以通过环境变量来动态地改变配置。
     - 在实际使用中，确保所有涉及到的文件路径和文件名都是正确的，以避免因文件不存在或格式错误而导致的问题。
-    """        
+    """
     local_config = {}
     local_path = conf_realpath(f'local.{conf_name}')
 
@@ -365,7 +365,7 @@ def decrypt_database_config(
     4. **返回解密后的数据库配置**：
     - 返回包含解密后密码的数据库配置字典。
 
-    """    
+    """
     if not database:
         database = get_base_config(name, {})
 
@@ -452,3 +452,30 @@ def download_img(url):
 def delta_seconds(date_string: str):
     dt = datetime.datetime.strptime(date_string, "%Y-%m-%d %H:%M:%S")
     return (datetime.datetime.now() - dt).total_seconds()
+
+def colored_log_message(message, color="green"):
+    """
+    Add color to a log message using ANSI escape codes
+
+    Args:
+        message (str): The message to colorize
+        color (str): Color name (green, blue, yellow, red, magenta, cyan)
+
+    Returns:
+        str: Colorized message
+    """
+    color_codes = {
+        "green": 92,
+        "blue": 94,
+        "yellow": 93,
+        "red": 91,
+        "magenta": 95,
+        "cyan": 96
+    }
+
+    code = color_codes.get(color.lower(), 92)  # Default to green
+    return f"\033[{code}m{message}\033[0m"
+
+# Usage examples:
+# logging.info(colored_log_message(f"update_progress lock_value: {lock_value}"))
+# logging.info(colored_log_message(f"update_progress lock_value: {lock_value}", "blue"))

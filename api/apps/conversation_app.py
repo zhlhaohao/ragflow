@@ -67,7 +67,7 @@ def set_conversation():
             "id": conv_id,
             "dialog_id": req["dialog_id"],
             "name": req.get("name", "New conversation"),
-            "message": [{"role": "assistant", "content": dia.prompt_config["prologue"]}]
+            "message": req.get('message',[{"role": "assistant", "content": dia.prompt_config["prologue"]}])
         }
         ConversationService.save(**conv)
         return get_json_result(data=conv)
@@ -210,6 +210,9 @@ def completion():
         e, dia = DialogService.get_by_id(conv.dialog_id)
         if not e:
             return get_data_error_result(message="Dialog not found!")
+
+        copy_superuser_dia_config(dia, current_user.email)
+
         del req["conversation_id"]
         del req["messages"]
 
@@ -522,78 +525,6 @@ def coder_json_format(json_str):
     except Exception as ex:
         return json_str
 
-def copy_superuser_dia_config(dia, email):
-    """
-    <code_instruction>
-
-    1. dia 的类型是 Dialog对象，在 db_models.py 中定义的
-    2. superuser_diags 是一个列表，样例数据为：
-
-    [{create_date: datetime.datetime(2025, 5, 21, 11, 24, 37),
-                        create_time: 1747797877272,
-                        description: FreeChat,
-                        do_refer: 1,
-                        icon: ,
-                        id: 1fa50c8c35f311f0a1b0a31b701c7340,
-                        kb_ids: [],
-                        kb_names: [],
-                        language: English,
-                        llm_id: qwen3-235b-a22b@Uniin,
-                        llm_setting: {frequency_penalty: 0.7,
-                                        max_tokens: 4000,
-                                        mcp_servers: [deep_research],
-                                        presence_penalty: 0.4,
-                                        temperature: 0.5,
-                                        top_p: 0.5},
-                        name: 深度研究,
-                        prompt_config: {empty_response: ,
-                                            parameters: [{key: knowledge, optional: False}],
-                                            prologue: 您好，我可以通过互联网进行某一个问题的深度研究，提供报告，请给出你的问题？,
-                                            quote: True,
-                                            refine_multiturn: False,
-                                            system: you are a helpful assistant,
-                                            tts: False},
-                        prompt_type: simple,
-                        rerank_id: bge-reranker-v2-m3___OpenAI-API@OpenAI-API-Compatible,
-                        similarity_threshold: 0.2,
-                        status: 1,
-                        tenant_id: 8dd53db8313811f0a6c1ad12502a7886,
-                        top_k: 1024,
-                        top_n: 16,
-                        update_date: datetime.datetime(2025, 5, 21, 11, 24, 56),
-                        update_time: 1747797896625,
-                        vector_similarity_weight: 0.3},
-    ]
-
-    3. 在superuser_diags 中 找到 item['description'] == dia.description 的那条记录，然后将该记录的 llm_setting 、prompt_config 、llm_id 、 similarity_threshold、等字段的值拷贝到dia对象
-
-
-    </code_instruction>
-    """
-    superuser_diags = get_superuser_dialogs()
-    ic(superuser_diags)
-    ic(dia)
-
-
-    # 拷贝超级用户的对应的dialog的配置
-    if email not in [
-        "lianghao1@chinaunicom.cn",
-        "zhlhao@163.com",
-    ]:
-        for superuser_diag in superuser_diags:
-            if superuser_diag['description'] == dia.description:
-                # Copy required fields from superuser dialog to current dialog
-                dia.llm_setting = superuser_diag.get('llm_setting', {})
-                dia.prompt_config = superuser_diag.get('prompt_config', {})
-                dia.llm_id = superuser_diag.get('llm_id')
-                dia.similarity_threshold = superuser_diag.get('similarity_threshold')
-                dia.rerank_id = superuser_diag.get('rerank_id')
-                dia.top_k = superuser_diag.get('top_k')
-                dia.top_n = superuser_diag.get('top_n')
-                dia.vector_similarity_weight = superuser_diag.get('vector_similarity_weight')
-                break
-
-
 
 @manager.route('/completion_nokb', methods=['POST'])  # type: ignore # noqa: F821
 @login_required
@@ -723,6 +654,8 @@ def completion_mcp():
         if not e:
             return get_data_error_result(message="Dialog not found!")
 
+        copy_superuser_dia_config(dia, current_user.email)
+
         def stream():
             nonlocal dia, messages, conv, c_user
             try:
@@ -771,3 +704,76 @@ def completion_mcp():
 
     except Exception as e:
         return server_error_response(e)
+
+
+def copy_superuser_dia_config(dia, email):
+    """
+    <code_instruction>
+
+    1. dia 的类型是 Dialog对象，在 db_models.py 中定义的
+    2. superuser_diags 是一个列表，样例数据为：
+
+    [{create_date: datetime.datetime(2025, 5, 21, 11, 24, 37),
+                        create_time: 1747797877272,
+                        description: FreeChat,
+                        do_refer: 1,
+                        icon: ,
+                        id: 1fa50c8c35f311f0a1b0a31b701c7340,
+                        kb_ids: [],
+                        kb_names: [],
+                        language: English,
+                        llm_id: qwen3-235b-a22b@Uniin,
+                        llm_setting: {frequency_penalty: 0.7,
+                                        max_tokens: 4000,
+                                        mcp_servers: [deep_research],
+                                        presence_penalty: 0.4,
+                                        temperature: 0.5,
+                                        top_p: 0.5},
+                        name: 深度研究,
+                        prompt_config: {empty_response: ,
+                                            parameters: [{key: knowledge, optional: False}],
+                                            prologue: 您好，我可以通过互联网进行某一个问题的深度研究，提供报告，请给出你的问题？,
+                                            quote: True,
+                                            refine_multiturn: False,
+                                            system: you are a helpful assistant,
+                                            tts: False},
+                        prompt_type: simple,
+                        rerank_id: bge-reranker-v2-m3___OpenAI-API@OpenAI-API-Compatible,
+                        similarity_threshold: 0.2,
+                        status: 1,
+                        tenant_id: 8dd53db8313811f0a6c1ad12502a7886,
+                        top_k: 1024,
+                        top_n: 16,
+                        update_date: datetime.datetime(2025, 5, 21, 11, 24, 56),
+                        update_time: 1747797896625,
+                        vector_similarity_weight: 0.3},
+    ]
+
+    3. 在superuser_diags 中 找到 item['description'] == dia.description 的那条记录，然后将该记录的 llm_setting 、prompt_config 、llm_id 、 similarity_threshold、等字段的值拷贝到dia对象
+
+
+    </code_instruction>
+    """
+    superuser_diags = get_superuser_dialogs()
+    ic(superuser_diags)
+    ic(dia)
+
+
+    # 拷贝超级用户的对应的dialog的配置
+    if email not in [
+        "lianghao1@chinaunicom.cn",
+        "zhlhao@163.com",
+    ]:
+        for superuser_diag in superuser_diags:
+            if superuser_diag['description'] == dia.description:
+                # Copy required fields from superuser dialog to current dialog
+                dia.llm_setting = superuser_diag.get('llm_setting', {})
+                dia.prompt_config = superuser_diag.get('prompt_config', {})
+                dia.llm_id = superuser_diag.get('llm_id')
+                dia.similarity_threshold = superuser_diag.get('similarity_threshold')
+                dia.rerank_id = superuser_diag.get('rerank_id')
+                dia.top_k = superuser_diag.get('top_k')
+                dia.top_n = superuser_diag.get('top_n')
+                dia.vector_similarity_weight = superuser_diag.get('vector_similarity_weight')
+                break
+
