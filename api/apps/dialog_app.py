@@ -298,13 +298,6 @@ def copy_superuser_dia_config(dia, email, superuser_diags):
     ]:
         for superuser_diag in superuser_diags:
             if superuser_diag['description'] == dia['description']:
-                dia['llm_setting'] = superuser_diag.get('llm_setting', {})
-                dia['prompt_config'] = superuser_diag.get('prompt_config', {})
-                dia['llm_id'] = superuser_diag.get('llm_id')
-                dia['similarity_threshold'] = superuser_diag.get('similarity_threshold')
-                dia['rerank_id'] = superuser_diag.get('rerank_id')
-                dia['top_k'] = superuser_diag.get('top_k')
-                dia['top_n'] = superuser_diag.get('top_n')
-                dia['vector_similarity_weight'] = superuser_diag.get('vector_similarity_weight')
-                break
+                dia['prompt_config']['prologue'] = superuser_diag['prompt_config']['prologue']
+                return
 

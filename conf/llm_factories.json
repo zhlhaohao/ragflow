@@ -281,14 +281,7 @@
             "logo": "",
             "tags": "LLM,TEXT EMBEDDING,SPEECH2TEXT,MODERATION",
             "status": "1",
-            "llm": [
-                {
-                    "llm_name": "qwen2_5-instruct___OpenAI-API",
-                    "tags": "LLM,CHAT,64K,max_out_8192,max_in_65536",
-                    "max_tokens": 8192,
-                    "model_type": "chat"
-                }
-            ]
+            "llm": []
         },
         {
             "name": "Moonshot",

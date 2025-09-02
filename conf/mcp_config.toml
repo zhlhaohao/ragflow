@@ -26,10 +26,10 @@ url = "http://127.0.0.1:9898/mcp-server/"
 transport = "streamable-http"
 
 
-# 10001端口是开发环境的deepcoder
+# 10000:生产deppcoder  10001:开发deepcoder
 [mcpServers.Gpu1Coder]
-desc = "GPU1编程"
-url = "http://127.0.0.1:10001/mcp-server/"
+desc = "GPU1深度编程"
+url = "http://127.0.0.1:10000/mcp-server/"
 transport = "streamable-http"
 visible = ["zhlhao@163.com", "lianghao1@chinaunicom.cn"]
 
@@ -40,7 +40,7 @@ visible = ["zhlhao@163.com", "lianghao1@chinaunicom.cn"]
 
 # 10001端口是开发环境的deepcoder
 [mcpServers.T14Coder]
-desc = "T14编程"
+desc = "T14深度编程"
 url = "http://10.119.80.110:10001/mcp-server/"
 transport = "streamable-http"
 visible = ["zhlhao@163.com", "lianghao1@chinaunicom.cn"]

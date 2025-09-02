@@ -155,7 +155,8 @@ class Server:
         history = None,
         chat_mdl = None,
         msg_queue = None,
-        retries: int = 2,
+        connect_status = None,
+        retries: int = 1,
         delay: float = 2,
     ) -> Any:
         """带重试机制的调用工具.
@@ -166,6 +167,10 @@ class Server:
             params: SamplingParams,
             ctx: RequestContext,
         ):
+            if connect_status and not connect_status[0]:
+                logging.info(colored_log_message("171- 客户端浏览器关闭","red"))
+                return "/client_closed"
+
             content = messages[0].content.text
             try:
                 result = json.loads(content)
@@ -414,7 +419,8 @@ class McpChat:
             dialog = None,
             history = None,
             chat_mdl = None,
-            msg_queue = None) -> str:
+            msg_queue = None,
+            connect_status = None) -> str:
         """分析llm的回答，如果需要则调用MCP工具.
 
         Args:
@@ -431,7 +437,7 @@ class McpChat:
                 raise Exception(f"{current_user.email} does not have permission to use tool {tool_call['tool']}")
 
             result = await server.execute_tool(
-                tool_call["tool"], tool_call["arguments"], dialog, history, chat_mdl, msg_queue
+                tool_call["tool"], tool_call["arguments"], dialog, history, chat_mdl, msg_queue, connect_status
             )
             if "data:image" in result:
                 return f"\n\n{result}"
@@ -471,7 +477,7 @@ class McpChat:
             return input_str
 
 
-    def chat(self, dialog, messages, current_user):
+    def chat(self, dialog, messages, current_user, connect_status=[True]):
         """
         Main chat session handler.
         """
@@ -531,8 +537,6 @@ class McpChat:
                 msgs = truncate_messages(mcp_messages)
                 logging.info(f"529- {mcp_chat_mdl.llm_name} input:\n{msgs}")
                 response_content = mcp_chat_mdl.chat(agent_prompt, msgs, mcp_gen_conf)
-
-
             except Exception as e:
                 logging.error(f"406- **ERROR** {str(e)}")
 
@@ -574,7 +578,7 @@ class McpChat:
             if mcp_server is not None:
                 # 异步执行mcp工具调用
                 async def run_async_func():
-                    result = await self.mcp_tool_call(current_user, mcp_server, tool_call, dialog, messages, chat_mdl, msg_queue)
+                    result = await self.mcp_tool_call(current_user, mcp_server, tool_call, dialog, messages, chat_mdl, msg_queue, connect_status)
                     result_container[0] = result
                     # 执行结束标记
                     msg_queue.put(None)
@@ -626,8 +630,8 @@ class McpChat:
 
                 # 如果工具返回了最终答案，则结束会话
                 if tool_response.startswith("<FINAL_ANSWER>"):
-                    tool_response = tool_response.replace("<FINAL_ANSWER>", "")
-                    mcp_ans += f"{tool_response}"
+                    # tool_response = tool_response.replace("<FINAL_ANSWER>", "")
+                    mcp_ans += f"\n{tool_response}"
                     yield {"answer": mcp_ans}
                     break   # 退出会话
                 else:
@@ -657,7 +661,7 @@ class McpChat:
                     response_content += "\n\n**有错误发生，可能是因为上下文长度超限**"
 
                 logging.info(f"639- {chat_mdl.llm_name}最终回答:\n{ans}")
-                yield {"answer": f"{mcp_ans}\n{response_content}"}
+                yield {"answer": f"{mcp_ans}\n<FINAL_ANSWER>{response_content}"}
                 break
 
 

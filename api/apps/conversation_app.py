@@ -19,6 +19,8 @@ import traceback
 from copy import deepcopy
 import trio
 from api.db.db_models import APIToken
+import logging
+from api.utils import colored_log_message
 
 from api.db.services.conversation_service import ConversationService, structure_answer
 from api.db.services.user_service import UserTenantService
@@ -655,6 +657,7 @@ def completion_mcp():
             return get_data_error_result(message="Dialog not found!")
 
         copy_superuser_dia_config(dia, current_user.email)
+        connect_status = [True]
 
         def stream():
             nonlocal dia, messages, conv, c_user
@@ -662,11 +665,16 @@ def completion_mcp():
                 yield(" \n\n")
                 # 调用chat函数生成答案，stream模式为True
                 final_ans = None
-                for ans in mcp_chat.MCP_CHAT.chat(dia, messages, c_user):
+                for ans in mcp_chat.MCP_CHAT.chat(dia, messages, c_user, connect_status):
                     ans["id"] = message_id
                     ans["session_id"] = conv.id
                     final_ans = ans
-                    yield "data:" + json.dumps({"code": 0, "message": "", "data": ans}, ensure_ascii=False) + "\n\n"
+                    try:
+                        yield "data:" + json.dumps({"code": 0, "message": "", "data": ans}, ensure_ascii=False) + "\n\n"
+                    except GeneratorExit:
+                        # logging.info(f"客户端断开连接，会话ID: {conv.id}")
+                        connect_status[0] = False
+                        pass
 
                 # 将最后一条用户提问和助理的回答保存到对话记录中
                 if final_ans is None:
@@ -755,8 +763,8 @@ def copy_superuser_dia_config(dia, email):
     </code_instruction>
     """
     superuser_diags = get_superuser_dialogs()
-    ic(superuser_diags)
-    ic(dia)
+    # ic(superuser_diags)
+    # ic(dia)
 
 
     # 拷贝超级用户的对应的dialog的配置
