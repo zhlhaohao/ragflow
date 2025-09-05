@@ -37,6 +37,8 @@ from rag.utils.tavily_conn import Tavily
 from api.utils import ic
 import json
 from rag.settings import TAG_FLD
+from api.db.services.document_service import DocumentService
+from rag.nlp import search
 
 class DialogService(CommonService):
     model = Dialog
@@ -702,14 +704,61 @@ def retrieval(dialog, question):
         )
         knowledges = kb_prompt(kbinfos, max_tokens)
 
-        logging.debug(
-            "{}->{}".format(question, "\n->".join(knowledges)))
-
         if not knowledges:
             return "找不到知识库资料"
 
-        result = "\n\n------\n\n".join(knowledges)
-    except Exception:
+        logging.debug(
+            "{}->{}".format(question, "\n->".join(knowledges)))
+
+        # result = "\n\n------\n\n".join(knowledges)
+
+        # 下面的部分，是将chunks所在的文件，取出所有的chunks,然后返回最小chunk index和最大chunk index之间的所有的文件内容
+        chunks = kbinfos["chunks"]
+        unique_docs = []
+        for chunk in chunks:
+            if chunk["doc_id"] not in [c["doc_id"] for c in unique_docs]:
+                unique_docs.append(chunk)
+
+        for doc in unique_docs:
+            doc_chunks = get_doc_chunks(doc["doc_id"], 1, 1000)
+            max_index = -1
+            min_index = 100000
+            for chunk in chunks:
+                if chunk["doc_id"] == doc["doc_id"]:
+                    index = 0
+                    for doc_chunk in doc_chunks["chunks"]:
+                        if chunk["chunk_id"] == doc_chunk["chunk_id"]:
+                            if index > max_index:
+                                max_index = index
+                            if index < min_index:
+                                min_index = index
+                        index += 1
+
+            doc["doc_chunks"] = doc_chunks
+            doc["max_index"] = max_index
+            doc["min_index"] = min_index
+
+        context = []
+        for doc in unique_docs:
+            context.append(f"\n\n------\n\n## Document Name: {doc['docnm_kwd']}:")
+            min_index = doc["min_index"]
+            max_index = doc["max_index"]
+            total = len(doc["doc_chunks"]["chunks"])
+            min_index -= 2  # total/4
+            if min_index < 0:
+                min_index = 0
+
+            max_index += 2  # total/4
+            if max_index >= total:
+                max_index = total-1
+
+            for i in range(int(min_index),int(max_index)):
+                chunk = doc["doc_chunks"]["chunks"][i]
+                context.append(chunk["content_with_weight"])
+
+        result = "\n".join(context)
+
+    except Exception as ex:
         return "知识库查询失败"
 
     return result
@@ -743,3 +792,66 @@ def get_superuser_dialogs():
         return diags
     else:
         return []
+
+
+
+def get_doc_chunks(doc_id, page, size):
+    """
+    获取文档的分块列表。
+
+    请求参数:
+    - doc_id (str): 文档ID。
+    - page (int, optional): 分页页码，默认为1。
+    - size (int, optional): 每页大小，默认为30。
+    - keywords (str, optional): 查询关键词。
+
+    返回:
+    - JSON响应，包含分块列表、文档信息和总数量。
+    """
+    question = ""
+
+    try:
+        # 获取租户ID
+        tenant_id = DocumentService.get_tenant_id(doc_id)
+        if not tenant_id:
+            return False
+
+        # 根据文档ID获取文档
+        e, doc = DocumentService.get_by_id(doc_id)
+        if not e:
+            return False
+
+        # 获取知识库ID列表
+        kb_ids = KnowledgebaseService.get_kb_ids(tenant_id)
+
+        # 构建查询字典
+        query = {
+            "doc_ids": [doc_id], "page": page, "size": size, "question": question, "sort": True
+        }
+
+        # 执行搜索
+        sres = settings.retrievaler.search(query, search.index_name(tenant_id), kb_ids, highlight=True)
+
+        # 初始化结果字典
+        res = {"total": sres.total, "chunks": [], "doc": doc.to_dict()}
+
+        # 遍历搜索结果，构建结果块列表
+        for id in sres.ids:
+            d = {
+                "chunk_id": id,
+                "content_with_weight": rmSpace(sres.highlight[id]) if question and id in sres.highlight else sres.field[
+                    id].get(
+                    "content_with_weight", ""),
+                "doc_id": sres.field[id]["doc_id"],
+                "docnm_kwd": sres.field[id]["docnm_kwd"],
+                "important_kwd": sres.field[id].get("important_kwd", []),
+                "question_kwd": sres.field[id].get("question_kwd", []),
+                "image_id": sres.field[id].get("img_id", ""),
+                "available_int": int(sres.field[id].get("available_int", 1)),
+                "positions": sres.field[id].get("position_int", []),
+            }
+            res["chunks"].append(d)
+
+        return res
+    except Exception as e:
+        return False

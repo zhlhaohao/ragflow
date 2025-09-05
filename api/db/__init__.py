@@ -84,6 +84,7 @@ class ParserType(StrEnum):
     QA = "qa"
     TABLE = "table"
     NAIVE = "naive"
+    OMNI = "omni"
     PICTURE = "picture"
     ONE = "one"
     AUDIO = "audio"

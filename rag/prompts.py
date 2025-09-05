@@ -94,6 +94,10 @@ def message_fit_in(msg, max_length=4000):
 
 
 def kb_prompt(kbinfos, max_tokens):
+    """
+    将kbinfos转换为prompt
+    kbinfo 就是 chunks ，将相同的doc_id 的 chunks 聚合在一起，然后将所有docs的CONTEXT拼接在一起
+    """
     from api.db.services.document_service import DocumentService
 
     knowledges = [ck["content_with_weight"] for ck in kbinfos["chunks"]]

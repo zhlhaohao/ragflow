@@ -207,7 +207,10 @@ def completion():
             return get_data_error_result(message="Conversation not found!")
 
         # 深拷贝请求中的messages到会话对象中
-        conv.message = deepcopy(req["messages"])
+        # conv.message = deepcopy(req["messages"])
+        # F8080
+        conv.message.append(req["messages"][-1])
+
         # 获取助理对象
         e, dia = DialogService.get_by_id(conv.dialog_id)
         if not e:

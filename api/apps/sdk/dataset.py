@@ -68,7 +68,7 @@ def create(tenant_id):
               description: Dataset permission.
             chunk_method:
               type: string
-              enum: ["naive", "manual", "qa", "table", "paper", "book", "laws",
+              enum: ["naive", "omni", "manual", "qa", "table", "paper", "book", "laws",
                      "presentation", "picture", "one", "knowledge_graph", "email", "tag"
                      ]
               description: Chunking method.
@@ -96,6 +96,7 @@ def create(tenant_id):
     valid_permission = ["me", "team"]
     valid_chunk_method = [
         "naive",
+        "omni",
         "manual",
         "qa",
         "table",
@@ -287,7 +288,7 @@ def delete(tenant_id):
     return get_result(code=settings.RetCode.SUCCESS)
 
 
-@manager.route("/datasets/<dataset_id>", methods=["PUT"])  # type: ignore # noqa: F821  
+@manager.route("/datasets/<dataset_id>", methods=["PUT"])  # type: ignore # noqa: F821
 @token_required
 def update(tenant_id, dataset_id):
     """
@@ -324,7 +325,7 @@ def update(tenant_id, dataset_id):
               description: Updated permission.
             chunk_method:
               type: string
-              enum: ["naive", "manual", "qa", "table", "paper", "book", "laws",
+              enum: ["naive", "omni", "manual", "qa", "table", "paper", "book", "laws",
                      "presentation", "picture", "one", "knowledge_graph", "email", "tag"
                      ]
               description: Updated chunking method.
@@ -354,6 +355,7 @@ def update(tenant_id, dataset_id):
     valid_permission = ["me", "team"]
     valid_chunk_method = [
         "naive",
+        "omni",
         "manual",
         "qa",
         "table",

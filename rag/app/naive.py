@@ -81,15 +81,15 @@ class Docx(DocxParser):
         """Get the hierarchical title structure before the table"""
         import re
         from docx.text.paragraph import Paragraph
-        
+
         titles = []
         blocks = []
-        
+
         # Get document name from filename parameter
         doc_name = re.sub(r"\.[a-zA-Z]+$", "", filename)
         if not doc_name:
             doc_name = "Untitled Document"
-            
+
         # Collect all document blocks while maintaining document order
         try:
             # Iterate through all paragraphs and tables in document order
@@ -102,7 +102,7 @@ class Docx(DocxParser):
         except Exception as e:
             logging.error(f"Error collecting blocks: {e}")
             return ""
-            
+
         # Find the target table position
         target_table_pos = -1
         table_count = 0
@@ -112,20 +112,20 @@ class Docx(DocxParser):
                     target_table_pos = pos
                     break
                 table_count += 1
-                
+
         if target_table_pos == -1:
             return ""  # Target table not found
-            
+
         # Find the nearest heading paragraph in reverse order
         nearest_title = None
         for i in range(len(blocks)-1, -1, -1):
             block_type, pos, block = blocks[i]
             if pos >= target_table_pos:  # Skip blocks after the table
                 continue
-                
+
             if block_type != 'p':
                 continue
-                
+
             if block.style and re.search(r"Heading\s*(\d+)", block.style.name, re.I):
                 try:
                     level_match = re.search(r"(\d+)", block.style.name)
@@ -138,12 +138,12 @@ class Docx(DocxParser):
                                 break
                 except Exception as e:
                     logging.error(f"Error parsing heading level: {e}")
-        
+
         if nearest_title:
             # Add current title
             titles.append(nearest_title)
             current_level = nearest_title[0]
-            
+
             # Find all parent headings, allowing cross-level search
             while current_level > 1:
                 found = False
@@ -151,17 +151,17 @@ class Docx(DocxParser):
                     block_type, pos, block = blocks[i]
                     if pos >= target_table_pos:  # Skip blocks after the table
                         continue
-                        
+
                     if block_type != 'p':
                         continue
-                        
+
                     if block.style and re.search(r"Heading\s*(\d+)", block.style.name, re.I):
                         try:
                             level_match = re.search(r"(\d+)", block.style.name)
                             if level_match:
                                 level = int(level_match.group(1))
                                 # Find any heading with a higher level
-                                if level < current_level:  
+                                if level < current_level:
                                     title_text = block.text.strip()
                                     if title_text:  # Avoid empty titles
                                         titles.append((level, title_text))
@@ -170,16 +170,16 @@ class Docx(DocxParser):
                                         break
                         except Exception as e:
                             logging.error(f"Error parsing parent heading: {e}")
-                            
+
                 if not found:  # Break if no parent heading is found
                     break
-            
+
             # Sort by level (ascending, from highest to lowest)
             titles.sort(key=lambda x: x[0])
             # Organize titles (from highest to lowest)
             hierarchy = [doc_name] + [t[1] for t in titles]
             return " > ".join(hierarchy)
-            
+
         return ""
 
     def __call__(self, filename, binary=None, from_page=0, to_page=100000):
@@ -198,18 +198,18 @@ class Docx(DocxParser):
         # 根据是否提供二进制数据来加载文档
         self.doc = Document(
             filename) if not binary else Document(BytesIO(binary))
-        
+
         # 初始化页码计数器和结果列表
         pn = 0
         lines = []
         last_image = None
-        
+
         # 遍历文档中的每个段落
         for p in self.doc.paragraphs:
             if pn > to_page:
                 # 如果当前页码超过指定的结束页码，停止处理
                 break
-            
+
             if from_page <= pn < to_page:
                 # 段落中有文本内容
                 if p.text.strip():
@@ -223,7 +223,7 @@ class Docx(DocxParser):
                             # 使用上一个未处理的图片
                             former_image = last_image
                             last_image = None
-                        # 添加 Caption 段落    
+                        # 添加 Caption 段落
                         lines.append((self.__clean(p.text), [former_image], p.style.name))
                     else:
                         # 处理普通段落
@@ -280,9 +280,9 @@ class Docx(DocxParser):
                     i += 1
                     # 添加单元格
                     html += f"<td>{c.text}</td>" if span == 1 else f"<td colspan='{span}'>{c.text}</td>"
-                # 结束行    
+                # 结束行
                 html += "</tr>"
-            # 结束表格    
+            # 结束表格
             html += "</table>"
             # 将表格的 HTML 表示添加到结果列表中
             tbls.append(((None, html), ""))
@@ -337,30 +337,50 @@ class Pdf(PdfParser):
 
 class Markdown(MarkdownParser):
     def __call__(self, filename, binary=None):
+        # 读取文件内容
         if binary:
-            encoding = find_codec(binary)
-            txt = binary.decode(encoding, errors="ignore")
+            # F8080
+            if isinstance(binary, str):
+                txt = binary
+            else:
+                # 如果提供了二进制数据，则检测编码并解码
+                encoding = find_codec(binary)
+                txt = binary.decode(encoding, errors="ignore")
         else:
+            # 否则直接从文件中读取
             with open(filename, "r") as f:
                 txt = f.read()
+
+        # 提取markdown中的表格和剩余文本内容
         remainder, tables = self.extract_tables_and_remainder(f'{txt}\n')
+
+        # 初始化sections和tbls列表
         sections = []
         tbls = []
+
+        # 处理剩余文本内容，按行分割
         for sec in remainder.split("\n"):
+            # 如果当前段落的token数量超过chunk_token_num的3倍，则将其分割成两半
             if num_tokens_from_string(sec) > 3 * self.chunk_token_num:
                 sections.append((sec[:int(len(sec) / 2)], ""))
                 sections.append((sec[int(len(sec) / 2):], ""))
             else:
+                # 如果当前行以#开头（标题行）
                 if sec.strip().find("#") == 0:
                     sections.append((sec, ""))
+                # 如果sections不为空且上一个section是标题，则将当前行附加到标题后面
                 elif sections and sections[-1][0].strip().find("#") == 0:
                     sec_, _ = sections.pop(-1)
                     sections.append((sec_ + "\n" + sec, ""))
+                # 否则作为普通段落处理
                 else:
                     sections.append((sec, ""))
 
+        # 处理提取出的表格，转换为HTML格式
         for table in tables:
             tbls.append(((None, markdown(table, extensions=['markdown.extensions.tables'])), ""))
+
+        # 返回处理后的sections和表格列表
         return sections, tbls
 
 
@@ -388,7 +408,7 @@ def chunk(filename, binary=None, from_page=0, to_page=100000,
     # 如果文件类型是docx
     if re.search(r"\.docx$", filename, re.IGNORECASE):
         callback(0.1, "开始解析.")
-        # 解析docx，返回解析后的段落（段落文本+段落内图片）列表和表格列表     
+        # 解析docx，返回解析后的段落（段落文本+段落内图片）列表和表格列表
         try:
             vision_model = LLMBundle(kwargs["tenant_id"], LLMType.IMAGE2TEXT)
             callback(0.15, "Visual model detected. Attempting to enhance figure extraction...")
@@ -548,4 +568,43 @@ if __name__ == "__main__":
     def dummy(prog=None, msg=""):
         pass
 
-    chunk(sys.argv[1], from_page=0, to_page=10, callback=dummy)
+    # filename = "/home/lianghao/github/LazyLLM/tests/领域微调实践.pdf"
+    filename = "/home/lianghao/github/LazyLLM/tests/example.md"
+    res = chunk(filename, from_page=0, to_page=100, callback=dummy)
+    for item in res:
+        print(item["content_with_weight"],"\n---------\n")
+    pass
+
+
+"""
+
+res = List()
+list item in res:
+
+pdf file:
+{
+"docnm_kwd": "/home/lianghao/github/LazyLLM/tests/领域微调实践.pdf",
+"title_tks": "home lianghao github lazyllm test 领域 微调 实践",
+"title_sm_tks": "home lianghao github lazyllm test 领域 微调 实践",
+"image": <PIL.Image.Image image mode=RGB size=1270x999 at 0x723A64142F20>,
+"page_num_int": [2, 3, 3, 3],
+"position_int": [(...), (...), (...), (...)],
+"top_int": [739, 75, 124, 157],
+"content_with_weight": "模型能力的影响：",
+"content_ltks": "模型 能力 的 影响",
+"content_sm_ltks": "模型 能力 的 影响"}
+
+
+md file:
+{'docnm_kwd': '/home/lianghao/github/LazyLLM/tests/example.md',
+'title_tks': 'home lianghao github lazyllm test exampl',
+'title_sm_tks': 'home lianghao github lazyllm test exampl',
+'page_num_int': [16],
+'position_int': [(...)],
+'top_int': [15],
+'content_with_weight': '### 实际集成案例
+',
+'content_ltks': '实际 集成 案例',
+'content_sm_ltks': '实际 集成 案例'}
+
+"""

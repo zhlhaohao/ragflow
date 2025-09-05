@@ -358,7 +358,9 @@ def get_parser_config(chunk_method, parser_config):
     if not chunk_method:
         chunk_method = "naive"
     key_mapping = {
-        "naive": {"chunk_token_num": 128, "delimiter": "\\n!?;。；！？", "html4excel": False, "layout_recognize": "DeepDOC",
+        "naive": {"chunk_token_num": 512, "delimiter": "\\n!?;。；！？", "html4excel": False, "layout_recognize": "DeepDOC",
+                  "raptor": {"use_raptor": False}},
+        "omni": {"chunk_token_num": 512, "delimiter": "\\n!?;。；！？", "html4excel": False, "layout_recognize": "DeepDOC",
                   "raptor": {"use_raptor": False}},
         "qa": {"raptor": {"use_raptor": False}},
         "tag": None,
@@ -417,7 +419,7 @@ def check_duplicate_ids(ids, id_type="item"):
     """
     Check for duplicate IDs in a list and return unique IDs and error messages.
 
-    Args: 
+    Args:
         ids (list): List of IDs to check for duplicates
         id_type (str): Type of ID for error messages (e.g., 'document', 'dataset', 'chunk')
 
@@ -428,16 +430,16 @@ def check_duplicate_ids(ids, id_type="item"):
     """
     id_count = {}
     duplicate_messages = []
-    
+
     # Count occurrences of each ID
     for id_value in ids:
         id_count[id_value] = id_count.get(id_value, 0) + 1
-    
+
     # Check for duplicates
     for id_value, count in id_count.items():
         if count > 1:
             duplicate_messages.append(f"Duplicate {id_type} ids: {id_value}")
-    
+
     # Return unique IDs and error messages
     return list(set(ids)), duplicate_messages
 

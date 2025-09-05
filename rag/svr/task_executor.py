@@ -52,7 +52,7 @@ from api.db.services.file2document_service import File2DocumentService
 from api import settings
 from api.versions import get_ragflow_version
 from api.db.db_models import close_connection
-from rag.app import laws, paper, presentation, manual, qa, table, book, resume, picture, naive, one, audio, \
+from rag.app import laws, paper, presentation, manual, qa, table, book, resume, picture, naive, omni, one, audio, \
     email, tag
 from rag.nlp import search, rag_tokenizer
 from rag.raptor import RecursiveAbstractiveProcessing4TreeOrganizedRetrieval as Raptor
@@ -68,6 +68,7 @@ BATCH_SIZE = 64
 FACTORY = {
     "general": naive,
     ParserType.NAIVE.value: naive,
+    ParserType.OMNI.value: omni,
     ParserType.PAPER.value: paper,
     ParserType.BOOK.value: book,
     ParserType.PRESENTATION.value: presentation,
@@ -226,19 +227,19 @@ async def build_chunks(task, progress_callback):
 
     Returns:
         _type_: docs: doc_id  kb_id
-    """    
+    """
     if task["size"] > DOC_MAXIMUM_SIZE:
         set_progress(task["id"], prog=-1, msg="File size exceeds( <= %dMb )" %
                                               (int(DOC_MAXIMUM_SIZE / 1024 / 1024)))
         return []
 
-    # 根据用户设置的解析方法parser_id(例如naive)获取对应的切块器
+    # 根据用户设置的解析方法parser_id(例如naive)获取对应的解析切块器
     chunker = FACTORY[task["parser_id"].lower()]
     try:
         # 获取文件的存储地址
         st = timer()
         bucket, name = File2DocumentService.get_storage_address(doc_id=task["doc_id"])
-        # 从minio存储中获取文件二进制内容        
+        # 从minio存储中获取文件二进制内容
         binary = await get_storage_binary(bucket, name)
         logging.info("From minio({}) {}/{}".format(timer() - st, task["location"], task["name"]))
     except TimeoutError:
@@ -256,6 +257,7 @@ async def build_chunks(task, progress_callback):
 
     try:
         async with chunk_limiter:
+            # 多线程方式，在这里进行文档解析和切块
             cks = await trio.to_thread.run_sync(lambda: chunker.chunk(task["name"], binary=binary, from_page=task["from_page"],
                                 to_page=task["to_page"], lang=task["language"], callback=progress_callback,
                                 kb_id=task["kb_id"], parser_config=task["parser_config"], tenant_id=task["tenant_id"]))
@@ -422,7 +424,7 @@ async def embedding(docs, mdl, parser_config=None, callback=None):
     mdl: 模型
     parser_config: 解析器配置
     callback: 回调函数
-    """    
+    """
     if parser_config is None:
         parser_config = {}
     batch_size = 16
@@ -443,7 +445,10 @@ async def embedding(docs, mdl, parser_config=None, callback=None):
         tts.append(d.get("docnm_kwd", "Title"))
         c = "\n".join(d.get("question_kwd", []))
         if not c:
-            c = d["content_with_weight"]
+            if d.get("context"):
+                c = d["context"]
+            else:
+                c = d["content_with_weight"]
         c = re.sub(r"</?(table|td|caption|tr|th)( [^<>]{0,12})?>", " ", c)
         if not c:
             c = "None"
@@ -563,7 +568,7 @@ async def do_handle_task(task):
 
     Raises:
         Exception: 如果任务处理过程中发生错误
-    """    
+    """
     task_id = task["id"]
     task_from_page = task["from_page"]
     task_to_page = task["to_page"]

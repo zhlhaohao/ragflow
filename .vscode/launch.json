@@ -32,6 +32,18 @@
       "justMyCode": false
     },
     {
+      "name": "3-naive chunk",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/rag/app/naive.py",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      },
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": false
+    },
+    {
       "name": "3-current file",
       "type": "debugpy",
       "request": "launch",

@@ -282,6 +282,7 @@ def update_doc(tenant_id, dataset_id, document_id):
     if "chunk_method" in req:
         valid_chunk_method = {
             "naive",
+            "omni",
             "manual",
             "qa",
             "table",

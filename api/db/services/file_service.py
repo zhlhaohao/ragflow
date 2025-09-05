@@ -82,7 +82,7 @@ class FileService(CommonService):
                     (cls.model.parent_id == file["id"]),
                     ~(cls.model.id == file["id"]),
                 ).dicts())
-                file["has_child_folder"] = any(value["type"] == FileType.FOLDER.value for value in children)                       
+                file["has_child_folder"] = any(value["type"] == FileType.FOLDER.value for value in children)
                 continue
             kbs_info = cls.get_kb_id_by_file_id(file['id'])
             file['kbs_info'] = kbs_info
@@ -407,7 +407,7 @@ class FileService(CommonService):
         }
         cls.save(**file)
         File2DocumentService.save(**{"id": get_uuid(), "file_id": file["id"], "document_id": doc["id"]})
-    
+
     @classmethod
     @DB.connection_context()
     def move_file(cls, file_ids, folder_id):
@@ -523,8 +523,12 @@ class FileService(CommonService):
             return ParserType.PRESENTATION.value
         if re.search(r"\.(eml)$", filename):
             return ParserType.EMAIL.value
+
+        #F8080: pdf上传后默认使用omni
+        if re.search(r"\.(pdf)$", filename):
+            return ParserType.OMNI.value
         return default
-    
+
     @staticmethod
     def get_parser_config(filename, default):
         "F8080: 如果是xls文件，将分块的长度改为最小值，以避免多行被合并"
