@@ -84,7 +84,7 @@ class Dealer:
                ):
         """
         执行搜索操作。
-    
+
         参数:
         req (dict): 请求参数。
         idx_names (str | list[str]): 索引名称。
@@ -92,7 +92,7 @@ class Dealer:
         emb_mdl: 嵌入模型。
         highlight (bool): 是否高亮显示。
         rank_feature (dict | None): 排序特征。
-    
+
         返回:
         SearchResult: 搜索结果。
         """
@@ -100,13 +100,13 @@ class Dealer:
         filters = self.get_filters(req)
         # 初始化排序表达式
         orderBy = OrderByExpr()
-    
+
         # 解析分页参数
         pg = int(req.get("page", 1)) - 1
         topk = int(req.get("topk", 1024))
         ps = int(req.get("size", topk))
         offset, limit = pg * ps, ps
-    
+
         # ES需要返回哪些字段
         src = req.get("fields",
                       ["docnm_kwd", "content_ltks", "kb_id", "img_id", "title_tks", "important_kwd", "position_int",
@@ -115,7 +115,7 @@ class Dealer:
                        "available_int", "content_with_weight", PAGERANK_FLD, TAG_FLD])
         # 初始化关键词集合
         kwds = set([])
-    
+
         # 获取查询问题
         qst = req.get("question", "")
         # 初始化问题向量
@@ -133,7 +133,8 @@ class Dealer:
             # 如果有查询问题，进行全文搜索
             highlightFields = ["content_ltks", "title_tks"] if highlight else []
             # matchText：全文检索内容   keywords：关键词列表 见 0005.md
-            matchText, keywords = self.qryr.question(qst, min_match=0.3)
+            # F8080 min_match=0.3
+            matchText, keywords = self.qryr.question(qst, min_match=0.0)
             if emb_mdl is None:
                 matchExprs = [matchText]
                 res = self.dataStore.search(src, highlightFields, filters, matchExprs, orderBy, offset, limit,
@@ -147,12 +148,12 @@ class Dealer:
                 q_vec = matchDense.embedding_data
                 # 将问题向量的标识添加到源列表中
                 src.append(f"q_{len(q_vec)}_vec")
-                
+
                 # 创建融合检索表达式，使用matchText占0.05，向量匹配占0.95
                 fusionExpr = FusionExpr("weighted_sum", topk, {"weights": "0.05, 0.95"})
                 # 构建匹配表达式列表，包括文本匹配、密集向量匹配和融合表达式
                 matchExprs = [matchText, matchDense, fusionExpr]
-                
+
                 # 在数据存储中执行搜索,res 的内容见0005.md
                 res = self.dataStore.search(src, highlightFields, filters, matchExprs, orderBy, offset, limit,
                                             idx_names, kb_ids, rank_feature=rank_feature)
@@ -160,7 +161,7 @@ class Dealer:
                 total = self.dataStore.getTotal(res)
                 # 记录搜索结果总数的日志信息
                 logging.debug("Dealer.search TOTAL: {}".format(total))
-    
+
                 # 如果结果为空，尝试降低匹配阈值再次搜索
                 if total == 0:
                     matchText, _ = self.qryr.question(qst, min_match=0.1)
@@ -170,7 +171,7 @@ class Dealer:
                                                 orderBy, offset, limit, idx_names, kb_ids, rank_feature=rank_feature)
                     total = self.dataStore.getTotal(res)
                     logging.debug("Dealer.search 2 TOTAL: {}".format(total))
-    
+
             # 收集关键词
             for k in keywords:
                 kwds.add(k)
@@ -180,7 +181,7 @@ class Dealer:
                     if kk in kwds:
                         continue
                     kwds.add(kk)
-    
+
         logging.debug(f"TOTAL: {total}")
         ids = self.dataStore.getChunkIds(res)
         keywords = list(kwds)
@@ -454,7 +455,7 @@ class Dealer:
                   rank_feature: dict | None = {PAGERANK_FLD: 10}):
         """
         执行检索操作。
-    
+
         参数:
         question (str): 查询文本。
         embd_mdl: 嵌入模型。
@@ -470,7 +471,7 @@ class Dealer:
         rerank_mdl: 重新排序模型。
         highlight (bool): 是否高亮显示。
         rank_feature (dict | None): 排名特征。
-    
+
         返回:
         dict: 检索结果。
         """
@@ -487,7 +488,7 @@ class Dealer:
 
         if isinstance(tenant_ids, str):
             tenant_ids = tenant_ids.split(",")
-    
+
         # 执行搜索
         sres = self.search(req, [index_name(tid) for tid in tenant_ids],
                            kb_ids, embd_mdl, highlight, rank_feature=rank_feature)
@@ -508,7 +509,7 @@ class Dealer:
         dim = len(sres.query_vector)
         vector_column = f"q_{dim}_vec"
         zero_vector = [0.0] * dim
-    
+
         # 构建检索结果
         for i in idx:
             if sim[i] < similarity_threshold:
@@ -546,7 +547,7 @@ class Dealer:
             if dnm not in ranks["doc_aggs"]:
                 ranks["doc_aggs"][dnm] = {"doc_id": did, "count": 0}
             ranks["doc_aggs"][dnm]["count"] += 1
-    
+
         # 排序并限制结果数量
         ranks["doc_aggs"] = [{"doc_name": k,
                               "doc_id": v["doc_id"],
@@ -556,7 +557,7 @@ class Dealer:
         ranks["chunks"] = ranks["chunks"][:page_size]
 
         return ranks
-    
+
     def sql_retrieval(self, sql, fetch_size=128, format="json"):
         """
         执行SQL检索。

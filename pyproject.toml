@@ -131,8 +131,6 @@ dependencies = [
     "openai==1.78.1",
     "toml",
     "json-repair>=0.47.3",
-    "llmsherpa>=0.1.4",
-    "llama-index>=0.12.38",
 ]
 
 [project.optional-dependencies]

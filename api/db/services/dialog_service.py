@@ -32,7 +32,7 @@ from rag.app.tag import label_question
 from rag.nlp.search import index_name
 from rag.prompts import kb_prompt, message_fit_in, llm_id2llm_type, keyword_extraction, full_question, chunks_format, \
     citation_prompt
-from rag.utils import rmSpace, num_tokens_from_string
+from rag.utils import rmSpace, num_tokens_from_string, truncate
 from rag.utils.tavily_conn import Tavily
 from api.utils import ic
 import json
@@ -254,11 +254,20 @@ def chat(dialog, messages, stream=True, **kwargs):
 
     # 至此获取了knowledge
     msg = [{"role": "system", "content": prompt_config["system"].format(**kwargs)}]
+
+    # 生成引用的提示
     prompt4citation = ""
     if knowledges and (prompt_config.get("quote", True) and kwargs.get("quote", True)):
         prompt4citation = citation_prompt()
+
+    # 遍历 messages 列表，过滤掉角色为 "system" 的消息
+    # 对每条消息的内容使用正则表达式 re.sub(r"##\d+\$\$", "", m["content"]) 移除引用标记（格式为 ##数字$$）
+    # 将处理后的消息添加到 msg 列表中
+    # 这样做的目的是清理对话历史，去除可能干扰模型理解的引用标记，确保发送给语言模型的对话内容是干净的。
     msg.extend([{"role": m["role"], "content": re.sub(r"##\d+\$\$", "", m["content"])}
                 for m in messages if m["role"] != "system"])
+
+
     used_token_count, msg = message_fit_in(msg, int(max_tokens * 0.95))
     assert len(msg) >= 2, f"message_fit_in has bug: {msg}"
 
@@ -285,8 +294,9 @@ def chat(dialog, messages, stream=True, **kwargs):
 
         if knowledges and (prompt_config.get("quote", True) and kwargs.get("quote", True)):
             if answer is not None:  # F8080 answer在前端提问的时候为None
-                # 给答案插入引用标注，返回引用索引
+                # 这句话没用
                 answer = re.sub(r"##[ij]\$\$", "", answer, flags=re.DOTALL)
+                # 如果LLM的回答没有引用标记，则根据回答内容从知识库中搜索到原始的chunk（不一定准确）
                 if not re.search(r"##[0-9]+\$\$", answer):
                     answer, idx = retriever.insert_citations(answer,
                                                             [ck["content_ltks"]
@@ -297,12 +307,14 @@ def chat(dialog, messages, stream=True, **kwargs):
                                                             tkweight=1 - dialog.vector_similarity_weight,
                                                             vtweight=dialog.vector_similarity_weight)
                 else:
+                    # 如果LLM的回答中包含了引用标记，则从引用标记中获取kbinfo chunks的索引
                     idx = set([])
                     for r in re.finditer(r"##([0-9]+)\$\$", answer):
                         i = int(r.group(1))
                         if i < len(kbinfos["chunks"]):
                             idx.add(i)
 
+                # 找到对应的 doc_ids 并去重
                 idx = set([kbinfos["chunks"][int(i)]["doc_id"] for i in idx])
                 recall_docs = [
                     d for d in kbinfos["doc_aggs"] if d["doc_id"] in idx]
@@ -720,6 +732,7 @@ def retrieval(dialog, question):
                 unique_docs.append(chunk)
 
         for doc in unique_docs:
+            mid_idxs = []
             doc_chunks = get_doc_chunks(doc["doc_id"], 1, 1000)
             max_index = -1
             min_index = 100000
@@ -728,6 +741,7 @@ def retrieval(dialog, question):
                     index = 0
                     for doc_chunk in doc_chunks["chunks"]:
                         if chunk["chunk_id"] == doc_chunk["chunk_id"]:
+                            mid_idxs.extend([index for index in range(index-1,index+1)])
                             if index > max_index:
                                 max_index = index
                             if index < min_index:
@@ -738,30 +752,59 @@ def retrieval(dialog, question):
             doc["max_index"] = max_index
             doc["min_index"] = min_index
 
-        context = []
-        for doc in unique_docs:
-            context.append(f"\n\n------\n\n## Document Name: {doc['docnm_kwd']}:")
-            min_index = doc["min_index"]
-            max_index = doc["max_index"]
+            # idxs数组排序后去重
             total = len(doc["doc_chunks"]["chunks"])
-            min_index -= 2  # total/4
-            if min_index < 0:
-                min_index = 0
+            mid_idxs = sorted(list(set(mid_idxs)))
+            mid_idxs = [index for index in mid_idxs if index >=0 and index<total]
+            doc["mid_idxs"] = mid_idxs
 
-            max_index += 2  # total/4
-            if max_index >= total:
-                max_index = total-1
+            min_max = [index for index in range(min_index-1,max_index+1)]
+            min_max = [index for index in min_max if index >=0 and index<total]
+            doc["big_idxs"] = min_max
 
-            for i in range(int(min_index),int(max_index)):
+        big_context = []
+        for doc in unique_docs:
+            total = len(doc["doc_chunks"]["chunks"])
+            filename = doc['docnm_kwd']
+            filetype = filename.split(".")[-1]
+            big_context.append(f"\n\n------\n\nReference Document Name:\"{filename}\",Document Link:\"/viewer/document/{doc['doc_id']}?ext={filetype}&prefix=document\":\n")
+
+            for i in doc["big_idxs"]:
                 chunk = doc["doc_chunks"]["chunks"][i]
-                context.append(chunk["content_with_weight"])
+                big_context.append(f"{chunk['content_with_weight']}")
 
-        result = "\n".join(context)
+        big_result = "\n".join(big_context)
+
+        mid_context = []
+        for doc in unique_docs:
+            total = len(doc["doc_chunks"]["chunks"])
+            mid_context.append(f"\n\n------\n\nDocument: {doc['docnm_kwd']}:\n")
+
+            for i in doc["mid_idxs"]:
+                chunk = doc["doc_chunks"]["chunks"][i]
+                mid_context.append(f"{chunk['content_with_weight']}")
+
+        # mid_result = "\n".join(mid_context)
+
+        # # 调整生成配置中的最大令牌数，确保不超过剩余可用令牌数。
+        # gen_conf = dialog.llm_setting
+        # if "max_tokens" in gen_conf:
+        #     gen_conf["max_tokens"] = min(
+        #         gen_conf["max_tokens"],
+        #         max_tokens - len(big_result))
+
+
+        # 调整长度以符合上下文长度的要求
+        final_ans = big_result
+        num_tokens = num_tokens_from_string(final_ans)
+
+        if num_tokens > int(max_tokens*0.8):
+            final_ans = truncate(final_ans, int(max_tokens*0.8))
 
     except Exception as ex:
         return "知识库查询失败"
 
-    return result
+    return final_ans
 
 
 from api.db.services.user_service import UserTenantService

@@ -645,6 +645,7 @@ class McpChat:
 
             # 没有使用tool，表示已经收集了足够的信息，可以回答用户问题了
             else:
+                ans = None
                 # 用正式对话的模型重新问一次
                 if ("<FINAL_ANSWER>" in response_content or mcp_chat_mdl != chat_mdl):
                     final_prompt = f"{system_prompt}\n\n## Current Conversation\nBelow is the current conversation consisting of interleaving human and assistant messages.\n\n{history_msgs_json}\n"
@@ -655,10 +656,13 @@ class McpChat:
                     for ans in chat_mdl.chat_streamly(final_prompt, mcp_messages, gen_conf):
                         yield {"answer": f"{mcp_ans}\n{ans}"}
 
-                    response_content = ans
+                    if ans:
+                        response_content = ans
 
-                if "ERROR" in response_content:
-                    response_content += "\n\n**有错误发生，可能是因为上下文长度超限**"
+                if not ans:
+                    response_content += "\n\n**没有收到回复，可能是因为模型池连接中断**"
+                elif "ERROR" in response_content:
+                    response_content += "\n\n**出现错误，可能是因为模型的上下文长度超限**"
 
                 logging.info(f"639- {chat_mdl.llm_name}最终回答:\n{ans}")
                 yield {"answer": f"{mcp_ans}\n<FINAL_ANSWER>{response_content}"}
