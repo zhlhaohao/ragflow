@@ -39,6 +39,7 @@ import json
 from rag.settings import TAG_FLD
 from api.db.services.document_service import DocumentService
 from rag.nlp import search
+from api.db.services.user_service import UserTenantService
 
 class DialogService(CommonService):
     model = Dialog
@@ -660,26 +661,30 @@ def chat_nokb(dialog, messages, stream=True):
         answer = chat_mdl.chat(prompt_config["system"], messages, gen_conf)
         yield answer
 
+def get_context_from_files(include_files):
+    """
+    从 include_files的doc_id读取文件的所有chunks并组装
+    """
+    context = []
+    for doc_id in include_files:
+        doc = get_doc_chunks(doc_id, 1, 1000)
 
-def retrieval(dialog, question):
+        filename = doc['doc']['name']
+        filetype = filename.split(".")[-1]
+        context.append(f"\n\n------\n\nReference Document Name:\"{filename}\",Document Link:\"/viewer/document/{doc_id}?ext={filetype}&prefix=document\":\n")
+
+        for chunk in doc["chunks"]:
+            context.append(f"{chunk['content_with_weight']}")
+
+    final_ans = "\n".join(context)
+    return final_ans
+
+
+def retrieval(dialog, question, include_files):
     """
     F8080 从知识库检索question相关的chunks，返回结果chunks合并在一起的字符串
     """
-    if not dialog.kb_ids:
-        return "未选择任何知识库"
-
     try:
-        kbs = KnowledgebaseService.get_by_ids(dialog.kb_ids)
-        embedding_list = list(set([kb.embd_id for kb in kbs]))
-        if len(embedding_list) != 1:
-            return "**ERROR**: Knowledge bases use different embedding models."
-
-        embedding_model_name = embedding_list[0]
-        retriever = settings.retrievaler
-        embd_mdl = LLMBundle(dialog.tenant_id, LLMType.EMBEDDING, embedding_model_name)
-        if not embd_mdl:
-            return "Embedding model(%s) not found" % embedding_model_name
-
         # 绑定LLM对话模型
         if llm_id2llm_type(dialog.llm_id) == "image2text":
             chat_mdl = LLMBundle(dialog.tenant_id, LLMType.IMAGE2TEXT, dialog.llm_id)
@@ -690,7 +695,37 @@ def retrieval(dialog, question):
             return "LLM(%s) not found" % dialog.llm_id
         max_tokens = chat_mdl.max_length
 
-        # 绑定重排序模型
+        # 将上下文切割到符合最大上下文长度的要求
+        def truncate(text):
+            if not text or len(text) < 10:
+                return "未找到相关文档"
+            num_tokens = num_tokens_from_string(text)
+            if num_tokens > int(max_tokens*0.8):
+                text = truncate(text, int(max_tokens*0.8))
+            return text
+
+        # 如果用户使用了@指定了文件id，则从知识库获取这些文件的chunks
+        if include_files is not None:
+            final_ans = get_context_from_files(include_files)
+            return truncate(final_ans)
+
+        if not dialog.kb_ids:
+            return "未选择任何知识库"
+
+        # 获取知识库id
+        kbs = KnowledgebaseService.get_by_ids(dialog.kb_ids)
+        # 获取嵌入模型
+        embedding_list = list(set([kb.embd_id for kb in kbs]))
+        if len(embedding_list) != 1:
+            return "**ERROR**: Knowledge bases use different embedding models."
+
+        embedding_model_name = embedding_list[0]
+        retriever = settings.retrievaler
+        embd_mdl = LLMBundle(dialog.tenant_id, LLMType.EMBEDDING, embedding_model_name)
+        if not embd_mdl:
+            return "Embedding model(%s) not found" % embedding_model_name
+
+        # 获取重排序模型
         rerank_mdl = None
         if dialog.rerank_id:
             rerank_mdl = LLMBundle(dialog.tenant_id, LLMType.RERANK, dialog.rerank_id)
@@ -714,26 +749,22 @@ def retrieval(dialog, question):
             rerank_mdl=rerank_mdl,
             rank_feature=label_question(question, kbs)
         )
-        knowledges = kb_prompt(kbinfos, max_tokens)
 
-        if not knowledges:
+        chunks = kbinfos["chunks"]
+        if len(chunks)==0:
             return "找不到知识库资料"
 
-        logging.debug(
-            "{}->{}".format(question, "\n->".join(knowledges)))
-
-        # result = "\n\n------\n\n".join(knowledges)
-
-        # 下面的部分，是将chunks所在的文件，取出所有的chunks,然后返回最小chunk index和最大chunk index之间的所有的文件内容
-        chunks = kbinfos["chunks"]
+        # 找到所有文件并去重
         unique_docs = []
         for chunk in chunks:
             if chunk["doc_id"] not in [c["doc_id"] for c in unique_docs]:
                 unique_docs.append(chunk)
 
+        # 寻找命中的chunks的min_index - max_index 范围, mid_idxs是将命中的chunks向前向后扩充一个chunk得到的数组
         for doc in unique_docs:
             mid_idxs = []
             doc_chunks = get_doc_chunks(doc["doc_id"], 1, 1000)
+            total = len(doc_chunks["chunks"])
             max_index = -1
             min_index = 100000
             for chunk in chunks:
@@ -748,20 +779,20 @@ def retrieval(dialog, question):
                                 min_index = index
                         index += 1
 
-            doc["doc_chunks"] = doc_chunks
             doc["max_index"] = max_index
             doc["min_index"] = min_index
 
             # idxs数组排序后去重
-            total = len(doc["doc_chunks"]["chunks"])
+            doc["doc_chunks"] = doc_chunks
             mid_idxs = sorted(list(set(mid_idxs)))
             mid_idxs = [index for index in mid_idxs if index >=0 and index<total]
             doc["mid_idxs"] = mid_idxs
 
-            min_max = [index for index in range(min_index-1,max_index+1)]
+            min_max = [index for index in range(doc["min_index"] - 1, doc["max_index"] + 1)]
             min_max = [index for index in min_max if index >=0 and index<total]
             doc["big_idxs"] = min_max
 
+        # 开始拼接chunks形成完整的上下文
         big_context = []
         for doc in unique_docs:
             total = len(doc["doc_chunks"]["chunks"])
@@ -775,39 +806,20 @@ def retrieval(dialog, question):
 
         big_result = "\n".join(big_context)
 
-        mid_context = []
-        for doc in unique_docs:
-            total = len(doc["doc_chunks"]["chunks"])
-            mid_context.append(f"\n\n------\n\nDocument: {doc['docnm_kwd']}:\n")
+        # mid_context = []
+        # for doc in unique_docs:
+        #     total = len(doc["doc_chunks"]["chunks"])
+        #     mid_context.append(f"\n\n------\n\nDocument: {doc['docnm_kwd']}:\n")
 
-            for i in doc["mid_idxs"]:
-                chunk = doc["doc_chunks"]["chunks"][i]
-                mid_context.append(f"{chunk['content_with_weight']}")
+        #     for i in doc["mid_idxs"]:
+        #         chunk = doc["doc_chunks"]["chunks"][i]
+        #         mid_context.append(f"{chunk['content_with_weight']}")
 
-        # mid_result = "\n".join(mid_context)
-
-        # # 调整生成配置中的最大令牌数，确保不超过剩余可用令牌数。
-        # gen_conf = dialog.llm_setting
-        # if "max_tokens" in gen_conf:
-        #     gen_conf["max_tokens"] = min(
-        #         gen_conf["max_tokens"],
-        #         max_tokens - len(big_result))
-
-
-        # 调整长度以符合上下文长度的要求
-        final_ans = big_result
-        num_tokens = num_tokens_from_string(final_ans)
-
-        if num_tokens > int(max_tokens*0.8):
-            final_ans = truncate(final_ans, int(max_tokens*0.8))
-
+        return truncate(big_result)
     except Exception as ex:
+        logging.error(f"820- {str(ex)}")
         return "知识库查询失败"
 
-    return final_ans
-
-
-from api.db.services.user_service import UserTenantService
 
 def get_kb_names(kb_ids):
     ids, nms = [], []

@@ -395,7 +395,7 @@ class McpChat:
 ## Final answer:
 - Answering User questions should include Thought regardless of whether or not you need to call a tool.
 - ALWAYS start with a Thought and Only ONE Thought at a time.
-- You should keep repeating the above steps till you have enough information to answer the question without using any more tools. At That Moment, YOU MUST respond with plain text: <FINAL_ANSWER>  -- Do not write any other words
+- You should keep repeating the above steps till you have enough information to answer the question without using any more tools.
 
 ## Extra instructions:
 - Transform the tool data into a natural, conversational response, avoid simply repeating the tool data
@@ -408,6 +408,8 @@ class McpChat:
 - If user's question mentioned an image，please search the image the user has just uploaded and call read_image tool.
 - If user uploaded an pdf file，call parse document tool.
 """
+
+# - You should keep repeating the above steps till you have enough information to answer the question without using any more tools. At That Moment, YOU MUST respond with plain text: <FINAL_ANSWER>  -- Do not write any other words
         return instruction
 
 

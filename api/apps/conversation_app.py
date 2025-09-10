@@ -39,6 +39,7 @@ from api.utils import ic
 from rag.app.tag import label_question
 from mcps.client import mcp_chat
 from mcps.client.lite_llm_json import LiteLLMJson
+from db.services.dialog_service import retrieval
 
 @manager.route('/set', methods=['POST'])    # type: ignore # noqa: F821
 @login_required
@@ -189,38 +190,73 @@ def list_convsersation():
 @validate_request("conversation_id", "messages")
 def completion():
     req = request.json
-    msg = []
-    for m in req["messages"]:
-        if m["role"] == "system":
-            continue
-        if m["role"] == "assistant" and not msg:
-            continue
+    last_msg = req["messages"][-1]
+    deep_research = False
+    question = last_msg.get("content")
+    message_id = last_msg.get("id")
 
-        # 只取用户的消息
+    if "[DEEP RESEARCH]" in question in question:
+        last_msg['content'] = question.replace("[DEEP RESEARCH]", "")
+        deep_research = True
+
+    # 提取出@后面的文件名
+    include_filenames = []
+    if "@" in question:
+        reg = r"@(\S+?)(?=\s|$)"
+        include_filenames = re.findall(reg, question)
+        question = re.sub(reg, "", question).strip()
+        deep_research = True
+
+
+    # 长文精读方式的知识库问答需要特定的提示词,且不需要保留对话历史
+    if deep_research:
+        system_prompt = {
+            "role": "system",
+            'content':"""回答问题必须遵循以下规则：
+1. 回答需要参考聊天历史的内容，当所有聊天历史的内容都与问题无关时，你的回答必须包括“知识库中未找到您要的答案！”这句话。
+2. 如果回答与聊天历史无关，则不要插入任何引用
+3. 回答要尽可能详细
+
+Attention: A new paragraph must be appended at the end of the answer, including inline links to the answer's referenced documents from the chat history, Note that documents not related to the answer should not be included, as shown in the example below:
+
+### 参考文献:
+- [document name](document link)
+- [document name](document link)
+"""
+        }
+        msg=[system_prompt]
+    else:
+        # 知识库问答只保留用户和助手的会话历史，去掉系统提示
+        msg=[]
+        for m in req["messages"]:
+            if m["role"] == "system":
+                continue
+            if m["role"] == "assistant" and not msg:
+                continue
         msg.append(m)
-    # 获取最后一条历史消息的id
-    message_id = msg[-1].get("id")
+
+
     try:
         # 获取聊天对象
         e, conv = ConversationService.get_by_id(req["conversation_id"])
         if not e:
             return get_data_error_result(message="Conversation not found!")
 
-        # 深拷贝请求中的messages到会话对象中
-        # conv.message = deepcopy(req["messages"])
-        # F8080
-        conv.message.append(req["messages"][-1])
+        # F8080  把用户的问题添加到对话历史中
+        conv.message.append(last_msg)
 
         # 获取助理对象
         e, dia = DialogService.get_by_id(conv.dialog_id)
         if not e:
             return get_data_error_result(message="Dialog not found!")
 
+        # 普通用户必须从管理员拷贝对话的设置
         copy_superuser_dia_config(dia, current_user.email)
 
         del req["conversation_id"]
         del req["messages"]
 
+        # 规整 conv.reference
         if not conv.reference:
             conv.reference = []
         else:
@@ -240,21 +276,94 @@ def completion():
                     "positions": get_value(ck, "positions", "position_int"),
                 } for ck in ref.get("chunks", [])]
 
+
+        # 如果用户的问题包含了@ ，即指定了文件名的一部分，那么中conv.reference中找到匹配的文件，将doc_id放到include_files中
+        include_files = None
+        if include_filenames:
+            include_files = []
+            for file_part in include_filenames:
+                for ref in reversed(conv.reference):
+                    for chunk in ref["chunks"]:
+                        if file_part in chunk["document_name"]:
+                            include_files.append(chunk["document_id"])
+                            break
+            include_files = list(set(include_files))
+
         if not conv.reference:
             conv.reference = []
+
+        # 预先增加一个空的引用
         conv.reference.append({"chunks": [], "doc_aggs": []})
+
 
         # 流式响应函数
         def stream():
             nonlocal dia, msg, req, conv
             yield(" \n\n")
             try:
-                # 调用chat函数生成答案，stream模式为True
-                for ans in chat(dia, msg, True, **req):
-                    # 结构化答案，将答案组装到聊天对象中
-                    ans = structure_answer(conv, ans, message_id, conv.id)
-                    yield "data:" + json.dumps({"code": 0, "message": "", "data": ans}, ensure_ascii=False) + "\n\n"
-                ConversationService.update_by_id(conv.id, conv.to_dict())
+                # 如果是长文精读方式
+                if deep_research:
+                    # 检索以获取长文，include_files!=None则从用户指定的doc_id中读取文件内容
+                    context = retrieval(dia, question, include_files)
+                    msg.append({"role": "assistant", "content": context})   # 检索到的上下文
+                    msg.append({
+                        "role": "user",
+                        "content": question  # 干净的用户提问，去掉了@
+                    })
+
+                    final_ans = None
+                    for ans in chat_nokb(dia, msg, True):
+                        ans["id"] = message_id
+                        ans["session_id"] = conv.id
+                        final_ans = ans
+                        yield "data:" + json.dumps({"code": 0, "message": "", "data": ans}, ensure_ascii=False) + "\n\n"
+
+                    if final_ans:
+                        conv.message.append({"role": "assistant", "content":
+                            final_ans['answer'], "id": message_id})
+
+                        # 提取 final_ans中，符合 [filename](file_url) 模式的子串，然后将filename部分提取到 filenames ,将file_url部分提取到 file_urls 数组中
+                        ref = conv.reference[-1]
+                        try:
+                            docs = re.findall(r'\[([^]]+)\]\(([^)]+)\)', final_ans['answer'])
+                            for doc in docs:
+                                doc_name = doc[0]
+                                doc_url = doc[1]
+                                try:
+                                    # file_urls 的模式是 /viewer/document/{doc_id}?ext={filetype}&prefix=document
+                                    doc_id = re.findall(r'/viewer/document/(\S+)', doc_url.split("?")[0])[0]
+                                except Exception:
+                                    continue
+
+                                # 插入引用
+                                ref['chunks'].append({
+                                    "content": "",
+                                    "document_id": doc_id,
+                                    "document_name": doc_name,
+                                })
+                        except Exception:
+                            pass
+
+                        # 如果没有引用文件，则弹出conv.reference最后一个空引用
+                        if len(ref['chunks'])==0:
+                            conv.reference.pop()
+
+                        # 更新conv对象
+                        ref["message_id"] = ""
+                        ConversationService.update_by_id(conv.id, conv.to_dict())
+                    else:
+                        raise Exception("大模型没有输出答案!")
+                else:
+                    # 经典的知识库问答模式
+                    for ans in chat(dia, msg, True, **req):
+                        # 结构化答案，将答案组装到聊天对象中
+                        ans = structure_answer(conv, ans, message_id, conv.id)
+                        yield "data:" + json.dumps({"code": 0, "message": "", "data": ans}, ensure_ascii=False) + "\n\n"
+
+                    # F8080 reference加上message_id，以免找错
+                    conv.reference[-1]["message_id"] = message_id
+
+                    ConversationService.update_by_id(conv.id, conv.to_dict())
             except Exception as e:
                 traceback.print_exc()
                 yield "data:" + json.dumps({"code": 500, "message": str(e),
