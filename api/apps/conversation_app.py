@@ -214,8 +214,13 @@ def completion():
             "role": "system",
             'content':"""回答问题必须遵循以下规则：
 1. 回答需要参考聊天历史的内容，当所有聊天历史的内容都与问题无关时，你的回答必须包括“知识库中未找到您要的答案！”这句话。
-2. 如果回答与聊天历史无关，则不要插入任何引用
-3. 回答要尽可能详细
+2. 如果回答与聊天历史无关，则不要插入任何引用。
+3. 回答要尽可能详细。
+"""
+        }
+
+        if len(include_filenames) == 0:
+            system_prompt['content'] += """
 
 Attention: A new paragraph must be appended at the end of the answer, including inline links to the answer's referenced documents from the chat history, Note that documents not related to the answer should not be included, as shown in the example below:
 
@@ -223,7 +228,6 @@ Attention: A new paragraph must be appended at the end of the answer, including 
 - [document name](document link)
 - [document name](document link)
 """
-        }
         msg=[system_prompt]
     else:
         # 知识库问答只保留用户和助手的会话历史，去掉系统提示
@@ -895,5 +899,7 @@ def copy_superuser_dia_config(dia, email):
                 dia.top_k = superuser_diag.get('top_k')
                 dia.top_n = superuser_diag.get('top_n')
                 dia.vector_similarity_weight = superuser_diag.get('vector_similarity_weight')
+                # 把管理员助手的知识库id添加到当前助手的知识库id中去
+                dia.kb_ids = list(set(dia.kb_ids + superuser_diag.get('kb_ids', [])))
                 break
 

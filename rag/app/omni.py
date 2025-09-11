@@ -32,6 +32,7 @@ async def mineru_parse(file_path, binary=None):
     # random_number = random.randint(100000, 999999)  # Generate 6-digit random number
     # md_file_path = os.path.join(TEMP_DIR, f"{file_name}.{random_number}.md")
     filetype = os.path.splitext(file_path)[1][1:]
+    short_name = f"{random.randint(1000000, 9999999)}.{filetype}"
 
     if not binary:
         with open(file_path, "rb") as f:
@@ -41,10 +42,10 @@ async def mineru_parse(file_path, binary=None):
     form_data.add_field(
         "file",
         binary,
-        filename=file_name,
+        filename=short_name,
         content_type=f"application/{filetype}",
     )
-    parse_method = "auto"  # ocr
+    parse_method = "ocr"  # ocr
     form_data.add_field("parse_method", parse_method)
 
     # MinerU api url

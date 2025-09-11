@@ -832,7 +832,9 @@ def get_kb_names(kb_ids):
     return ids, nms
 
 def get_superuser_dialogs():
-    "F8080 - 列出超级用户所拥有的对话助手"
+    """
+    F8080 - 列出超级用户所拥有的对话助手
+    """
     super_tenants = UserTenantService.get_tenants_by_is_superuser()
     if len(super_tenants) > 0:
         super_tenant_id = super_tenants[0]['tenant_id']
@@ -852,7 +854,7 @@ def get_superuser_dialogs():
 
 def get_doc_chunks(doc_id, page, size):
     """
-    获取文档的分块列表。
+    F8080: 获取文档的分块列表。
 
     请求参数:
     - doc_id (str): 文档ID。

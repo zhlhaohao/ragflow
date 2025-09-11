@@ -82,7 +82,7 @@ def upload():
 
     err, files = FileService.upload_document(kb, file_objs, current_user.id)
     files = [f[0] for f in files] # remove the blob
-    
+
     if err:
         return get_json_result(
             data=files, message="\n".join(err), code=settings.RetCode.SERVER_ERROR)
@@ -109,28 +109,28 @@ def web_crawl():
     if not kb_id:
         return get_json_result(
             data=False, message='Lack of "KB ID"', code=settings.RetCode.ARGUMENT_ERROR)
-    
+
     # 获取请求参数中的文档名称
     name = request.form.get("name")
-    
+
     # 获取请求参数中的URL
     url = request.form.get("url")
-    
+
     # 验证URL格式是否有效
     if not is_valid_url(url):
         return get_json_result(
             data=False, message='The URL format is invalid', code=settings.RetCode.ARGUMENT_ERROR)
-    
+
     # 根据知识库ID获取知识库信息
     e, kb = KnowledgebaseService.get_by_id(kb_id)
     if not e:
         raise LookupError("Can't find this knowledgebase!")
-    
+
     # 爬取网页内容并转换为PDF
     blob = html2pdf(url)
     if not blob:
         return server_error_response(ValueError("Download failure."))
-    
+
     # 获取用户根文件夹ID
     root_folder = FileService.get_root_folder(current_user.id)
     pf_id = root_folder["id"]
@@ -262,7 +262,7 @@ def list_docs():
     page_number = int(request.args.get("page", 1))
     items_per_page = int(request.args.get("page_size", 15))
     orderby = request.args.get("orderby", "create_time")
-    desc = request.args.get("desc", True)
+    desc = request.args.get("desc", True) == "true"
     try:
         docs, tol = DocumentService.get_by_kb_id(
             kb_id, page_number, items_per_page, orderby, desc, keywords)
@@ -456,7 +456,7 @@ def run():
     """
     req = request.json
 
-    # 判断文件是否有权访问    
+    # 判断文件是否有权访问
     for doc_id in req["doc_ids"]:
         if not DocumentService.accessible(doc_id, current_user.id):
             return get_json_result(
@@ -472,10 +472,10 @@ def run():
                 info["chunk_num"] = 0
                 info["token_num"] = 0
 
-            # 初始化文档的解析状态                
+            # 初始化文档的解析状态
             DocumentService.update_by_id(id, info)
             # if str(req["run"]) == TaskStatus.CANCEL.value:
-            # 根据文档id获取租户id            
+            # 根据文档id获取租户id
             tenant_id = DocumentService.get_tenant_id(id)
             if not tenant_id:
                 return get_data_error_result(message="Tenant not found!")

@@ -299,5 +299,7 @@ def copy_superuser_dia_config(dia, email, superuser_diags):
         for superuser_diag in superuser_diags:
             if superuser_diag['description'] == dia['description']:
                 dia['prompt_config']['prologue'] = superuser_diag['prompt_config']['prologue']
+                # 把管理员助手的知识库id添加到当前助手的知识库id中去
+                dia['kb_ids'] = list(set(dia['kb_ids'] + superuser_diag.get('kb_ids', [])))
                 return
 
